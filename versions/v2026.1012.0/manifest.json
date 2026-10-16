@@ -1,0 +1,464 @@
+{
+  "paperclipVersion": "v2026.1012.0",
+  "paperclipCommit": "bba6a45f0d364cfd962ac59b3bdf2426a8222adb",
+  "paperclipTree": "42c3a8b4364f4006e7249ecfe7365534cfdbea86",
+  "ppclipSourceCommit": "ce92737b443159433f7f906c455bbc8d80a5ea5a",
+  "patchSha256": "4348f879242d3ba13e8de3480131ef8e156892b0d5da16c75c5221fcd87df500",
+  "generatedAt": "2026-10-16T19:54:08.649Z",
+  "files": {
+    "added": 73,
+    "modified": 31,
+    "deleted": 0
+  },
+  "officialFilesModified": [
+    "pnpm-lock.yaml",
+    "server/src/app.ts",
+    "server/src/services/agents.ts",
+    "server/src/services/heartbeat.ts",
+    "server/src/services/local-ai-credential-file.ts",
+    "server/src/services/local-ai-login.ts",
+    "ui/package.json",
+    "ui/src/App.tsx",
+    "ui/src/components/AgentActionButtons.tsx",
+    "ui/src/components/AgentConversationsSidebar.tsx",
+    "ui/src/components/BreadcrumbBar.test.tsx",
+    "ui/src/components/BreadcrumbBar.tsx",
+    "ui/src/components/EntityRow.tsx",
+    "ui/src/components/Sidebar.production.tsx",
+    "ui/src/components/Sidebar.tsx",
+    "ui/src/components/SidebarAgents.production.tsx",
+    "ui/src/components/SidebarAgents.test.tsx",
+    "ui/src/components/SidebarAgents.tsx",
+    "ui/src/components/TaskChatThread.test.tsx",
+    "ui/src/components/TaskChatThread.tsx",
+    "ui/src/components/task-chat/TaskMessageScroller.tsx",
+    "ui/src/components/task-chat/transcript-adapter.test.ts",
+    "ui/src/components/task-chat/transcript-adapter.ts",
+    "ui/src/context/LiveUpdatesProvider.tsx",
+    "ui/src/lib/company-routes.ts",
+    "ui/src/lib/issue-chat-messages.ts",
+    "ui/src/pages/Agents.test.tsx",
+    "ui/src/pages/Agents.tsx",
+    "ui/src/pages/CompanySettings.tsx",
+    "ui/src/pages/Dashboard.tsx",
+    "ui/src/pages/DashboardLive.tsx"
+  ],
+  "changes": [
+    {
+      "status": "M",
+      "path": "pnpm-lock.yaml"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/start-local.mjs"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-provider-routing-policy.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-provider-routing.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-run-controls-state.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-run-controls.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-stale-agent-status.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-windows-local-login.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/app.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/providers/policy.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/providers/routes.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/providers/service.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/run-controls/credit.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/run-controls/drain-after-claim.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/run-controls/routes.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/run-controls/service.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/run-controls/state.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/stale-agent-status.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/windows-local-login.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/services/agents.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/services/heartbeat.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/services/local-ai-credential-file.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/services/local-ai-login.ts"
+    },
+    {
+      "status": "M",
+      "path": "ui/package.json"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/App.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/AgentActionButtons.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/AgentConversationsSidebar.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/BreadcrumbBar.test.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/BreadcrumbBar.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/EntityRow.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/Sidebar.production.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/Sidebar.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/SidebarAgents.production.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/SidebarAgents.test.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/SidebarAgents.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/TaskChatThread.test.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/TaskChatThread.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/task-chat/TaskMessageScroller.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/task-chat/transcript-adapter.test.ts"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/task-chat/transcript-adapter.ts"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/context/LiveUpdatesProvider.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/lib/company-routes.ts"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/lib/issue-chat-messages.ts"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/pages/Agents.test.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/pages/Agents.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/pages/CompanySettings.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/pages/Dashboard.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/pages/DashboardLive.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/AgentAttentionBadge.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/PendingConfirmations.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/agent-attention.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/agent-attention.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/attention-ui.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/test-fixtures.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/attention/useAgentAttention.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live-run-refresh.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live-run-refresh.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/LiveStationCard.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/LiveStations.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/live-activity.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/live-helpers.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/live-stations.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/saved-reply.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/station-order.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/useLiveStations.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/nav/sidebar-nav.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/ProviderSettingsSheet.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/ProviderToolbar.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/SubscriptionUsagePanel.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/api.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/providers.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/usage.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/providers/useProviderRouting.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/roster/AgentTaskHoverCard.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/roster/RosterExtraColumns.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/roster/roster.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/DailyRunsLeft.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/DrainAfterMenuItem.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/RunControlsSettingsSection.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/TeamRunControls.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/api.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/display.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/run-controls.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/run-controls/useRunControls.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/task-chat-run-activity.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/task-chat-run-activity.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/task-chat-same-agent.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamAgentCard.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamCanvas.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamCanvas.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamColorPicker.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamColorPicker.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamPage.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamPage.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamRelationships.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/TeamViewSettings.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/agent-link-routing.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/agent-link-routing.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/agent-links.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/agent-links.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/role-groups.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/team-layout.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/team-layout.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/team/useTeamData.ts"
+    }
+  ]
+}
