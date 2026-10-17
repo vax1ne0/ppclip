@@ -33,6 +33,7 @@ It doesn't replace Paperclip or need a separate install: you keep your own offic
 | Paperclip | Patch |
 |---|---|
 | v2026.1012.0 | `versions/v2026.1012.0/` |
+| master at `669d329f2` (2026-10-16, after v2026.1017.0-canary.2) | `versions/master-669d329f2/` |
 
 The overlay only installs on an exact supported version. Each version folder holds `ppclip.patch` and a `manifest.json` that lists every file it adds or edits.
 
