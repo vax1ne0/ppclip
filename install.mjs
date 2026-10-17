@@ -2,9 +2,18 @@
 // ppclip overlay installer: turns an official Paperclip checkout into ppclip,
 // and back again.
 //
-//   node install.mjs install   [--target <paperclip folder>] [--version <name>] [--force-version]
+//   node install.mjs install   [--target <paperclip folder>] [--with-deps] [--version <name>] [--force-version]
+//   node install.mjs update    [--target <paperclip folder>] [--with-deps] [--force]
 //   node install.mjs uninstall [--target <paperclip folder>] [--force]
 //   node install.mjs status    [--target <paperclip folder>]
+//
+// Without --target the Paperclip checkout is found automatically: the current folder if it is
+// one, otherwise a folder next to this ppclip repo that is one (the recommended layout).
+// --with-deps also runs pnpm install --frozen-lockfile in the checkout.
+//
+// update moves the checkout to the newest official commit this package has hooks for and
+// reinstalls ppclip on it (or just reinstalls, after pulling a newer ppclip). On any failure it
+// puts the previous commit back and reinstalls ppclip there.
 //
 // ppclip has two parts:
 //   - modules/<module>/  the files ppclip adds, at their Paperclip paths (the same for every version);
@@ -29,20 +38,50 @@ const arg = (name, fallback) => {
   return i > 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : fallback;
 };
 const flag = (name) => process.argv.includes(name);
-const target = path.resolve(arg("--target", process.cwd()));
+let target; // the Paperclip checkout, set by findTarget()
 const RECORD = ".ppclip-overlay.json";
 const MODULE_DIRS = ["server", "ui", "scripts"];
 const OWNED_DIRS = ["ui/src/ppclip", "server/src/ppclip", "scripts/ppclip"];
 
+/** A refusal or failure with a message for the user; caught at the bottom of this file. */
+class Refusal extends Error {}
 function fail(message) {
-  console.error(`\n✗ ${message}\n`);
-  process.exit(1);
+  throw new Refusal(message);
 }
-function git(args, env = {}) {
-  const result = spawnSync("git", ["-C", target, ...args], {
+function gitAt(dir, args, env = {}) {
+  const result = spawnSync("git", ["-C", dir, ...args], {
     encoding: "utf8", maxBuffer: 256 * 1024 * 1024, env: { ...process.env, ...env },
   });
   return { ok: result.status === 0, out: (result.stdout ?? "").trim(), err: (result.stderr ?? "").trim() };
+}
+function git(args, env = {}) {
+  return gitAt(target, args, env);
+}
+
+// ------------------------------------------------------------------ finding the checkout
+
+/** True when dir is the top folder of a git checkout that has Paperclip's server in it. */
+function isPaperclipCheckout(dir) {
+  if (!fs.existsSync(path.join(dir, "server", "src", "services", "heartbeat.ts"))) return false;
+  const top = gitAt(dir, ["rev-parse", "--show-toplevel"]);
+  return top.ok && path.resolve(top.out) === path.resolve(dir);
+}
+function findTarget() {
+  const given = arg("--target");
+  if (given) return path.resolve(given);
+  const top = gitAt(process.cwd(), ["rev-parse", "--show-toplevel"]);
+  if (top.ok && isPaperclipCheckout(top.out)) return path.resolve(top.out);
+  const parent = path.dirname(overlayRoot);
+  const found = fs.readdirSync(parent, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => path.join(parent, entry.name))
+    .filter((dir) => dir !== overlayRoot && isPaperclipCheckout(dir));
+  if (found.length === 1) {
+    console.log(`Using the Paperclip checkout next to ppclip: ${found[0]}`);
+    return found[0];
+  }
+  if (found.length > 1) fail(`Found several Paperclip checkouts next to ppclip:\n  ${found.join("\n  ")}\nChoose one with --target <folder>.`);
+  fail(`No Paperclip checkout found in the current folder or next to ppclip (in ${parent}).\nClone official Paperclip next to ppclip:\n  git clone https://github.com/paperclipai/paperclip "${path.join(parent, "paperclip")}"\nor pass --target <paperclip folder>.`);
 }
 
 // ------------------------------------------------------------------ package contents
@@ -132,7 +171,7 @@ function editedSinceInstall(record, manifest, index) {
 function install() {
   requireCheckout();
   const existing = readRecord();
-  if (existing) fail(`ppclip is already installed here for Paperclip ${existing.paperclipVersion} (since ${existing.installedAt}). Run "uninstall" first.`);
+  if (existing) fail(`ppclip is already installed here for Paperclip ${existing.paperclipVersion} (since ${existing.installedAt}). Run "update" to reinstall or move to a newer Paperclip, or "uninstall" first.`);
   const dirty = dirtyFiles();
   if (dirty.length) fail(`The checkout has uncommitted changes. Commit, stash or discard them first:\n  ${dirty.slice(0, 10).join("\n  ")}`);
   const available = versions();
@@ -142,7 +181,7 @@ function install() {
   if (!version) {
     const head = git(["rev-parse", "--short", "HEAD"]).out;
     const supported = available.map((v) => `${v} (commit ${loadVersion(v).manifest.paperclipCommit.slice(0, 9)})`);
-    fail(`This checkout (commit ${head}) is not a Paperclip version this package supports.\nSupported: ${supported.join(", ")}\nCheck one out, e.g.: git -C "${target}" checkout ${loadVersion(available.at(-1)).manifest.paperclipCommit}\nOr pass --version <name> --force-version to try anyway.`);
+    fail(`This checkout (commit ${head}) is not a Paperclip version this package supports.\nSupported: ${supported.join(", ")}\nRun "update" to move it to the newest supported version, or check one out, e.g.: git -C "${target}" checkout ${loadVersion(available.at(-1)).manifest.paperclipCommit}\nOr pass --version <name> --force-version to try anyway.`);
   }
   if (!available.includes(version)) fail(`Unknown version ${version}. Supported: ${available.join(", ")}`);
   if (detected !== version && !flag("--force-version")) fail(`The checkout is not exactly ${version}. Check out commit ${loadVersion(version).manifest.paperclipCommit}, or pass --force-version to try anyway.`);
@@ -177,39 +216,144 @@ function install() {
   const modules = new Set(files.map((f) => f.module));
   console.log(`\n✓ ppclip installed on Paperclip ${version}.`);
   console.log(`  ${files.length} files in ${modules.size} modules added, ${manifest.officialFilesModified.length} official files hooked.`);
-  console.log(`\nNext:\n  cd "${target}"\n  pnpm install --frozen-lockfile\n  (build and start as usual, or: node scripts/ppclip/start-local.mjs --data <new data folder>)\n`);
+  return version;
 }
 
-function uninstall() {
-  requireCheckout();
-  const record = readRecord();
-  if (!record) fail("No ppclip record found here; nothing to uninstall.");
+/** Checks that ppclip can be removed exactly (and wasn't edited, unless force); returns its manifest and the edited files. */
+function checkRemovable(record, force) {
   if (!record.files) fail("This checkout was installed by an older ppclip package. Use that package to uninstall it.");
   if (!versions().includes(record.paperclipVersion)) fail(`This package has no hooks for ${record.paperclipVersion}; use the package that installed it.`);
   const { manifest, patchFile } = loadVersion(record.paperclipVersion);
   if (manifest.hooksSha256 !== record.hooksSha256) fail("ppclip was installed from a different build of these hooks; use the matching package to uninstall.");
-
   const index = patchedIndex(patchFile);
+  let edited;
   try {
     if (!index.applied.ok) fail(`The checkout's commit changed since install, so the hooks can't be matched:\n${index.applied.err}`);
-    const edited = editedSinceInstall(record, manifest, index);
-    if (edited.length && !flag("--force")) fail(`These ppclip files were edited after installing:\n  ${edited.join("\n  ")}\nNothing was changed. Restore them, or pass --force to discard those edits.`);
+    edited = editedSinceInstall(record, manifest, index);
+    if (edited.length && !force) fail(`These ppclip files were edited after installing:\n  ${edited.join("\n  ")}\nNothing was changed. Restore them, or pass --force to discard those edits.`);
   } finally {
     index.cleanup();
   }
-  if (manifest.officialFilesModified.length) {
-    const out = git(["checkout", "HEAD", "--", ...manifest.officialFilesModified]);
-    if (!out.ok) fail(`Restoring official files failed:\n${out.err}`);
-  }
-  for (const file of Object.keys(record.files)) fs.rmSync(path.join(target, file), { force: true });
-  fs.rmSync(path.join(target, RECORD));
+  return { manifest, edited };
+}
+function removeEmptyOwnedDirs() {
   for (const dir of OWNED_DIRS) {
     const full = path.join(target, dir);
     if (!fs.existsSync(full)) continue;
     const leftovers = fs.readdirSync(full, { recursive: true }).filter((entry) => !fs.statSync(path.join(full, entry)).isDirectory());
     if (!leftovers.length) fs.rmSync(full, { recursive: true });
   }
-  console.log(`\n✓ ppclip removed. The checkout is back to official Paperclip ${record.paperclipVersion}.\n  Run pnpm install --frozen-lockfile again before starting it.\n`);
+}
+
+function uninstall(force = flag("--force")) {
+  requireCheckout();
+  const record = readRecord();
+  if (!record) fail("No ppclip record found here; nothing to uninstall.");
+  const { manifest } = checkRemovable(record, force);
+  if (manifest.officialFilesModified.length) {
+    const out = git(["checkout", "HEAD", "--", ...manifest.officialFilesModified]);
+    if (!out.ok) fail(`Restoring official files failed:\n${out.err}`);
+  }
+  for (const file of Object.keys(record.files)) fs.rmSync(path.join(target, file), { force: true });
+  fs.rmSync(path.join(target, RECORD));
+  removeEmptyOwnedDirs();
+  return record.paperclipVersion;
+}
+
+/** True when the installed copy is exactly what this package would install now. */
+function installedCopyIsCurrent(record) {
+  const { manifest } = loadVersion(record.paperclipVersion);
+  if (record.hooksSha256 !== manifest.hooksSha256) return false;
+  const files = moduleFiles();
+  return files.length === Object.keys(record.files).length && files.every((f) => record.files[f.path] === contentHash(f.source));
+}
+/** Changed or untracked files in the checkout that aren't ppclip's own. */
+function strayChanges(record, manifest) {
+  const owned = new Set([RECORD, ...Object.keys(record?.files ?? {}), ...(manifest?.officialFilesModified ?? [])]);
+  const changed = git(["diff", "--name-only", "HEAD"]).out.split("\n");
+  const untracked = git(["ls-files", "--others", "--exclude-standard"]).out.split("\n");
+  return [...changed, ...untracked].filter((file) => file && !owned.has(file));
+}
+
+function update() {
+  requireCheckout();
+  const force = flag("--force");
+  const record = readRecord();
+  const { manifest, edited } = record ? checkRemovable(record, force) : {};
+  const stray = strayChanges(record, manifest);
+  if (stray.length) fail(`The checkout has changes that aren't ppclip's. Commit, stash or discard them first:\n  ${stray.slice(0, 10).join("\n  ")}`);
+
+  console.log("Fetching official Paperclip ...");
+  const fetched = git(["fetch", "--tags", "--quiet"]);
+  if (!fetched.ok) fail(`git fetch failed, so nothing was changed:\n${fetched.err}`);
+  const known = versions()
+    .map((version) => ({ version, commit: loadVersion(version).manifest.paperclipCommit }))
+    .filter((v) => git(["cat-file", "-e", `${v.commit}^{commit}`]).ok)
+    .map((v) => ({ ...v, time: Number(git(["show", "-s", "--format=%ct", v.commit]).out) }))
+    .sort((a, b) => a.time - b.time);
+  if (!known.length) fail(`None of the Paperclip versions this ppclip supports (${versions().join(", ")}) are in this checkout's history, even after fetching. Is its origin official Paperclip?`);
+  const newest = known.at(-1);
+  const head = git(["rev-parse", "HEAD"]).out;
+  const current = detectVersion();
+
+  if (current === newest.version) {
+    if (!record) {
+      console.log(`\nPaperclip is already on ${newest.version}, the newest version this ppclip supports. ppclip isn't installed; run "install".\n`);
+      return;
+    }
+    if (!edited.length && installedCopyIsCurrent(record)) {
+      console.log(`\n✓ Already up to date: Paperclip ${newest.version} with this ppclip. Nothing changed.\n`);
+      return;
+    }
+  } else if (!current && gitAt(target, ["merge-base", "--is-ancestor", newest.commit, head]).ok) {
+    fail(`This Paperclip (commit ${head.slice(0, 9)}) is newer than anything this ppclip supports (newest: ${newest.version}).\nppclip hasn't been ported to it yet. Nothing was changed.\nPull ppclip for newer support (git -C "${overlayRoot}" pull), or go back with: git -C "${target}" checkout ${newest.commit.slice(0, 9)}`);
+  }
+
+  const previous = { head, branch: git(["symbolic-ref", "--quiet", "--short", "HEAD"]).out || null, version: current, installed: Boolean(record) };
+  const from = current ?? head.slice(0, 9);
+  try {
+    if (record) uninstall(true); // edits were already checked above
+    if (newest.commit !== head) {
+      const out = git(["checkout", "--quiet", newest.commit]);
+      if (!out.ok) fail(`git checkout ${newest.commit.slice(0, 9)} failed:\n${out.err}`);
+    }
+    install();
+  } catch (error) {
+    console.error(`\n✗ ${error.message}\n\nUpdate failed. Putting the checkout back as it was ...`);
+    restore(previous);
+    fail(`Update failed. The checkout is back at ${from}${previous.installed ? " with ppclip installed" : ""}, as before.`);
+  }
+  console.log(newest.commit === head
+    ? `\n✓ ppclip reinstalled on Paperclip ${newest.version} with this package's current files.`
+    : `\n✓ Updated Paperclip from ${from} to ${newest.version} (detached at ${newest.commit.slice(0, 9)}).`);
+  nextSteps(true);
+}
+/** Undo a failed update: drop whatever was installed, check the old commit out again, reinstall. */
+function restore(previous) {
+  const ref = previous.branch ?? previous.head;
+  try {
+    const record = readRecord();
+    const ours = new Set([...Object.keys(record?.files ?? {}), ...moduleFiles().map((f) => f.path)]);
+    for (const file of ours) fs.rmSync(path.join(target, file), { force: true });
+    fs.rmSync(path.join(target, RECORD), { force: true });
+    removeEmptyOwnedDirs();
+    const out = git(["checkout", "--quiet", "--force", ref]);
+    if (!out.ok) throw new Error(`git checkout ${ref} failed: ${out.err}`);
+    if (previous.installed) install();
+  } catch (error) {
+    fail(`Putting the checkout back failed too: ${error.message}\nTo restore it by hand:\n  git -C "${target}" checkout --force ${ref}\n  node "${path.join(overlayRoot, "install.mjs")}" install --target "${target}"`);
+  }
+}
+
+function nextSteps(updated = false) {
+  if (flag("--with-deps")) {
+    console.log(`\nRunning pnpm install --frozen-lockfile in ${target} ...\n`);
+    const result = spawnSync("pnpm install --frozen-lockfile", { cwd: target, stdio: "inherit", shell: true });
+    if (result.status !== 0) fail(`pnpm install failed (${result.error?.message ?? `exit code ${result.status}`}). ppclip itself is installed; fix the problem and run pnpm install --frozen-lockfile in "${target}".`);
+    console.log(`\n✓ Dependencies installed.\n\nNext: build and start Paperclip as usual${updated ? " (Paperclip migrates its database when it starts; back up your data folder first)" : ""}, or:\n  node scripts/ppclip/start-local.mjs --data <data folder>\n`);
+    return;
+  }
+  console.log(`\nNext:\n  cd "${target}"\n  pnpm install --frozen-lockfile\n  (build and start as usual, or: node scripts/ppclip/start-local.mjs --data <data folder>)\n`);
 }
 
 function status() {
@@ -229,13 +373,28 @@ function status() {
     } finally {
       index.cleanup();
     }
+    if (!installedCopyIsCurrent(record)) console.log(`Package:    this ppclip has newer files than the installed copy; run "update" to reinstall`);
   }
 }
 
-if (command === "install") install();
-else if (command === "uninstall") uninstall();
-else if (command === "status") status();
-else {
-  console.log("Usage: node install.mjs <install|uninstall|status> [--target <paperclip folder>] [--version <name>]");
+const commands = {
+  install: () => { install(); nextSteps(); },
+  update,
+  uninstall: () => {
+    const version = uninstall();
+    console.log(`\n✓ ppclip removed. The checkout is back to official Paperclip ${version}.\n  Run pnpm install --frozen-lockfile again before starting it.\n`);
+  },
+  status,
+};
+if (!commands[command]) {
+  console.log("Usage: node install.mjs <install|update|uninstall|status> [--target <paperclip folder>] [--with-deps] [--force]");
   process.exit(command ? 1 : 0);
+}
+try {
+  target = findTarget();
+  commands[command]();
+} catch (error) {
+  if (!(error instanceof Refusal)) throw error;
+  console.error(`\n✗ ${error.message}\n`);
+  process.exit(1);
 }

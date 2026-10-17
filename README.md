@@ -47,19 +47,29 @@ ppclip installs only on an exact supported commit. From now on ppclip follows of
 
 Requirements: Git, Node.js 24.11 or newer, and pnpm 9.15.4.
 
-```bash
-# 1. An official Paperclip checkout at a supported commit (see the table above)
-git clone https://github.com/paperclipai/paperclip
-cd paperclip
-git checkout 669d329f2
+Clone official Paperclip and ppclip side by side in the same folder:
 
-# 2. Get ppclip next to it and apply it (--target defaults to the current folder)
-git clone https://github.com/vax1ne0/ppclip ../ppclip
-node ../ppclip/install.mjs install --target .
-
-# 3. Install dependencies, then build and start Paperclip as usual
-pnpm install --frozen-lockfile
 ```
+my-folder/
+  paperclip/   official Paperclip; ppclip changes it in place
+  ppclip/      this repo
+```
+
+```bash
+# 1. Clone both, and put Paperclip on a supported version (see the table above)
+git clone https://github.com/paperclipai/paperclip
+git clone https://github.com/vax1ne0/ppclip
+git -C paperclip checkout 669d329f2
+
+# 2. Apply ppclip and install Paperclip's dependencies
+node ppclip/install.mjs install --with-deps
+```
+
+Then build and start Paperclip as usual.
+
+Keep ppclip next to Paperclip rather than inside it: a folder inside the Paperclip checkout would be deleted by `git clean` or a fresh clone, and Paperclip's own git would see it as a change.
+
+The installer finds Paperclip by itself: the current folder if it is a Paperclip checkout, otherwise the Paperclip folder next to ppclip. If there are several, it lists them and asks for `--target <folder>`. Leave out `--with-deps` to run `pnpm install --frozen-lockfile` yourself.
 
 The installer:
 - refuses to run if the checkout has uncommitted changes or isn't a supported version;
@@ -93,19 +103,29 @@ node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime   # ports 3410 / 1
 
 ## Check, remove, update
 
+Run these from the folder that holds both checkouts (or add `--target <paperclip folder>`):
+
 ```bash
-node install.mjs status    --target <paperclip folder>   # installed? files edited since install?
-node install.mjs uninstall --target <paperclip folder>   # back to plain official Paperclip
+node ppclip/install.mjs status      # installed? files edited since install? newer ppclip files?
+node ppclip/install.mjs uninstall   # back to plain official Paperclip
 ```
 
 `uninstall` refuses if you edited ppclip's files after installing, and lists them. Pass `--force` to discard those edits.
 
-**To move to a newer Paperclip release:**
-1. Run `uninstall`.
-2. Pull this repo, and check out the official commit or tag it lists as supported.
-3. Run `install` again.
+**To update**, pull ppclip and let it move Paperclip:
 
-The database is migrated by Paperclip itself when it starts. Back up your data folder first, as with any Paperclip update.
+```bash
+git -C ppclip pull
+node ppclip/install.mjs update --with-deps
+```
+
+`update`:
+- refuses if you edited ppclip's files (`--force` discards the edits) or if the checkout has other uncommitted changes;
+- fetches official Paperclip and checks out the newest version ppclip supports (detached at that commit or tag), then reinstalls ppclip on it. If Paperclip is already there, it only reinstalls when the ppclip files changed, and otherwise says so and does nothing;
+- leaves everything as it is if your Paperclip is newer than any version ppclip supports (ppclip hasn't been ported to it yet);
+- puts the previous commit back and reinstalls ppclip there if anything fails, so the checkout is never left half-updated.
+
+Without `--with-deps`, run `pnpm install --frozen-lockfile` in the Paperclip folder afterwards. Then build and start as usual. The database is migrated by Paperclip itself when it starts, so back up your data folder first, as with any Paperclip update.
 
 ## Data and safety
 
