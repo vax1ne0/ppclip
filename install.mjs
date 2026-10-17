@@ -219,12 +219,38 @@ function install() {
   return version;
 }
 
+/**
+ * The hooks that were installed. Usually this package's own; after a `git pull`
+ * of ppclip they are an older build, which is found in this repo's git history
+ * by the sha256 the install record kept, so it can still be removed exactly.
+ */
+function installedHooks(record) {
+  const version = record.paperclipVersion;
+  if (versions().includes(version)) {
+    const current = loadVersion(version);
+    if (current.manifest.hooksSha256 === record.hooksSha256) return { ...current, cleanup: () => {} };
+  }
+  const rel = `hooks/${version}`;
+  const log = gitAt(overlayRoot, ["log", "--format=%H", "--", `${rel}/hooks.patch`]);
+  for (const commit of log.ok ? log.out.split("\n").filter(Boolean) : []) {
+    const show = (file) => spawnSync("git", ["-C", overlayRoot, "show", `${commit}:${rel}/${file}`], { maxBuffer: 256 * 1024 * 1024 });
+    const patch = show("hooks.patch");
+    if (patch.status !== 0 || createHash("sha256").update(patch.stdout).digest("hex") !== record.hooksSha256) continue;
+    const manifestOut = show("manifest.json");
+    if (manifestOut.status !== 0) continue;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ppclip-old-hooks-"));
+    const patchFile = path.join(dir, "hooks.patch");
+    fs.writeFileSync(patchFile, patch.stdout);
+    return { manifest: JSON.parse(manifestOut.stdout.toString("utf8")), patchFile, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+  }
+  fail(`ppclip was installed from a build of the ${version} hooks that this package doesn't have, not even in its git history.\nUse the ppclip copy that installed it, or get the full history: git -C "${overlayRoot}" fetch --unshallow`);
+}
+
 /** Checks that ppclip can be removed exactly (and wasn't edited, unless force); returns its manifest and the edited files. */
 function checkRemovable(record, force) {
   if (!record.files) fail("This checkout was installed by an older ppclip package. Use that package to uninstall it.");
-  if (!versions().includes(record.paperclipVersion)) fail(`This package has no hooks for ${record.paperclipVersion}; use the package that installed it.`);
-  const { manifest, patchFile } = loadVersion(record.paperclipVersion);
-  if (manifest.hooksSha256 !== record.hooksSha256) fail("ppclip was installed from a different build of these hooks; use the matching package to uninstall.");
+  const hooks = installedHooks(record);
+  const { manifest, patchFile } = hooks;
   const index = patchedIndex(patchFile);
   let edited;
   try {
@@ -233,6 +259,7 @@ function checkRemovable(record, force) {
     if (edited.length && !force) fail(`These ppclip files were edited after installing:\n  ${edited.join("\n  ")}\nNothing was changed. Restore them, or pass --force to discard those edits.`);
   } finally {
     index.cleanup();
+    hooks.cleanup();
   }
   return { manifest, edited };
 }
@@ -262,6 +289,7 @@ function uninstall(force = flag("--force")) {
 
 /** True when the installed copy is exactly what this package would install now. */
 function installedCopyIsCurrent(record) {
+  if (!versions().includes(record.paperclipVersion)) return false;
   const { manifest } = loadVersion(record.paperclipVersion);
   if (record.hooksSha256 !== manifest.hooksSha256) return false;
   const files = moduleFiles();
