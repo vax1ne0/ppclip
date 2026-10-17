@@ -2,12 +2,12 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "ppclipSourceCommit": "31804cb5e6e1eafbbfd34a96161c2adaf63ba22e",
-  "patchSha256": "2b6ac9f03cd83b5a2b6f4ab929b5f4bd83fb2e067fa5b0cc0ea949f650e2f53f",
-  "generatedAt": "2026-10-17T05:15:28.995Z",
+  "ppclipSourceCommit": "d357f48ca53b602b0a228e1a59b7ce78606cba8e",
+  "patchSha256": "43e735ce6dee95b7d3a0abbeb39d40a62b75a596388e90cd18b782c04b037f8b",
+  "generatedAt": "2026-10-17T05:50:43.764Z",
   "files": {
     "added": 106,
-    "modified": 39,
+    "modified": 41,
     "deleted": 0
   },
   "officialFilesModified": [
@@ -27,6 +27,7 @@
     "server/src/services/local-ai-login.ts",
     "ui/package.json",
     "ui/src/App.tsx",
+    "ui/src/components/ActiveAgentsPanel.tsx",
     "ui/src/components/AgentActionButtons.tsx",
     "ui/src/components/AgentConversationsSidebar.tsx",
     "ui/src/components/BreadcrumbBar.test.tsx",
@@ -49,7 +50,8 @@
     "ui/src/pages/Agents.tsx",
     "ui/src/pages/CompanySettings.tsx",
     "ui/src/pages/Dashboard.tsx",
-    "ui/src/pages/DashboardLive.tsx"
+    "ui/src/pages/DashboardLive.tsx",
+    "ui/vite.config.ts"
   ],
   "changes": [
     {
@@ -291,6 +293,10 @@
     {
       "status": "M",
       "path": "ui/src/App.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/ActiveAgentsPanel.tsx"
     },
     {
       "status": "M",
@@ -631,6 +637,10 @@
     {
       "status": "A",
       "path": "ui/src/ppclip/team/useTeamData.ts"
+    },
+    {
+      "status": "M",
+      "path": "ui/vite.config.ts"
     }
   ]
 }

@@ -7845,6 +7845,20 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..e1ec3a498fe7faeb4b80203fb768b88c
            <Route path="agents" element={<UnprefixedBoardRedirect />} />
            {AGENT_FILTER_TABS.map((tab) => (
              <Route key={tab} path={`agents/${tab}`} element={<UnprefixedBoardRedirect />} />
+diff --git a/ui/src/components/ActiveAgentsPanel.tsx b/ui/src/components/ActiveAgentsPanel.tsx
+index b3aaf50a2d77efeac06ca909217323b0cbf331da..9fdf54ac8c1a84cf38c0bf14c05abe4dc1cf648c 100644
+--- a/ui/src/components/ActiveAgentsPanel.tsx
++++ b/ui/src/components/ActiveAgentsPanel.tsx
+@@ -132,7 +132,8 @@ export function ActiveAgentsPanel({
+   return (
+     <div>
+       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+-        {title}
++        {/* ppclip: DASH-4 the heading opens Live runs */}
++        {showMoreLink ? <Link to="/dashboard/live" className="hover:text-foreground hover:underline">{title}</Link> : title}
+       </h3>
+       {runs.length === 0 ? (
+         <div className="rounded-xl border border-border p-4">
 diff --git a/ui/src/components/AgentActionButtons.tsx b/ui/src/components/AgentActionButtons.tsx
 index 860327ec39aacd043284ade8092dd56cc1723ac6..0f951264613418594bc832ae02dbf9e4623b0bef 100644
 --- a/ui/src/components/AgentActionButtons.tsx
@@ -11399,28 +11413,44 @@ index 0000000000000000000000000000000000000000..44ff7efa68e149b6d32e8bef10342b93
 +});
 diff --git a/ui/src/ppclip/providers/ProviderSettingsSheet.tsx b/ui/src/ppclip/providers/ProviderSettingsSheet.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..8517c5b9649c3d7e60de8a54ae93b7852faf5f4e
+index 0000000000000000000000000000000000000000..802f7acf7353a40890cc283a7ccdb1fdd743bdbb
 --- /dev/null
 +++ b/ui/src/ppclip/providers/ProviderSettingsSheet.tsx
-@@ -0,0 +1,288 @@
+@@ -0,0 +1,464 @@
 +import { useMemo, useState } from "react";
 +import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
++import { aiConnectionCatalogSlug } from "@paperclipai/shared";
 +import { agentsApi } from "@/api/agents";
 +import { queryKeys } from "@/lib/queryKeys";
++import { Link } from "@/lib/router";
++import { AppLogo } from "@/pages/apps/AppLogo";
++import { AI_PROVIDERS } from "@/components/ai-connections/model";
++import { QuotaBar } from "@/components/QuotaBar";
 +import { Badge } from "@/components/ui/badge";
 +import { Button } from "@/components/ui/button";
 +import { Checkbox } from "@/components/ui/checkbox";
 +import { Input } from "@/components/ui/input";
 +import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 +import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-+import { ToggleField } from "@/components/agent-config-primitives";
-+import { formatDateTime } from "@/lib/utils";
++import { ToggleSwitch } from "@/components/ui/toggle-switch";
++import { cn, formatDateTime } from "@/lib/utils";
 +import { policyInput, providerRoutingApi, type ProviderRoutingStatus, type RoutingPolicyInput } from "./api";
-+import { adapterShortLabel } from "./usage";
++import {
++  adapterShortLabel,
++  headlineLimit,
++  modeStops,
++  providerForAdapter,
++  providerName,
++  resetLabel,
++  usageStatusText,
++  useProviderUsage,
++  type AccountUsage,
++} from "./usage";
 +import { providerRoutingQueryKey, useProviderRouting, useSaveProviderRouting } from "./useProviderRouting";
 +
 +const THRESHOLDS = [90, 95, 100];
 +const STATE_LABEL = { ready: "Ready", switched: "Switched", waiting: "Waiting", blocked: "Needs attention" } as const;
++const CONNECTIONS_PATH = "/apps";
 +
 +/** Drops tier models for providers that are no longer included. */
 +function prune(policy: RoutingPolicyInput): RoutingPolicyInput {
@@ -11436,16 +11466,119 @@ index 0000000000000000000000000000000000000000..8517c5b9649c3d7e60de8a54ae93b785
 +  };
 +}
 +
-+function SectionTitle({ children }: { children: string }) {
-+  return <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{children}</h3>;
++function Section({ title, action, children, testId }: { title: string; action?: React.ReactNode; children: React.ReactNode; testId?: string }) {
++  return (
++    <section className="space-y-3" data-testid={testId}>
++      <div className="flex items-center justify-between gap-3">
++        <h3 className="text-sm font-semibold">{title}</h3>
++        {action}
++      </div>
++      {children}
++    </section>
++  );
 +}
 +
-+function PolicyEditor({ companyId, status, save }: {
++// Marks drawn in black need their own dark-theme file (as official's connection picker does).
++const DARK_LOGOS: Partial<Record<string, string>> = { xai: "/brands/adapters/grok-dark.svg" };
++
++function ProviderMark({ provider, routing }: { provider: string; routing?: AccountUsage["account"]["routing"] }) {
++  const meta = AI_PROVIDERS[provider as keyof typeof AI_PROVIDERS];
++  if (!meta?.logo) return <AppLogo name={meta?.name ?? provider} brandKey={aiConnectionCatalogSlug(provider, routing)} size={20} compact />;
++  const dark = DARK_LOGOS[provider];
++  return (
++    <span className="flex size-5 shrink-0 items-center justify-center" aria-hidden>
++      <img src={meta.logo} alt="" className={cn("size-5 object-contain", dark && "dark:hidden")} />
++      {dark ? <img src={dark} alt="" className="hidden size-5 object-contain dark:block" /> : null}
++    </span>
++  );
++}
++
++/** One connected account: headline window as official's QuotaBar, or a short masked status. */
++function AccountRow({ entry }: { entry: AccountUsage }) {
++  const headline = headlineLimit(entry.usage);
++  const status = usageStatusText(entry);
++  return (
++    <li className="flex items-start gap-3 py-3" data-testid="ppclip-provider-account">
++      <ProviderMark provider={entry.account.provider} routing={entry.account.routing} />
++      <div className="min-w-0 flex-1 space-y-1.5">
++        <div className="flex items-baseline justify-between gap-2">
++          <span className="truncate text-sm font-medium">{entry.account.name}</span>
++          <span className="shrink-0 text-xs text-muted-foreground">{providerName(entry.account.provider)}</span>
++        </div>
++        {headline?.usedPercent != null ? (
++          <QuotaBar
++            label={headline.label}
++            percentUsed={headline.usedPercent}
++            leftLabel={`${Math.round(headline.usedPercent)}% used`}
++            rightLabel={resetLabel(headline.resetsAt) ?? undefined}
++          />
++        ) : status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
++      </div>
++    </li>
++  );
++}
++
++/** A provider some agents run on, with no connected account to sign in with. */
++function MissingAccountRow({ provider, agentCount }: { provider: string; agentCount: number }) {
++  const meta = AI_PROVIDERS[provider as keyof typeof AI_PROVIDERS];
++  return (
++    <li className="flex items-center gap-3 py-3" data-testid="ppclip-provider-missing-account">
++      <ProviderMark provider={provider} />
++      <div className="min-w-0 flex-1">
++        <p className="text-sm font-medium">{meta?.subscriptionName ?? meta?.name ?? provider}</p>
++        <p className="text-xs text-muted-foreground">
++          Not connected. {agentCount === 1 ? "1 agent uses" : `${agentCount} agents use`} this provider and can’t sign in until you connect an account.
++        </p>
++      </div>
++      <Button asChild variant="outline" size="xs">
++        <Link to={CONNECTIONS_PATH}>Connect</Link>
++      </Button>
++    </li>
++  );
++}
++
++function AccountsSection({ companyId, status }: { companyId: string; status: ProviderRoutingStatus | undefined }) {
++  const usage = useProviderUsage(companyId);
++  const accounts = usage.data?.accounts ?? [];
++  const connected = new Set(accounts.map((entry) => entry.account.provider));
++  const missing = new Map<string, number>();
++  for (const candidate of status?.candidates ?? []) {
++    const provider = providerForAdapter(candidate.adapterType);
++    if (provider && !connected.has(provider) && candidate.agents.length > 0) {
++      missing.set(provider, (missing.get(provider) ?? 0) + candidate.agents.length);
++    }
++  }
++  return (
++    <Section
++      title="Accounts"
++      testId="ppclip-provider-accounts"
++      action={<Link to={CONNECTIONS_PATH} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">Manage connections</Link>}
++    >
++      {usage.isPending && !usage.data ? (
++        <p className="text-xs text-muted-foreground" role="status">Checking your AI accounts…</p>
++      ) : usage.isError && !usage.data ? (
++        <p className="text-xs text-muted-foreground" role="alert">Couldn’t load your AI accounts. Try again later.</p>
++      ) : accounts.length === 0 && missing.size === 0 ? (
++        <p className="text-xs text-muted-foreground">No AI accounts are connected yet. Connect Claude, ChatGPT or Grok in Connections.</p>
++      ) : (
++        <ul className="divide-y divide-border">
++          {accounts.map((entry) => <AccountRow key={`${entry.account.id}:${entry.account.grantId}`} entry={entry} />)}
++          {[...missing].map(([provider, count]) => <MissingAccountRow key={provider} provider={provider} agentCount={count} />)}
++        </ul>
++      )}
++    </Section>
++  );
++}
++
++function PolicyEditor({ companyId, status, save, before, after }: {
 +  companyId: string;
 +  status: ProviderRoutingStatus;
 +  save: ReturnType<typeof useSaveProviderRouting>;
++  before: React.ReactNode;
++  after: React.ReactNode;
 +}) {
-+  const [draft, setDraft] = useState<RoutingPolicyInput>(() => policyInput(status.policy));
++  const saved = useMemo(() => policyInput(status.policy), [status.policy]);
++  const [draft, setDraft] = useState<RoutingPolicyInput>(saved);
 +  const included = draft.providers.map((p) => p.adapterType);
 +  const catalogs = useQueries({
 +    queries: included.map((type) => ({
@@ -11472,137 +11605,187 @@ index 0000000000000000000000000000000000000000..8517c5b9649c3d7e60de8a54ae93b785
 +  }
 +
 +  const blank = draft.tiers.some((tier) => !tier.name.trim());
++  const dirty = JSON.stringify(prune(draft)) !== JSON.stringify(prune(saved));
 +  return (
 +    <>
-+      <div className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
-+        <section className="space-y-3">
-+          <SectionTitle>Automatic switching</SectionTitle>
-+          <ToggleField
-+            label="Switch agents between providers"
-+            hint="Off by default. When on, the server checks every minute and moves idle agents to another provider when their own provider's usage is exhausted (Hybrid), or to the chosen provider. Agents switch only after their current work finishes."
-+            checked={draft.enabled}
-+            onChange={(enabled) => setDraft((current) => ({ ...current, enabled }))}
-+            toggleTestId="ppclip-provider-routing-enabled"
-+          />
-+          <div className="flex items-center justify-between gap-3">
-+            <span className="text-xs text-muted-foreground">Treat a provider as exhausted at</span>
-+            <Select value={String(draft.thresholdPercent)} onValueChange={(value) => setDraft((current) => ({ ...current, thresholdPercent: Number(value) }))}>
-+              <SelectTrigger size="sm" className="w-28" aria-label="Exhausted at"><SelectValue /></SelectTrigger>
-+              <SelectContent>
-+                {THRESHOLDS.map((value) => <SelectItem key={value} value={String(value)}>{value}% used</SelectItem>)}
-+              </SelectContent>
-+            </Select>
-+          </div>
-+        </section>
-+
-+        <section className="space-y-3">
-+          <SectionTitle>Providers</SectionTitle>
-+          <p className="text-xs text-muted-foreground">
-+            A switched agent borrows the template agent's harness settings and AI connection, and keeps its own instructions, workspace and environment.
-+          </p>
-+          {status.candidates.length === 0 ? (
-+            <p className="text-sm text-muted-foreground">No agent uses a harness that signs in through Connections yet.</p>
-+          ) : (
-+            <ul className="space-y-2">
-+              {status.candidates.map((candidate) => {
-+                const entry = draft.providers.find((p) => p.adapterType === candidate.adapterType);
-+                const label = adapterShortLabel(candidate.adapterType);
-+                return (
-+                  <li key={candidate.adapterType} className="flex flex-wrap items-center justify-between gap-2">
-+                    <label className="flex items-center gap-2 text-sm">
-+                      <Checkbox
-+                        checked={Boolean(entry)}
-+                        disabled={!entry && candidate.agents.length === 0}
-+                        onCheckedChange={(checked) => toggleProvider(candidate.adapterType, checked === true, candidate.agents[0]?.id)}
-+                        aria-label={`Route with ${label}`}
-+                      />
-+                      {label}
-+                    </label>
-+                    {entry ? (
-+                      <Select
-+                        value={entry.templateAgentId}
-+                        onValueChange={(templateAgentId) => setDraft((current) => ({
-+                          ...current,
-+                          providers: current.providers.map((p) => (p.adapterType === candidate.adapterType ? { ...p, templateAgentId } : p)),
-+                        }))}
-+                      >
-+                        <SelectTrigger size="sm" className="w-48" aria-label={`${label} template agent`}><SelectValue placeholder="Template agent" /></SelectTrigger>
-+                        <SelectContent>
-+                          {candidate.agents.map((agent) => <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>)}
-+                        </SelectContent>
-+                      </Select>
-+                    ) : null}
-+                  </li>
-+                );
-+              })}
-+            </ul>
-+          )}
-+        </section>
-+
-+        <section className="space-y-3">
-+          <SectionTitle>Model tiers</SectionTitle>
-+          <p className="text-xs text-muted-foreground">
-+            Each tier names one model per provider. A switched agent gets its tier's model on the other provider; its effort setting is kept, never changed by a tier.
-+          </p>
-+          {included.length === 0 ? (
-+            <p className="text-sm text-muted-foreground">Choose at least one provider above.</p>
-+          ) : (
-+            <div className="overflow-x-auto">
-+              <table className="w-full text-sm" data-testid="ppclip-model-tiers">
-+                <thead>
-+                  <tr className="text-left text-xs text-muted-foreground">
-+                    <th className="py-1 pr-2 font-normal">Tier</th>
-+                    {included.map((type) => <th key={type} className="py-1 pr-2 font-normal">{adapterShortLabel(type)}</th>)}
-+                  </tr>
-+                </thead>
-+                <tbody>
-+                  {draft.tiers.map((tier, tierIndex) => (
-+                    <tr key={tier.id}>
-+                      <td className="py-1 pr-2">
-+                        <Input
-+                          value={tier.name}
-+                          aria-label={`Tier ${tierIndex + 1} name`}
-+                          onChange={(event) => setDraft((current) => ({
-+                            ...current,
-+                            tiers: current.tiers.map((t, i) => (i === tierIndex ? { ...t, name: event.target.value } : t)),
-+                          }))}
-+                        />
-+                      </td>
-+                      {included.map((type, providerIndex) => (
-+                        <td key={type} className="py-1 pr-2">
-+                          <Input
-+                            value={tier.models[type] ?? ""}
-+                            list={`ppclip-models-${type}`}
-+                            placeholder="Model"
-+                            aria-label={`${tier.name || `Tier ${tierIndex + 1}`} ${adapterShortLabel(type)} model`}
-+                            className="font-mono"
-+                            onChange={(event) => setModel(tierIndex, type, event.target.value)}
-+                            data-provider-index={providerIndex}
-+                          />
-+                        </td>
-+                      ))}
-+                    </tr>
-+                  ))}
-+                </tbody>
-+              </table>
-+              {included.map((type, index) => (
-+                <datalist key={type} id={`ppclip-models-${type}`}>
-+                  {(catalogs[index]?.data ?? []).map((model) => <option key={model.id} value={model.id}>{model.label}</option>)}
-+                </datalist>
-+              ))}
++      <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">
++        {before}
++        <Section title="Automatic switching" testId="ppclip-provider-switching">
++          <div className="flex items-start justify-between gap-4">
++            <div className="space-y-1">
++              <p className="text-sm">Move idle agents to another provider when theirs runs out</p>
++              <p className="text-xs text-muted-foreground">
++                Checked every minute. An agent switches only after its current work finishes and keeps its own instructions, workspace and environment.
++              </p>
 +            </div>
-+          )}
-+        </section>
++            <ToggleSwitch
++              aria-label="Switch agents between providers"
++              data-testid="ppclip-provider-routing-enabled"
++              checked={draft.enabled}
++              onCheckedChange={(enabled) => setDraft((current) => ({ ...current, enabled }))}
++            />
++          </div>
++
++          {draft.enabled ? (
++            <div className="space-y-5 pt-1">
++              <div className="flex flex-wrap items-center justify-between gap-3">
++                <span className="text-xs text-muted-foreground">Switch away at</span>
++                <Select value={String(draft.thresholdPercent)} onValueChange={(value) => setDraft((current) => ({ ...current, thresholdPercent: Number(value) }))}>
++                  <SelectTrigger size="sm" className="w-auto min-w-32" aria-label="Exhausted at"><SelectValue /></SelectTrigger>
++                  <SelectContent>
++                    {THRESHOLDS.map((value) => <SelectItem key={value} value={String(value)}>{value}% used</SelectItem>)}
++                  </SelectContent>
++                </Select>
++              </div>
++
++              {included.length >= 2 ? (
++                <div className="flex flex-wrap items-center justify-between gap-3">
++                  <span className="text-xs text-muted-foreground">Mode</span>
++                  <div className="flex overflow-hidden rounded-md border border-border" role="radiogroup" aria-label="Provider mode">
++                    {modeStops(included).map((stop) => (
++                      <button
++                        key={stop.value}
++                        type="button"
++                        role="radio"
++                        aria-checked={draft.mode === stop.value}
++                        className={cn(
++                          "px-2.5 py-1 text-xs whitespace-nowrap transition-colors hover:bg-accent/40",
++                          draft.mode === stop.value && "bg-accent text-foreground",
++                        )}
++                        onClick={() => setDraft((current) => ({ ...current, mode: stop.value }))}
++                      >
++                        {stop.label}
++                      </button>
++                    ))}
++                  </div>
++                </div>
++              ) : null}
++
++              <div className="space-y-2">
++                <p className="text-xs text-muted-foreground">
++                  Providers to switch between. A switched agent copies the harness settings and AI connection of the agent you pick.
++                </p>
++                {status.candidates.length === 0 ? (
++                  <p className="text-sm text-muted-foreground">No agent uses a harness that signs in through Connections yet.</p>
++                ) : (
++                  <ul className="space-y-2">
++                    {status.candidates.map((candidate) => {
++                      const entry = draft.providers.find((p) => p.adapterType === candidate.adapterType);
++                      const label = adapterShortLabel(candidate.adapterType);
++                      return (
++                        <li key={candidate.adapterType} className="flex min-h-8 flex-wrap items-center justify-between gap-2">
++                          <label className="flex items-center gap-2 text-sm">
++                            <Checkbox
++                              checked={Boolean(entry)}
++                              disabled={!entry && candidate.agents.length === 0}
++                              onCheckedChange={(checked) => toggleProvider(candidate.adapterType, checked === true, candidate.agents[0]?.id)}
++                              aria-label={`Route with ${label}`}
++                            />
++                            <ProviderMark provider={providerForAdapter(candidate.adapterType) ?? candidate.adapterType} />
++                            {label}
++                          </label>
++                          {entry ? (
++                            <div className="flex items-center gap-2">
++                              <span className="text-xs text-muted-foreground">Settings from</span>
++                              <Select
++                                value={entry.templateAgentId}
++                                onValueChange={(templateAgentId) => setDraft((current) => ({
++                                  ...current,
++                                  providers: current.providers.map((p) => (p.adapterType === candidate.adapterType ? { ...p, templateAgentId } : p)),
++                                }))}
++                              >
++                                <SelectTrigger size="sm" className="w-44" aria-label={`${label} template agent`}><SelectValue placeholder="Choose an agent" /></SelectTrigger>
++                                <SelectContent>
++                                  {candidate.agents.map((agent) => <SelectItem key={agent.id} value={agent.id}>{agent.name}</SelectItem>)}
++                                </SelectContent>
++                              </Select>
++                            </div>
++                          ) : null}
++                        </li>
++                      );
++                    })}
++                  </ul>
++                )}
++              </div>
++
++              <div className="space-y-2">
++                <p className="text-xs text-muted-foreground">
++                  Model tiers: each row pairs equivalent models. A switched agent gets its tier’s model on the other provider and keeps its effort setting.
++                </p>
++                {status.candidates.length < 2 ? (
++                  <p className="text-xs text-muted-foreground">Switching needs agents on two providers. Set up an agent on another provider (for example Claude or Codex) to pair their models.</p>
++                ) : included.length < 2 ? (
++                  <p className="text-xs text-muted-foreground">Choose two providers above to pair their models.</p>
++                ) : (
++                  <div className="overflow-x-auto">
++                    <table className="w-full text-sm" data-testid="ppclip-model-tiers">
++                      <thead>
++                        <tr className="text-left text-xs text-muted-foreground">
++                          <th className="w-32 py-1 pr-2 font-normal">Tier</th>
++                          {included.map((type) => <th key={type} className="py-1 pr-2 font-normal">{adapterShortLabel(type)}</th>)}
++                        </tr>
++                      </thead>
++                      <tbody>
++                        {draft.tiers.map((tier, tierIndex) => (
++                          <tr key={tier.id}>
++                            <td className="py-1 pr-2">
++                              <Input
++                                value={tier.name}
++                                aria-label={`Tier ${tierIndex + 1} name`}
++                                aria-invalid={!tier.name.trim() || undefined}
++                                onChange={(event) => setDraft((current) => ({
++                                  ...current,
++                                  tiers: current.tiers.map((t, i) => (i === tierIndex ? { ...t, name: event.target.value } : t)),
++                                }))}
++                              />
++                            </td>
++                            {included.map((type) => (
++                              <td key={type} className="py-1 pr-2">
++                                <Input
++                                  value={tier.models[type] ?? ""}
++                                  list={`ppclip-models-${type}`}
++                                  placeholder="Not paired"
++                                  aria-label={`${tier.name || `Tier ${tierIndex + 1}`} ${adapterShortLabel(type)} model`}
++                                  className="font-mono"
++                                  onChange={(event) => setModel(tierIndex, type, event.target.value)}
++                                />
++                              </td>
++                            ))}
++                          </tr>
++                        ))}
++                      </tbody>
++                    </table>
++                    {included.map((type, index) => (
++                      <datalist key={type} id={`ppclip-models-${type}`}>
++                        {(catalogs[index]?.data ?? []).map((model) => <option key={model.id} value={model.id}>{model.label}</option>)}
++                      </datalist>
++                    ))}
++                  </div>
++                )}
++              </div>
++            </div>
++          ) : null}
++        </Section>
++        {after}
 +      </div>
-+      <SheetFooter className="flex-row items-center justify-between gap-3 border-t border-border">
-+        <p className="min-w-0 text-xs text-muted-foreground" role={save.isError ? "alert" : "status"}>
-+          {save.isError
-+            ? (save.error instanceof Error ? save.error.message : "Couldn’t save provider settings.")
-+            : save.isSuccess ? "Saved. Agents switch after their current work finishes." : ""}
-+        </p>
++
++      <SheetFooter className="mt-auto flex-row items-center justify-between gap-3 border-t border-border">
++        <div className="flex min-w-0 items-center gap-3">
++          {dirty ? (
++            <Button variant="ghost" size="sm" disabled={save.isPending} onClick={() => { save.reset(); setDraft(saved); }}>
++              Discard
++            </Button>
++          ) : null}
++          <p className="min-w-0 text-xs text-muted-foreground" role={save.isError ? "alert" : "status"}>
++            {save.isError
++              ? (save.error instanceof Error ? save.error.message : "Couldn’t save provider settings.")
++              : blank ? "Every tier needs a name."
++              : save.isSuccess && !dirty ? "Saved. Agents switch after their current work finishes." : ""}
++          </p>
++        </div>
 +        <Button
 +          size="sm"
-+          disabled={save.isPending || blank}
++          disabled={save.isPending || blank || !dirty}
 +          onClick={() => save.mutate({ revision: status.policy.revision, policy: prune(draft) })}
 +        >
 +          {save.isPending ? "Saving…" : "Save provider settings"}
@@ -11627,22 +11810,24 @@ index 0000000000000000000000000000000000000000..8517c5b9649c3d7e60de8a54ae93b785
 +  const rows = (health?.agents ?? []).filter((agent) => agent.state !== "ready");
 +  if (!status.policy.enabled && status.routedAgents.length === 0) return null;
 +  return (
-+    <section className="space-y-3 border-t border-border px-4 py-4" data-testid="ppclip-provider-controller">
-+      <div className="flex items-center justify-between gap-2">
-+        <SectionTitle>Status</SectionTitle>
++    <Section
++      title="Status"
++      testId="ppclip-provider-controller"
++      action={(
 +        <Button variant="outline" size="xs" disabled={reconcile.isPending} onClick={() => reconcile.mutate()}>
 +          {reconcile.isPending ? "Checking…" : "Check now"}
 +        </Button>
-+      </div>
++      )}
++    >
 +      <p className="text-xs text-muted-foreground">
 +        {health ? <>Checked <time className="font-mono" dateTime={health.checkedAt}>{formatDateTime(health.checkedAt, { includeYear: false })}</time></> : "Not checked since the server started."}
 +        {status.policy.enabled ? "" : " · Automatic switching is off."}
 +      </p>
 +      {health?.error ? <p className="text-xs text-destructive" role="alert">{health.error}</p> : null}
 +      {rows.length > 0 ? (
-+        <ul className="space-y-2">
++        <ul className="divide-y divide-border">
 +          {rows.map((row) => (
-+            <li key={row.agentId} className="flex flex-wrap items-start justify-between gap-2 text-sm">
++            <li key={row.agentId} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
 +              <div className="min-w-0 space-y-0.5">
 +                <div className="flex items-center gap-2">
 +                  <span className="truncate">{names.get(row.agentId) ?? row.agentId}</span>
@@ -11659,33 +11844,38 @@ index 0000000000000000000000000000000000000000..8517c5b9649c3d7e60de8a54ae93b785
 +          ))}
 +        </ul>
 +      ) : health ? <p className="text-xs text-muted-foreground">Every routed agent is ready.</p> : null}
-+    </section>
++    </Section>
 +  );
 +}
 +
-+/** ppclip PROV-1: provider routing settings (mode, providers, model tiers) and controller status. */
++/** ppclip PROV-1: AI accounts and their usage, automatic provider switching, and its status. */
 +export function ProviderSettingsSheet({ companyId, open, onOpenChange }: { companyId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
 +  const routing = useProviderRouting(companyId);
 +  const save = useSaveProviderRouting(companyId);
 +  return (
 +    <Sheet open={open} onOpenChange={onOpenChange}>
-+      <SheetContent className="w-full gap-0 p-0 sm:max-w-2xl" data-testid="ppclip-provider-settings">
-+        <SheetHeader className="pr-12">
++      <SheetContent className="w-full gap-0 p-0 sm:max-w-xl" data-testid="ppclip-provider-settings">
++        <SheetHeader className="border-b border-border pr-12">
 +          <SheetTitle>Providers</SheetTitle>
-+          <SheetDescription>
-+            Usage comes from your AI accounts in Connections. Routing moves agents between providers by model tier.
-+          </SheetDescription>
++          <SheetDescription>Your AI accounts, and whether agents may move to another provider when one runs out.</SheetDescription>
 +        </SheetHeader>
 +        {routing.data ? (
-+          <>
-+            {/* Remount the editor when another window saves a new revision. */}
-+            <PolicyEditor key={routing.data.policy.revision} companyId={companyId} status={routing.data} save={save} />
-+            <ControllerStatus companyId={companyId} status={routing.data} />
-+          </>
++          // Remount the editor when another window saves a new revision.
++          <PolicyEditor
++            key={routing.data.policy.revision}
++            companyId={companyId}
++            status={routing.data}
++            save={save}
++            before={<AccountsSection companyId={companyId} status={routing.data} />}
++            after={<ControllerStatus companyId={companyId} status={routing.data} />}
++          />
 +        ) : (
-+          <p className="px-4 text-sm text-muted-foreground" role={routing.isError ? "alert" : "status"}>
-+            {routing.isError ? "Couldn’t load provider settings." : "Loading…"}
-+          </p>
++          <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">
++            <AccountsSection companyId={companyId} status={undefined} />
++            <p className="text-sm text-muted-foreground" role={routing.isError ? "alert" : "status"}>
++              {routing.isError ? "Couldn’t load provider settings." : "Loading…"}
++            </p>
++          </div>
 +        )}
 +      </SheetContent>
 +    </Sheet>
@@ -11693,11 +11883,12 @@ index 0000000000000000000000000000000000000000..8517c5b9649c3d7e60de8a54ae93b785
 +}
 diff --git a/ui/src/ppclip/providers/ProviderToolbar.tsx b/ui/src/ppclip/providers/ProviderToolbar.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..b24daf0185ef49266657be139d9dcfb4191c1d54
+index 0000000000000000000000000000000000000000..2c39b6acee54d1fc34168534039b9e66c2e65b1e
 --- /dev/null
 +++ b/ui/src/ppclip/providers/ProviderToolbar.tsx
-@@ -0,0 +1,142 @@
+@@ -0,0 +1,160 @@
 +import { useState } from "react";
++import { aiConnectionCatalogSlug } from "@paperclipai/shared";
 +import { AlertTriangle, Settings2 } from "lucide-react";
 +import { Link } from "@/lib/router";
 +import { Button } from "@/components/ui/button";
@@ -11716,6 +11907,23 @@ index 0000000000000000000000000000000000000000..b24daf0185ef49266657be139d9dcfb4
 +  type AccountUsage,
 +} from "./usage";
 +import { useProviderRouting, useSetRoutingMode } from "./useProviderRouting";
++
++// Marks drawn in black need their own dark-theme file (as official's connection picker does).
++const DARK_LOGOS: Partial<Record<string, string>> = { xai: "/brands/adapters/grok-dark.svg" };
++
++function ProviderMark({ provider }: { provider: AccountUsage["account"] }) {
++  const meta = AI_PROVIDERS[provider.provider];
++  if (!meta?.logo) {
++    return <AppLogo name={meta?.name ?? provider.provider} brandKey={aiConnectionCatalogSlug(provider.provider, provider.routing)} size={16} compact />;
++  }
++  const dark = DARK_LOGOS[provider.provider];
++  return (
++    <>
++      <img src={meta.logo} alt="" className={cn("size-4 shrink-0 object-contain", dark && "dark:hidden")} />
++      {dark ? <img src={dark} alt="" className="hidden size-4 shrink-0 object-contain dark:block" /> : null}
++    </>
++  );
++}
 +
 +function fillClass(percent: number) {
 +  if (percent > 90) return "bg-(--status-task-blocked)";
@@ -11743,7 +11951,6 @@ index 0000000000000000000000000000000000000000..b24daf0185ef49266657be139d9dcfb4
 +  const headline = headlineLimit(entry.usage);
 +  const percent = headline?.usedPercent ?? null;
 +  const clamped = percent == null ? 0 : Math.min(100, Math.max(0, percent));
-+  const provider = AI_PROVIDERS[entry.account.provider];
 +  return (
 +    <Tooltip>
 +      <TooltipTrigger asChild>
@@ -11753,7 +11960,8 @@ index 0000000000000000000000000000000000000000..b24daf0185ef49266657be139d9dcfb4
 +          aria-label={`${providerName(entry.account.provider)} usage: ${percent == null ? "unknown" : `${Math.round(percent)}% used`}`}
 +          data-testid="ppclip-provider-usage-bar"
 +        >
-+          <AppLogo name={provider?.name ?? entry.account.provider} brandKey={entry.account.provider} logoUrl={provider?.logo} size={14} />
++          {/* The provider's own mark (Codex, Claude, Grok); AppLogo would prefer the app-catalog logo. */}
++          <ProviderMark provider={entry.account} />
 +          <span className="relative h-1.5 w-10 overflow-hidden border border-border" aria-hidden>
 +            <span className={cn("absolute inset-y-0 left-0", fillClass(clamped))} style={{ width: `${clamped}%` }} />
 +          </span>
@@ -11986,10 +12194,10 @@ index 0000000000000000000000000000000000000000..0155f38f6ef67ce9fc2f34fb87414c38
 +}
 diff --git a/ui/src/ppclip/providers/providers.test.tsx b/ui/src/ppclip/providers/providers.test.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..8a8a6274e6c4910b30241bc3be5a2c82e23fae13
+index 0000000000000000000000000000000000000000..f3d56da7e184fbd1bb59308cfc81befbb2e713f0
 --- /dev/null
 +++ b/ui/src/ppclip/providers/providers.test.tsx
-@@ -0,0 +1,240 @@
+@@ -0,0 +1,275 @@
 +// @vitest-environment jsdom
 +
 +import { act, type ReactNode } from "react";
@@ -12212,6 +12420,41 @@ index 0000000000000000000000000000000000000000..8a8a6274e6c4910b30241bc3be5a2c82
 +    expect(Object.keys(policy).sort()).toEqual(["enabled", "mode", "modelTiers", "providers", "thresholdPercent", "tiers"]);
 +  });
 +
++  it("lists connected accounts and asks to connect a provider whose agents have no account", async () => {
++    mockConnections.list.mockResolvedValue({ currentUserId: "u", canManageConnections: true, connections: [account()] });
++    mockConnections.probeUsage.mockResolvedValue(usage());
++    mockRouting.status.mockResolvedValue(routingStatus());
++    await render(<ProviderSettingsSheet companyId={companyId} open onOpenChange={() => {}} />);
++    const accounts = document.body.querySelectorAll("[data-testid='ppclip-provider-account']");
++    expect(accounts).toHaveLength(1);
++    expect(accounts[0]!.textContent).toContain("Team Claude");
++    expect(accounts[0]!.textContent).toContain("42% used");
++    const missing = document.body.querySelector("[data-testid='ppclip-provider-missing-account']")!;
++    expect(missing.textContent).toContain("ChatGPT subscription");
++    expect(missing.textContent).toContain("1 agent uses this provider");
++    expect(missing.querySelector("a")?.getAttribute("href")).toBe("/apps");
++  });
++
++  it("hides switching controls while off, and saves only after a change", async () => {
++    mockRouting.status.mockResolvedValue(routingStatus({ enabled: false }));
++    mockRouting.save.mockResolvedValue(routingStatus({ revision: 4 }));
++    await render(<ProviderSettingsSheet companyId={companyId} open onOpenChange={() => {}} />);
++    expect(document.body.querySelector("[data-testid='ppclip-model-tiers']")).toBeNull();
++    const save = () => [...document.body.querySelectorAll("button")].find((b) => b.textContent === "Save provider settings")!;
++    expect(save().disabled).toBe(true);
++
++    const toggle = document.body.querySelector("[data-testid='ppclip-provider-routing-enabled']") as HTMLButtonElement;
++    await act(async () => { toggle.click(); });
++    expect(document.body.querySelector("[data-testid='ppclip-model-tiers']")).not.toBeNull();
++    expect(save().disabled).toBe(false);
++
++    const discard = [...document.body.querySelectorAll("button")].find((b) => b.textContent === "Discard")!;
++    await act(async () => { discard.click(); });
++    expect(document.body.querySelector("[data-testid='ppclip-model-tiers']")).toBeNull();
++    expect(save().disabled).toBe(true);
++    expect(mockRouting.save).not.toHaveBeenCalled();
++  });
++
 +  it("lets the board keep an agent's current settings when it is blocked", async () => {
 +    const status = routingStatus();
 +    status.routedAgents = [{ agentId: "agent-c", name: "Claude dev", adapterType: "codex_local", primaryAdapterType: "claude_local" }];
@@ -12232,10 +12475,10 @@ index 0000000000000000000000000000000000000000..8a8a6274e6c4910b30241bc3be5a2c82
 +});
 diff --git a/ui/src/ppclip/providers/usage.ts b/ui/src/ppclip/providers/usage.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..1b546a467318eb8e73ef12dd7745ab4278405647
+index 0000000000000000000000000000000000000000..3b91e1f69577ea53955bdb718e882e66280ff964
 --- /dev/null
 +++ b/ui/src/ppclip/providers/usage.ts
-@@ -0,0 +1,135 @@
+@@ -0,0 +1,147 @@
 +/**
 + * ppclip DASH-3 / PROV-1: account usage read from official Connections usage.
 + *
@@ -12247,7 +12490,10 @@ index 0000000000000000000000000000000000000000..1b546a467318eb8e73ef12dd7745ab42
 + */
 +import { useQuery } from "@tanstack/react-query";
 +import {
++  AI_CONNECTION_CAPABILITIES,
++  AI_PROVIDERS as SHARED_AI_PROVIDERS,
 +  supportsAiConnectionUsage,
++  type AiProvider,
 +  type AiConnectionUsage,
 +  type AiConnectionUsageLimit,
 +  type AiManagedConnectionSummary,
@@ -12323,6 +12569,15 @@ index 0000000000000000000000000000000000000000..1b546a467318eb8e73ef12dd7745ab42
 +};
 +export function adapterShortLabel(adapterType: string) {
 +  return SHORT_ADAPTER_LABELS[adapterType] ?? getAdapterLabel(adapterType);
++}
++
++/** The Connections provider a routable harness signs in with (same rule as server aiProviderForAdapter). */
++export function providerForAdapter(adapterType: string): AiProvider | null {
++  for (const provider of SHARED_AI_PROVIDERS) {
++    const methods = Object.values(AI_CONNECTION_CAPABILITIES[provider].methods);
++    if (methods.some((method) => method?.adapters.includes(adapterType))) return provider;
++  }
++  return null;
 +}
 +
 +/** Account-wide windows with a percentage; model/feature scopes and overage stay in the details. */
@@ -16812,3 +17067,16 @@ index 0000000000000000000000000000000000000000..84ad7edb290cff5050ee6e47780e9dd1
 +    retryWork: () => void workQuery.refetch(),
 +  };
 +}
+diff --git a/ui/vite.config.ts b/ui/vite.config.ts
+index 6ac1be642c9ba3ba8bab8ef2840ed3c396ee9f71..3d708c402b72deae8203ceb41a84c35de0e61edf 100644
+--- a/ui/vite.config.ts
++++ b/ui/vite.config.ts
+@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => ({
+     ),
+   },
+   plugins: [react(), tailwindcss(), serviceWorkerBuildIdPlugin()],
++  // ppclip: pre-bundle the Team colour picker so its first visit doesn't re-optimize deps and reload.
++  optimizeDeps: { include: ["react-colorful"] },
+   build: {
+     minify: "esbuild",
+   },
