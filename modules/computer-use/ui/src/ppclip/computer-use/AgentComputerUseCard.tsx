@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router";
 import { usePpclipFeature } from "@/ppclip/features/store";
 import { liveAgentHref } from "../live/anchors";
+import { agentComputerHref } from "./links";
 import { computerUseApi } from "./api";
 import { AgentComputerControls, SupervisorStatus } from "./ComputerUseSettingsSection";
 import { isLiveState, STATE_LABELS, useComputerUse, useInvalidateComputerUse } from "./useComputerUse";
@@ -18,11 +19,13 @@ export const COMPUTER_USE_ADAPTERS = ["claude_local", "codex_local"] as const;
  * so the computer can be turned on where the agent is configured. Hidden when
  * the computerUse module is off (Settings → ppclip).
  */
-export function AgentComputerUseCard(props: { agent: { id: string; name: string; adapterType: string }; companyId: string }) {
+type CardAgent = { id: string; name: string; adapterType: string; urlKey?: string | null };
+
+export function AgentComputerUseCard(props: { agent: CardAgent; companyId: string }) {
   return usePpclipFeature("computerUse") ? <AgentComputerUseCardContent {...props} /> : null;
 }
 
-function AgentComputerUseCardContent({ agent, companyId }: { agent: { id: string; name: string; adapterType: string }; companyId: string }) {
+function AgentComputerUseCardContent({ agent, companyId }: { agent: CardAgent; companyId: string }) {
   const supported = (COMPUTER_USE_ADAPTERS as readonly string[]).includes(agent.adapterType);
   const overview = useComputerUse(supported ? companyId : null);
   const invalidate = useInvalidateComputerUse(companyId);
@@ -67,12 +70,19 @@ function AgentComputerUseCardContent({ agent, companyId }: { agent: { id: string
                     {STATE_LABELS[computer.state]}
                   </Badge>
                   {computer.enabled ? (
-                    <Button asChild size="sm" variant="outline" className="ml-auto">
-                      <Link to={liveAgentHref(agent.id)} data-testid="computer-watch-live">
-                        <Monitor aria-hidden />
-                        {isLiveState(computer.state) ? "Watch live" : "Open on Live runs"}
-                      </Link>
-                    </Button>
+                    <div className="ml-auto flex flex-wrap gap-2">
+                      <Button asChild size="sm">
+                        <Link to={agentComputerHref(agent)} data-testid="computer-open-big-screen">
+                          <Monitor aria-hidden />
+                          Open big screen
+                        </Link>
+                      </Button>
+                      <Button asChild size="sm" variant="outline">
+                        <Link to={liveAgentHref(agent.id)} data-testid="computer-watch-live">
+                          {isLiveState(computer.state) ? "Watch live" : "Open on Live runs"}
+                        </Link>
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
                 {computer.state === "waiting_for_human" && computer.request ? (

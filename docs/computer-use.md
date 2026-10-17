@@ -12,6 +12,13 @@ It is **off by default**. The quickest path:
 3. **Watch it:** press **Watch live** on that card, or open **Live runs**. On the agent's card, press **Start computer**.
 4. **Ask the agent in plain words,** for example "open example.com with your computer and tell me the page title". Claude Code and Codex local agents get the computer tools automatically.
 
+**Where to see a computer.** Each agent has its own computer; none are shared.
+- **Big screen:** open the agent, then **Computer → Live screen** in its left-hand menu, or go to `/agents/<agent>/computer`. The screen fills the page and has **Full screen**, take control and the other controls.
+- **Team page:** agents with a computer get a **Computer** button that opens the big screen, and a state chip while it runs.
+- **Agent chats:** a slim bar above the chat shows the computer's state. **Show screen** opens it in place, and **Big screen** jumps to the big screen.
+- **Live runs:** every agent's card shows its screen side by side with the others. **Big screen** on a card opens that agent's.
+- **Configuration card:** it has **Open big screen** and **Watch live**.
+
 While the agent works, its Live runs card shows **Using its computer** next to its status. When it asks for help, the card shows **Needs you** with its reason; press **Take control**. Company Settings has the same switch and every agent's controls in one list.
 
 The computer tools reach Claude Code (`claude_local`) and Codex (`codex_local`) agents only. Other adapters show "Available for Claude Code and Codex agents only" on the card.

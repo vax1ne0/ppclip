@@ -8,7 +8,8 @@ A sandboxed Linux desktop and Chromium per agent in Docker, with live view, take
 1. Start the supervisor: `node scripts/ppclip/start-local.mjs --with-computer` starts it with Paperclip, or run `node scripts/ppclip/computer-supervisor.mjs`. Build the image once first with `node scripts/ppclip/computer-supervisor.mjs build-image`.
 2. Open the agent, then **Configuration**, then the **Computer use** card. Turn on computer use if asked, then **Give this agent a computer**. This works for Claude Code and Codex agents only.
 3. Press **Watch live** (or open **Live runs**), then **Start computer** on the agent's card.
-4. Ask the agent in plain words. Its Live runs card shows **Using its computer**, and **Needs you** when it asks for help.
+4. Watch it on the big screen (agent → **Computer → Live screen**, or the **Computer** button on the Team page or above an agent chat), or on its Live runs card.
+5. Ask the agent in plain words. Its Live runs card shows **Using its computer**, and **Needs you** when it asks for help.
 
 Setup, security model and testing: [docs/computer-use.md](../../docs/computer-use.md).
 

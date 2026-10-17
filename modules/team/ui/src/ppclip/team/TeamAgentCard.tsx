@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, Monitor } from "lucide-react";
 import { AGENT_ROLE_LABELS, type Agent, type Issue } from "@paperclipai/shared";
 import { Link } from "@/lib/router";
 import { agentRouteRef, agentUrl, issueUrl, relativeTime } from "@/lib/utils";
@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { AgentAvatar } from "@/components/AgentAvatar";
 import { AgentAttentionBadge } from "@/ppclip/attention/AgentAttentionBadge";
 import { StatusIcon } from "@/components/StatusIcon";
+import type { AgentComputer } from "@/ppclip/computer-use/api";
+import { ComputerStateChip } from "@/ppclip/computer-use/ComputerStateChip";
+import { agentComputerHref } from "@/ppclip/computer-use/links";
 
 /** What the canvas tells each card about its place on the board. */
 export type TeamCardPresentation = {
@@ -40,8 +43,10 @@ const normalize = (value: string) => value.trim().toLocaleLowerCase();
  * ppclip TEAM-1: one agent on the Team canvas, in official's card style.
  * Presentation only: the page owns data and passes in the action cluster.
  */
-export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled, actions, presentation }: {
+export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled, actions, presentation, computer }: {
   agent: Agent;
+  /** ppclip computer use: the agent's computer, when it has one (and the module is on). */
+  computer?: AgentComputer;
   tasks: Issue[];
   workState: "loading" | "error" | "ready";
   retryWork: () => void;
@@ -83,7 +88,10 @@ export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled,
       {presentation.header(identity)}
 
       <div className="flex min-h-6 items-center justify-between gap-2">
-        <AgentAttentionBadge agent={agent} />
+        <span className="flex min-w-0 items-center gap-1.5">
+          <AgentAttentionBadge agent={agent} />
+          {computer ? <ComputerStateChip computer={computer} /> : null}
+        </span>
         <span className="truncate font-mono text-xs text-muted-foreground" title="Last heartbeat">
           {agent.lastHeartbeatAt ? relativeTime(agent.lastHeartbeatAt) : "No runs yet"}
         </span>
@@ -122,14 +130,24 @@ export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled,
       </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        {chatEnabled ? (
-          <Button asChild size="sm" variant="outline">
-            <Link to={`/chats/${agentRouteRef(agent)}`} aria-label={`Chat with ${agent.name}`}>
-              <MessageCircle />
-              Chat
-            </Link>
-          </Button>
-        ) : <span />}
+        <span className="flex flex-wrap items-center gap-2">
+          {chatEnabled ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to={`/chats/${agentRouteRef(agent)}`} aria-label={`Chat with ${agent.name}`}>
+                <MessageCircle />
+                Chat
+              </Link>
+            </Button>
+          ) : null}
+          {computer ? (
+            <Button asChild size="sm" variant="outline">
+              <Link to={agentComputerHref(agent)} aria-label={`Open ${agent.name}'s computer`} data-testid="team-computer-link">
+                <Monitor />
+                Computer
+              </Link>
+            </Button>
+          ) : null}
+        </span>
         {actions}
       </div>
       {presentation.reportsToggle}

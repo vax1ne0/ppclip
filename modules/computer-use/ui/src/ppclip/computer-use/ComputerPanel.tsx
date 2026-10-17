@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Hand, LockKeyhole, Monitor, Pause, Play, Power, ShieldOff, Undo2 } from "lucide-react";
+import { Expand, Hand, LockKeyhole, Maximize2, Monitor, Pause, Play, Power, ShieldOff, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Link } from "@/lib/router";
 import { useSeen } from "../live/use-seen";
 import { computerUseApi, type AgentComputer, type ComputerAction } from "./api";
 import { availableActions, isLiveState, STATE_LABELS, useInvalidateComputerUse } from "./useComputerUse";
@@ -49,6 +50,7 @@ function stateVariant(state: AgentComputer["state"]): "default" | "secondary" | 
 
 /** The live desktop, embedded through Paperclip's ticketed proxy in a sandboxed frame. */
 function LiveView({ companyId, computer, agentName }: { companyId: string; computer: AgentComputer; agentName: string }) {
+  const frameBox = useRef<HTMLDivElement>(null);
   const humanState = computer.state === "human" || computer.state === "human_private";
   const viewer = useQuery({
     // A new ticket whenever control changes; the old one stops working at the server anyway.
@@ -72,6 +74,7 @@ function LiveView({ companyId, computer, agentName }: { companyId: string; compu
   const driving = viewer.data.mode === "control";
   return (
     <div className="flex flex-col gap-2">
+      <div ref={frameBox} className="flex items-center justify-center bg-background">
       <iframe
         key={viewer.data.src}
         src={viewer.data.src}
@@ -82,9 +85,18 @@ function LiveView({ companyId, computer, agentName }: { companyId: string; compu
         className="aspect-video w-full rounded-lg border border-border bg-muted"
         data-testid="computer-live-view"
       />
-      <p className="text-xs text-muted-foreground">
-        {driving ? "You are in control. Click inside the screen to type. The agent is paused until you release." : "View only."}
-      </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <p className="text-xs text-muted-foreground">
+          {driving ? "You are in control. Click inside the screen to type. The agent is paused until you release." : "View only."}
+        </p>
+        {typeof document !== "undefined" && document.fullscreenEnabled ? (
+          <Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => void frameBox.current?.requestFullscreen?.()} data-testid="computer-fullscreen">
+            <Maximize2 aria-hidden />
+            Full screen
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -98,11 +110,15 @@ export function ComputerPanel(props: Parameters<typeof ComputerPanelContent>[0])
   return usePpclipFeature("computerUse") ? <ComputerPanelContent {...props} /> : null;
 }
 
-function ComputerPanelContent({ companyId, computer, agentName, liveView }: {
+function ComputerPanelContent({ companyId, computer, agentName, liveView, variant = "card", bigScreenHref }: {
   companyId: string;
   computer: AgentComputer;
   agentName: string;
   liveView: boolean;
+  /** "page": the agent's big-screen computer page (no card border, larger heading). */
+  variant?: "card" | "page";
+  /** Shown as a "Big screen" link on cards. */
+  bigScreenHref?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
   const seen = useSeen(ref);
@@ -124,11 +140,25 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView }: {
 
   const live = isLiveState(computer.state);
   return (
-    <section ref={ref} className="flex min-w-0 flex-col gap-3 rounded-lg border border-border p-4" aria-label={`${agentName}'s computer`} data-testid="computer-panel">
+    <section
+      ref={ref}
+      className={variant === "page" ? "flex min-w-0 flex-col gap-4" : "flex min-w-0 flex-col gap-3 rounded-lg border border-border p-4"}
+      aria-label={`${agentName}'s computer`}
+      data-testid="computer-panel"
+      data-variant={variant}
+    >
       <div className="flex items-center gap-2">
         <Monitor className="size-4 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium text-foreground">Computer</span>
         <Badge variant={stateVariant(computer.state)} className="ml-auto" data-testid="computer-state">{STATE_LABELS[computer.state]}</Badge>
+        {bigScreenHref && variant === "card" ? (
+          <Button asChild size="sm" variant="ghost">
+            <Link to={bigScreenHref} aria-label={`Open ${agentName}'s computer on a big screen`} data-testid="computer-big-screen">
+              <Expand aria-hidden />
+              Big screen
+            </Link>
+          </Button>
+        ) : null}
       </div>
       {computer.state === "waiting_for_human" && computer.request ? (
         <p className="text-sm text-foreground" data-testid="computer-request">

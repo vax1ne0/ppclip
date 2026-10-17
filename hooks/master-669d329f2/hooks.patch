@@ -514,7 +514,7 @@ index 279b2553b14a47266557764cf8a37d73a71bdac4..a9d5620d83ceafd8fc40dbe21196839f
      "react-i18next": "^17.0.15",
      "react-markdown": "^10.1.0",
 diff --git a/ui/src/App.tsx b/ui/src/App.tsx
-index ba6af93f11a01cbb41d6ba2709097a2cbb283317..50f0bfb7de3818367e598f39d5dd6f52348fb6b5 100644
+index ba6af93f11a01cbb41d6ba2709097a2cbb283317..d561fe965aa57283b2c327a49674bf17f1a62849 100644
 --- a/ui/src/App.tsx
 +++ b/ui/src/App.tsx
 @@ -96,6 +96,7 @@ import { ProfileSettings } from "./pages/ProfileSettings";
@@ -525,16 +525,17 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..50f0bfb7de3818367e598f39d5dd6f52
  import { PluginPage } from "./pages/PluginPage";
  import { NewAgent } from "./pages/NewAgent";
  import { AuthPage } from "./pages/Auth";
-@@ -143,6 +144,8 @@ const ProductionCompanyActivity = lazy(() =>
+@@ -143,6 +144,9 @@ const ProductionCompanyActivity = lazy(() =>
  const ProductionOrgChart = lazy(() =>
    import("./pages/OrgChart.production").then((module) => ({ default: module.OrgChart })),
  );
 +// ppclip: TEAM-1 Team page (lazy: keeps the canvas and colour picker out of the main bundle)
 +const TeamPage = lazy(() => import("./ppclip/team/TeamPage").then((m) => ({ default: m.TeamPage })));
++const AgentComputerPage = lazy(() => import("./ppclip/computer-use/AgentComputerPage").then((m) => ({ default: m.AgentComputerPage }))); // ppclip: computer use big screen
  
  function ProductionSurface({ children }: { children: ReactNode }) {
    return <Suspense fallback={<PaperclipLoading />}>{children}</Suspense>;
-@@ -266,6 +269,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+@@ -266,6 +270,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
        <Route element={<HiddenSettingsPageGate pageKey="instance.adapters" />}>
          <Route path="company/settings/instance/adapters" element={<AdapterManager />} />
        </Route>
@@ -542,7 +543,7 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..50f0bfb7de3818367e598f39d5dd6f52
        <Route path="company/settings/:settingsRoutePath/*" element={<CompanySettingsPluginPage />} />
        <Route path="skills/sources" element={<SkillSources />} />
        <Route path="skills/sources/:sourceId" element={<SkillSources />} />
-@@ -284,6 +288,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+@@ -284,6 +289,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
          path="org"
          element={streamlinedUiEnabled ? <Navigate to="/agents/all" replace /> : <ProductionSurface><ProductionOrgChart /></ProductionSurface>}
        />
@@ -550,7 +551,15 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..50f0bfb7de3818367e598f39d5dd6f52
        <Route path="agents" element={<Navigate to="/agents/all" replace />} />
        {AGENT_FILTER_TABS.map((tab) => (
          <Route
-@@ -869,6 +874,7 @@ export function App() {
+@@ -294,6 +300,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+       ))}
+       <Route path="agents/new" element={<NewAgent />} />
+       <Route path="agents/:agentId" element={<AgentDetail />} />
++      <Route path="agents/:agentId/computer" element={<Suspense fallback={null}><AgentComputerPage /></Suspense>} /> {/* ppclip: computer use big screen */}
+       <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
+       <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
+       <Route path="projects" element={<Projects />} />
+@@ -869,6 +876,7 @@ export function App() {
            <Route path="skills/*" element={<UnprefixedBoardRedirect />} />
            <Route path="settings" element={<LegacySettingsRedirect />} />
            <Route path="settings/*" element={<LegacySettingsRedirect />} />
@@ -647,6 +656,27 @@ index 860327ec39aacd043284ade8092dd56cc1723ac6..0f951264613418594bc832ae02dbf9e4
            <button
              className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
              disabled={duplicateAgent.isPending}
+diff --git a/ui/src/components/AgentContextualSidebar.tsx b/ui/src/components/AgentContextualSidebar.tsx
+index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a2fda63c796e6aac179141e2aa071395da56c3cb 100644
+--- a/ui/src/components/AgentContextualSidebar.tsx
++++ b/ui/src/components/AgentContextualSidebar.tsx
+@@ -20,6 +20,7 @@ import { queryKeys } from "@/lib/queryKeys";
+ import { ContextualSidebarFrame } from "./ContextualSidebarFrame";
+ import { SidebarNavItem } from "./SidebarNavItem";
+ import { contextualSidebarStyles } from "./contextual-sidebar-styles";
++import { AgentComputerNav } from "@/ppclip/computer-use/AgentComputerNav"; // ppclip: computer use
+ import {
+   AGENT_DETAIL_NAVIGATION,
+   agentDetailHref,
+@@ -110,6 +111,8 @@ export function AgentContextualSidebar({
+           </div>
+         ))}
+ 
++        <AgentComputerNav agentRef={agentRef} agentId={resolvedId} /> {/* ppclip: computer use */}
++
+         <div data-slot="contextual-sidebar-section" className={contextualSidebarStyles.section}>
+           <p
+             data-slot="contextual-sidebar-section-label"
 diff --git a/ui/src/components/AgentConversationsSidebar.tsx b/ui/src/components/AgentConversationsSidebar.tsx
 index bb173be4a17299dbe7aa8ba76e56a69258ad608e..d8b7ab8a0784fb73d518c39d0dc0771d244477bc 100644
 --- a/ui/src/components/AgentConversationsSidebar.tsx
@@ -1299,6 +1329,35 @@ index 446654a112ea558581354874a03f8670c05591ba..5fd3478096aa0bb8a6748947a3f9b55e
  }
  
  export interface IssueChatTranscriptEntry {
+diff --git a/ui/src/pages/AgentChat.tsx b/ui/src/pages/AgentChat.tsx
+index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..6d78372046e4e3e1750b006c814fb230f42c374a 100644
+--- a/ui/src/pages/AgentChat.tsx
++++ b/ui/src/pages/AgentChat.tsx
+@@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/queryKeys";
+ import { useParams } from "@/lib/router";
+ import { agentRouteRef } from "@/lib/utils";
+ import { TaskDetailSurface } from "./IssueDetail";
++import { AgentChatComputerBar } from "../ppclip/computer-use/AgentChatComputerBar"; // ppclip: computer use
+ import { isUuidLike, type Issue } from "@paperclipai/shared";
+ 
+ export function AgentChat() {
+@@ -93,9 +94,12 @@ export function AgentChat() {
+       <p className="text-sm text-muted-foreground">Loading conversation…</p>
+     );
+   return (
+-    <TaskDetailSurface
+-      key={`${agent.id}:${userId}`}
+-      conversation={{ agent, issue: chat.data ?? null, ensureIssue }}
+-    />
++    <>
++      <AgentChatComputerBar agent={agent} /> {/* ppclip: computer use */}
++      <TaskDetailSurface
++        key={`${agent.id}:${userId}`}
++        conversation={{ agent, issue: chat.data ?? null, ensureIssue }}
++      />
++    </>
+   );
+ }
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
 index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..a4999d5df22bd5f4b2e9b7a20df8cda5ab59bea1 100644
 --- a/ui/src/pages/AgentDetail.tsx

@@ -12,6 +12,7 @@ import { PageSkeleton } from "@/components/PageSkeleton";
 import { TeamAgentCard } from "./TeamAgentCard";
 import { TeamCanvas } from "./TeamCanvas";
 import { useTeamData } from "./useTeamData";
+import { useComputerUse } from "@/ppclip/computer-use/useComputerUse";
 
 const EVIDENCE_STATUS = {
   loading: "Loading open tasks for work arrows…",
@@ -35,6 +36,11 @@ function TeamPageContent() {
   const { openNewAgent } = useDialogActions();
   const chat = useAgentChatEnabled();
   const team = useTeamData(selectedCompanyId);
+  // ppclip computer use: a Computer button on agents that have one (module switch respected).
+  const computerFeature = usePpclipFeature("computerUse");
+  const computers = useComputerUse(computerFeature ? selectedCompanyId : null);
+  const computerFor = (agentId: string) =>
+    computerFeature && computers.data?.enabled ? computers.data.agents.find((c) => c.agentId === agentId && c.enabled) : undefined;
 
   useEffect(() => {
     setBreadcrumbs([{ label: "Team" }]);
@@ -62,6 +68,7 @@ function TeamPageContent() {
             retryWork={team.retryWork}
             chatEnabled={chat.enabled}
             presentation={presentation}
+            computer={computerFor(agent.id)}
             actions={(
               <AgentActionButtons
                 agent={agent}

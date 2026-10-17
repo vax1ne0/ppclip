@@ -22,6 +22,7 @@ import type { AgentComputer } from "../computer-use/api";
 import { ComputerPanel } from "../computer-use/ComputerPanel";
 import { ComputerStateChip } from "../computer-use/ComputerStateChip";
 import { liveAgentAnchor } from "./anchors";
+import { agentComputerHref } from "../computer-use/links";
 import { configuredModel } from "../agent-model";
 import { useSecondTick } from "@/hooks/useSecondTick";
 
@@ -245,7 +246,7 @@ export const LiveStationCard = memo(function LiveStationCard({
         {finished && run ? <SavedReply runId={run.id} /> : null}
       </section>
 
-      {computer ? <ComputerPanel companyId={companyId} computer={computer} agentName={agent.name} liveView={computerLiveView} /> : null}
+      {computer ? <ComputerPanel companyId={companyId} computer={computer} agentName={agent.name} liveView={computerLiveView} bigScreenHref={agentComputerHref(agent)} /> : null}
 
       <footer className="mt-auto flex flex-wrap items-center gap-2">
         {runUrl ? (
