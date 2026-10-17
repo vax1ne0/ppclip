@@ -13,6 +13,22 @@ const mockRouting = vi.hoisted(() => ({ status: vi.fn(), save: vi.fn(), reconcil
 const mockAgents = vi.hoisted(() => ({ adapterModels: vi.fn() }));
 
 vi.mock("@/api/ai-connections", () => ({ aiConnectionsApi: mockConnections }));
+// ppclip's cached usage endpoint, played by the same mocks the server would call.
+vi.mock("@/api/client", () => ({
+  api: {
+    get: async (path: string) => {
+      if (path === "/ppclip/features") throw new Error("not mocked");
+      const list = await mockConnections.list();
+      const accounts = await Promise.all(list.connections.filter((a: AiManagedConnectionSummary) => a.status === "connected").map(async (account: AiManagedConnectionSummary) => {
+        if (account.usageProbeSupported === false) return { account, supported: false, usage: null, failed: false };
+        const companyId = path.split("/")[2];
+        try { return { account, supported: true, usage: await mockConnections.probeUsage(companyId, account.id, account.grantId), failed: false }; }
+        catch { return { account, supported: true, usage: null, failed: true }; }
+      }));
+      return { accounts, checkedAt: new Date().toISOString() };
+    },
+  },
+}));
 vi.mock("@/api/agents", () => ({ agentsApi: mockAgents }));
 vi.mock("./api", async (importOriginal) => ({ ...(await importOriginal<typeof import("./api")>()), providerRoutingApi: mockRouting }));
 vi.mock("@/lib/router", () => ({
@@ -233,6 +249,21 @@ describe("ProviderSettingsSheet", () => {
     expect(missing.textContent).toContain("ChatGPT subscription");
     expect(missing.textContent).toContain("1 agent uses this provider");
     expect(missing.querySelector("a")?.getAttribute("href")).toBe("/apps");
+  });
+
+  it("treats a newly connected account as connected and refreshes usage right away", async () => {
+    // The first list (the usage snapshot) predates the Claude sign-in; later reads include it.
+    mockConnections.list
+      .mockResolvedValueOnce({ currentUserId: "u", canManageConnections: true, connections: [] })
+      .mockResolvedValue({ currentUserId: "u", canManageConnections: true, connections: [account()] });
+    mockConnections.probeUsage.mockResolvedValue(usage());
+    mockRouting.status.mockResolvedValue(routingStatus());
+    await render(<ProviderSettingsSheet companyId={companyId} open onOpenChange={() => {}} />);
+    for (let i = 0; i < 5; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    const missing = [...document.body.querySelectorAll("[data-testid='ppclip-provider-missing-account']")].map((row) => row.textContent);
+    expect(missing.some((text) => text?.includes("Claude subscription"))).toBe(false);
+    expect(document.body.querySelector("[data-testid='ppclip-provider-account']")?.textContent).toContain("Team Claude");
+    expect(mockConnections.probeUsage).toHaveBeenCalled();
   });
 
   it("closes the panel when a link opens Connections", async () => {

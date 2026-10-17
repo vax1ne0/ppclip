@@ -48,12 +48,12 @@ import {
   type RoutingPolicyInput,
 } from "./policy.js";
 import { parseObject as asRecord } from "@paperclipai/adapter-utils/server-utils";
+import { cachedUsage, usageCacheKey } from "./usage-cache.js";
 
 const POLICY_UPDATED_ACTION = "ppclip.provider_routing.updated";
 const AGENT_SWITCHED_ACTION = "ppclip.provider_routing.agent_switched";
 const AGENT_RELEASED_ACTION = "ppclip.provider_routing.agent_released";
 const CONTROLLER_INTERVAL_MS = 60_000;
-const USAGE_TTL_MS = 5 * 60_000;
 const LIVE_RUN_STATUSES = ["queued", "running", "scheduled_retry"];
 const CLOSED_TASK_STATUSES = ["done", "cancelled"];
 const WAITING_AGENT_STATUSES = new Set(["running", "paused", "pending_approval"]);
@@ -118,23 +118,13 @@ export function supportedEfforts(adapterType: string, model: string): readonly s
   return [];
 }
 
-const usageCache = new Map<string, { expires: number; value: AiConnectionUsage }>();
+/** Official Connections, through the shared usage cache (one probe per account per TTL). */
 function officialUsageSource(db: Db): UsageSource {
   const connections = aiConnectionService(db);
   return {
     listAccounts: (companyId, userId) => connections.list(companyId, userId),
-    probe: async (companyId, userId, account) => {
-      const key = `${companyId}:${account.id}:${account.grantId}`;
-      const cached = usageCache.get(key);
-      if (cached && cached.expires > Date.now()) return cached.value;
-      const value = await connections.probeUsage(companyId, userId, account.id, account.grantId).catch(() => null);
-      if (value) {
-        const resets = value.limits.map((limit) => Date.parse(limit.resetsAt ?? "")).filter((t) => Number.isFinite(t) && t > Date.now());
-        if (usageCache.size > 1000) usageCache.clear();
-        usageCache.set(key, { value, expires: Math.min(Date.now() + USAGE_TTL_MS, ...resets) });
-      }
-      return value;
-    },
+    probe: (companyId, userId, account) => cachedUsage(usageCacheKey(companyId, account),
+      () => connections.probeUsage(companyId, userId, account.id, account.grantId)),
   };
 }
 

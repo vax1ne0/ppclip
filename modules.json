@@ -33,7 +33,7 @@
       "summary": "Top-bar usage bars, dashboard subscription usage, the Providers panel and automatic provider switching.",
       "paths": [
         "server/src/ppclip/providers/",
-        "server/src/__tests__/ppclip-provider-routing",
+        "server/src/__tests__/ppclip-provider-",
         "ui/src/ppclip/providers/"
       ]
     },

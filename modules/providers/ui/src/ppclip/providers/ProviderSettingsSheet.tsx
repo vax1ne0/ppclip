@@ -24,6 +24,7 @@ import {
   resetLabel,
   usageStatusText,
   useProviderUsage,
+  useConnectedAccounts,
   type AccountUsage,
 } from "./usage";
 import { providerRoutingQueryKey, useProviderRouting, useSaveProviderRouting } from "./useProviderRouting";
@@ -107,7 +108,9 @@ function MissingAccountRow({ provider, agentCount, onLeave }: { provider: string
 function AccountsSection({ companyId, status, onLeave }: { companyId: string; status: ProviderRoutingStatus | undefined; onLeave: () => void }) {
   const usage = useProviderUsage(companyId);
   const accounts = usage.data?.accounts ?? [];
-  const connected = new Set(accounts.map((entry) => entry.account.provider));
+  // Official's live account list decides "connected"; the usage snapshot may still be catching up.
+  const live = useConnectedAccounts(companyId);
+  const connected = new Set((live.data ?? accounts.map((entry) => entry.account)).map((account) => account.provider));
   const missing = new Map<string, number>();
   for (const candidate of status?.candidates ?? []) {
     const provider = providerForAdapter(candidate.adapterType);

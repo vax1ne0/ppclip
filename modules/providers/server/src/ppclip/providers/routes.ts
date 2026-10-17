@@ -7,6 +7,10 @@ import { ppclipBoardAccess, type WriteAccessCheck } from "../route-access.js";
 import { routingPolicyUpdateSchema } from "./policy.js";
 import { providerRoutingService, type RoutingActor } from "./service.js";
 import { ppclipFeatureGate } from "../features.js";
+import { supportsAiConnectionUsage } from "@paperclipai/shared";
+import { aiConnectionService } from "../../services/ai-connections.js";
+import { getActorInfo } from "../../routes/authz.js";
+import { cachedUsage, usageCacheKey } from "./usage-cache.js";
 
 type ProviderRoutingService = Pick<ReturnType<typeof providerRoutingService>, "status" | "savePolicy" | "release" | "reconcile">;
 
@@ -30,6 +34,26 @@ export function ppclipProviderRoutingRoutes(
   async function writeAccess(req: Request, companyId: string): Promise<RoutingActor> {
     return { actorType: "user", actorId: await guard.write(req, companyId) };
   }
+
+  // Usage of the viewer's AI accounts through the shared server cache, so tabs and
+  // page loads never multiply provider checks (they rate-limit hard).
+  const usagePath = "/companies/:companyId/ppclip/provider-usage";
+  router.use(usagePath, ppclipFeatureGate("providerUsage"));
+  router.get(usagePath, async (req, res) => {
+    const companyId = req.params.companyId as string;
+    readAccess(req, companyId);
+    const userId = getActorInfo(req).actorId;
+    const connections = aiConnectionService(db);
+    const listed = await connections.list(companyId, userId);
+    const accounts = await Promise.all(listed.filter((account) => account.status === "connected").map(async (account) => {
+      const supported = account.usageProbeSupported ?? supportsAiConnectionUsage(account.provider, account.method);
+      if (!supported) return { account, supported, usage: null, failed: false };
+      const usage = await cachedUsage(usageCacheKey(companyId, account), () => connections.probeUsage(companyId, userId, account.id, account.grantId));
+      return { account, supported, usage, failed: usage === null };
+    }));
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ accounts, checkedAt: new Date().toISOString() });
+  });
 
   const base = "/companies/:companyId/ppclip/provider-routing";
 

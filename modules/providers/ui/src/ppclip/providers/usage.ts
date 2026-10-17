@@ -7,17 +7,18 @@
  * limits, every ppclip surface shares ONE query that only the leader tab polls
  * (every 5 minutes) and broadcasts to other tabs.
  */
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AI_CONNECTION_CAPABILITIES,
   AI_PROVIDERS as SHARED_AI_PROVIDERS,
-  supportsAiConnectionUsage,
   type AiProvider,
   type AiConnectionUsage,
   type AiConnectionUsageLimit,
   type AiManagedConnectionSummary,
 } from "@paperclipai/shared";
 import { aiConnectionsApi } from "@/api/ai-connections";
+import { api } from "@/api/client";
 import { AI_PROVIDERS } from "@/components/ai-connections/model";
 import { getAdapterLabel } from "@/adapters/adapter-display-registry";
 import { usePublishSharedQueryData, useSharedPollingQuery } from "@/hooks/useSharedPolling";
@@ -37,20 +38,27 @@ type ProviderUsageSnapshot = { accounts: AccountUsage[]; checkedAt: string };
 
 const providerUsageQueryKey = (companyId: string) => ["ppclip", "provider-usage", companyId] as const;
 
-async function fetchProviderUsage(companyId: string): Promise<ProviderUsageSnapshot> {
-  const list = await aiConnectionsApi.list(companyId);
-  const connected = list.connections.filter((account) => account.status === "connected");
-  const accounts = await Promise.all(connected.map(async (account): Promise<AccountUsage> => {
-    const supported = account.usageProbeSupported ?? supportsAiConnectionUsage(account.provider, account.method);
-    if (!supported) return { account, supported, usage: null, failed: false };
-    try {
-      return { account, supported, usage: await aiConnectionsApi.probeUsage(companyId, account.id, account.grantId), failed: false };
-    } catch {
-      return { account, supported, usage: null, failed: true };
-    }
-  }));
-  return { accounts, checkedAt: new Date().toISOString() };
+/** Usage through ppclip's server cache: at most one provider check per account every 5 minutes, shared by all tabs. */
+function fetchProviderUsage(companyId: string): Promise<ProviderUsageSnapshot> {
+  return api.get<ProviderUsageSnapshot>(`/companies/${companyId}/ppclip/provider-usage`);
 }
+
+/**
+ * Connected AI accounts from official's own list query (same key official
+ * refreshes when an account is connected or removed). A local read, no
+ * provider calls, so it is always current.
+ */
+export function useConnectedAccounts(companyId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["ai-connections", companyId ?? ""],
+    queryFn: () => aiConnectionsApi.list(companyId!),
+    enabled: !!companyId,
+    select: (list) => list.connections.filter((account) => account.status === "connected"),
+  });
+}
+
+const accountsKey = (accounts: readonly AiManagedConnectionSummary[]) =>
+  accounts.map((account) => `${account.id}:${account.grantId}`).sort().join(",");
 
 export function useProviderUsage(companyId: string | null | undefined) {
   const usageOn = usePpclipFeature("providerUsage");
@@ -73,6 +81,15 @@ export function useProviderUsage(companyId: string | null | undefined) {
     retry: false,
   });
   usePublishSharedQueryData(shared, query.data, query.dataUpdatedAt);
+  // The usage snapshot refreshes only every 5 minutes; when an account is
+  // connected or removed, check usage again right away instead.
+  const live = useConnectedAccounts(usageOn ? companyId : null);
+  const liveKey = live.data ? accountsKey(live.data) : undefined;
+  const snapshotKey = query.data ? accountsKey(query.data.accounts.map((entry) => entry.account)) : undefined;
+  const { refetch, isFetching } = query;
+  useEffect(() => {
+    if (liveKey !== undefined && snapshotKey !== undefined && liveKey !== snapshotKey && !isFetching) void refetch();
+  }, [liveKey, snapshotKey, isFetching, refetch]);
   return query;
 }
 
