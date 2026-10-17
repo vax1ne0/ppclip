@@ -1,0 +1,1508 @@
+diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
+index ec7f50c4639714062c251304880f7e7b77d64d0d..f72460e9c27c8815c6a2a48dfa838eb763cac4f2 100644
+--- a/pnpm-lock.yaml
++++ b/pnpm-lock.yaml
+@@ -1101,6 +1101,9 @@ importers:
+       '@github/copilot-linux-x64':
+         specifier: 1.0.88
+         version: 1.0.88
++      '@lydell/node-pty':
++        specifier: 1.2.0-beta.15
++        version: 1.2.0-beta.15
+     devDependencies:
+       '@opentelemetry/context-async-hooks':
+         specifier: 2.10.0
+@@ -1267,6 +1270,9 @@ importers:
+       react:
+         specifier: ^19.2.8
+         version: 19.2.8
++      react-colorful:
++        specifier: 5.8.1
++        version: 5.8.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+       react-dom:
+         specifier: ^19.2.8
+         version: 19.2.8(react@19.2.8)
+@@ -3182,6 +3188,39 @@ packages:
+   '@livekit/protocol@1.52.1':
+     resolution: {integrity: sha512-X8DxKlNbzk6Lh+v630+mjdFHSotdAFwIyzxSRSUql2DbTxCnlpa7JsvFGc6Na3mXiex2OFh0iiQtWwOBP0rIYA==}
+ 
++  '@lydell/node-pty-darwin-arm64@1.2.0-beta.15':
++    resolution: {integrity: sha512-6TSBbzdcLiNTHl1mTuzflqXrkmcC36USVGvERoDgvHk2ItEDaMaFZuAJ1CqPmwYj0DyhCS16TVS8OGK9xZnjyQ==}
++    cpu: [arm64]
++    os: [darwin]
++
++  '@lydell/node-pty-darwin-x64@1.2.0-beta.15':
++    resolution: {integrity: sha512-yDT2oqPqYMBScyuk1U9Rg5VKcrbMOD9o9jWYYamDADA3NSbUISroPChrqYRQ74Y7BQtNH4gqYAiWOZRi5uQZ0Q==}
++    cpu: [x64]
++    os: [darwin]
++
++  '@lydell/node-pty-linux-arm64@1.2.0-beta.15':
++    resolution: {integrity: sha512-wkbNF7dYAmtJv+o2+iztVlNwnUB4B0uX0wh/UD+mwMcmE2gNMnW9GChXO7fEE5XJokD0vB5idiHpGegaN+G/sg==}
++    cpu: [arm64]
++    os: [linux]
++
++  '@lydell/node-pty-linux-x64@1.2.0-beta.15':
++    resolution: {integrity: sha512-+U/5AVvHT6W+8OCYcnJgN0Qgc0ycO3TfD6aaFJHK+WHij797f8gsi5dV1HEO9l6YQmWCD+VL5gaLDhx3mxHwCA==}
++    cpu: [x64]
++    os: [linux]
++
++  '@lydell/node-pty-win32-arm64@1.2.0-beta.15':
++    resolution: {integrity: sha512-pyAk91w7wnnKrD4mrHXtIXRfmzSWV5bEzvRhurXcMCtCc2TJ424ciUskIgWMhAPP6y3KyUnqElj+U6kY3iOt0A==}
++    cpu: [arm64]
++    os: [win32]
++
++  '@lydell/node-pty-win32-x64@1.2.0-beta.15':
++    resolution: {integrity: sha512-2f8twEmDVxZ7drchAXjtevpmSPhFok0avAnzXro4t5gmz0xsPNKkoZvymwtuIS3xo7PzQqZOPQ/YzwEMb7oIzQ==}
++    cpu: [x64]
++    os: [win32]
++
++  '@lydell/node-pty@1.2.0-beta.15':
++    resolution: {integrity: sha512-Br8wBxzbxFwdWgk9uQ+rdzE0xfoxOK4QuGH54swhRwc5IxP6H9Y1/bcyazRGvNUs6XkB5qNVkezuKSRxUwZe7A==}
++
+   '@marijn/find-cluster-break@1.0.4':
+     resolution: {integrity: sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==}
+ 
+@@ -8229,6 +8268,12 @@ packages:
+     resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
+     engines: {node: '>= 0.10'}
+ 
++  react-colorful@5.8.1:
++    resolution: {integrity: sha512-oz68bhsnFWnpDf1ZR8daiQbYpXUnM2h2J6hl9Zg2rTpM/DU6vCqe1E+CpqmqLnJucMZetHZeifSAfJ+geN9lcA==}
++    peerDependencies:
++      react: ^19.2.8
++      react-dom: ^19.2.8
++
+   react-docgen-typescript@2.4.0:
+     resolution: {integrity: sha512-ZtAp5XTO5HRzQctjPU0ybY0RRCQO19X/8fxn3w7y2VVTUbGHDKULPTL4ky3vB05euSgG5NpALhEhDPvQ56wvXg==}
+     peerDependencies:
+@@ -11283,6 +11328,34 @@ snapshots:
+     dependencies:
+       '@bufbuild/protobuf': 1.10.0
+ 
++  '@lydell/node-pty-darwin-arm64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-darwin-x64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-linux-arm64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-linux-x64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-win32-arm64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-win32-x64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty@1.2.0-beta.15':
++    optionalDependencies:
++      '@lydell/node-pty-darwin-arm64': 1.2.0-beta.15
++      '@lydell/node-pty-darwin-x64': 1.2.0-beta.15
++      '@lydell/node-pty-linux-arm64': 1.2.0-beta.15
++      '@lydell/node-pty-linux-x64': 1.2.0-beta.15
++      '@lydell/node-pty-win32-arm64': 1.2.0-beta.15
++      '@lydell/node-pty-win32-x64': 1.2.0-beta.15
++    optional: true
++
+   '@marijn/find-cluster-break@1.0.4': {}
+ 
+   '@mdx-js/react@3.1.1(@types/react@19.2.18)(react@19.2.8)':
+@@ -16609,6 +16682,11 @@ snapshots:
+       iconv-lite: 0.7.3
+       unpipe: 1.0.0
+ 
++  react-colorful@5.8.1(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
++    dependencies:
++      react: 19.2.8
++      react-dom: 19.2.8(react@19.2.8)
++
+   react-docgen-typescript@2.4.0(typescript@7.0.2):
+     dependencies:
+       typescript: 7.0.2
+diff --git a/server/package.json b/server/package.json
+index ab0bf9e23a287082d9d3e64565e76d0d4b845ceb..473b5e2150c20a32724f117a427654710fcf3657 100644
+--- a/server/package.json
++++ b/server/package.json
+@@ -186,6 +186,7 @@
+   "optionalDependencies": {
+     "@github/copilot-darwin-arm64": "1.0.88",
+     "@github/copilot-darwin-x64": "1.0.88",
+-    "@github/copilot-linux-x64": "1.0.88"
++    "@github/copilot-linux-x64": "1.0.88",
++    "@lydell/node-pty": "1.2.0-beta.15"
+   }
+ }
+diff --git a/server/src/app.ts b/server/src/app.ts
+index 14814f644196632c542ea3b95926c6d34745c890..0afb40a86f124e481b35dca9ba646e7f2c8802f0 100644
+--- a/server/src/app.ts
++++ b/server/src/app.ts
+@@ -80,6 +80,11 @@ import { companyRoutes } from "./routes/companies.js";
+ import { companySkillRoutes } from "./routes/company-skills.js";
+ import { companySkillPolicyRoutes } from "./routes/company-skill-policy.js";
+ import { inboxAgentPolicyRoutes } from "./routes/inbox-agent-policy.js";
++import { ppclipRunControlRoutes } from "./ppclip/run-controls/routes.js";
++import { ppclipProviderRoutingRoutes } from "./ppclip/providers/routes.js"; // ppclip: PROV-1/PROV-2
++import { startProviderRoutingController } from "./ppclip/providers/service.js"; // ppclip: PROV-2
++import { ppclipComputerUseRoutes } from "./ppclip/computer-use/routes.js"; // ppclip: computer use
++import { ppclipFeatureRoutes } from "./ppclip/features-routes.js"; // ppclip: module switches
+ import { builtInAgentRoutes } from "./routes/built-in-agents.js";
+ import { folderRoutes } from "./routes/folders.js";
+ import { summarySlotRoutes } from "./routes/summary-slots.js";
+@@ -753,6 +758,10 @@ export async function createApp(
+   api.use(companySkillPolicyRoutes(db));
+   api.use(inboxAgentPolicyRoutes(db));
+   api.use(agentCommentaryRoutes(db));
++  api.use(ppclipRunControlRoutes(db)); // ppclip: run controls (RUN-1, RUN-2, master switch)
++  api.use(ppclipProviderRoutingRoutes(db)); // ppclip: provider routing (PROV-1, PROV-2)
++  api.use(ppclipComputerUseRoutes(db)); // ppclip: computer use (off by default)
++  api.use(ppclipFeatureRoutes(db)); // ppclip: module switches (Settings → ppclip)
+   api.use(builtInAgentRoutes(db));
+   api.use(summarySlotRoutes(db));
+   api.use(statusCardRoutes(db));
+@@ -1335,6 +1344,8 @@ export async function createApp(
+       });
+   };
+   registerBrowserUseCleanup(deliveryWork, browserUse, () => !isIdleTaskDrainActive());
++  // ppclip: PROV-2 provider-routing controller (opt-in per company, off by default).
++  const ppclipProviderController = startProviderRoutingController(db, { isPaused: isWarmStandby, onError: (err) => logger.warn({ err }, "ppclip provider routing pass failed") });
+   let importTransferSweepTimer: ReturnType<typeof setInterval> | null =
+     setInterval(
+       sweepImportTransferSpools,
+@@ -1448,6 +1459,7 @@ export async function createApp(
+         chatPublicationTimer = null;
+       }
+       await chatReconciliation.drain();
++      ppclipProviderController.stop(); // ppclip: PROV-2
+       if (importTransferSweepTimer) {
+         clearInterval(importTransferSweepTimer);
+         importTransferSweepTimer = null;
+diff --git a/server/src/index.ts b/server/src/index.ts
+index 264adcd5589c24b172fd2b6b8fe130355f258b8b..8df9d343ed2bb663ce178161649351940652e540 100644
+--- a/server/src/index.ts
++++ b/server/src/index.ts
+@@ -76,6 +76,7 @@ import {
+ import { getOperatorSettingDefaults } from "./services/setting-defaults.js";
+ import { setupEnvironmentCustomImageTerminalWebSocketServer } from "./realtime/environment-custom-image-terminal-ws.js";
+ import { setupLiveEventsWebSocketServer } from "./realtime/live-events-ws.js";
++import { setupPpclipComputerStreamProxy } from "./ppclip/computer-use/stream-proxy.js"; // ppclip: computer use
+ import { cloudActorHeaderSourceFromHeaders, resolveCloudTenantActor } from "./middleware/auth.js";
+ import {
+   feedbackService,
+@@ -993,6 +994,7 @@ async function startServerWithDatabaseTeardown(
+   setupEnvironmentCustomImageTerminalWebSocketServer(server, db as any, {
+     pluginWorkerManager,
+   });
++  setupPpclipComputerStreamProxy(server, db as any); // ppclip: computer use live view (before live events)
+   setupLiveEventsWebSocketServer(server, db as any, {
+     deploymentMode: config.deploymentMode,
+     resolveSessionFromHeaders,
+diff --git a/server/src/services/agent-configuration.ts b/server/src/services/agent-configuration.ts
+index 8037f150d0dfd3cefd7593945168c97e71eeafb3..97a6b8f56c034453c8a5dad516774a1e48cfaf56 100644
+--- a/server/src/services/agent-configuration.ts
++++ b/server/src/services/agent-configuration.ts
+@@ -11,6 +11,9 @@ import { secretService, assertClaudeOAuthBindingInvariant } from "./secrets.js";
+ import { agentCredentialService } from "./agent-credentials.js";
+ import { clearPrimaryAgent } from "./primary-agent.js";
+ import { budgetServiceInTransaction } from "./budgets.js";
++import { preserveRunControlMetadata } from "../ppclip/run-controls/state.js"; // ppclip: run controls
++import { preserveRoutingMetadata } from "../ppclip/providers/policy.js"; // ppclip: PROV-2
++import { preserveComputerUseMetadata } from "../ppclip/computer-use/state.js"; // ppclip: computer use
+ 
+ export async function prepareAgentConfiguration(db: Db, existing: AgentConfigurationRecord, data: AgentConfigurationPatch, options?: UpdateAgentOptions): Promise<AgentConfigurationPatch> {
+   const id = existing.id;
+@@ -43,6 +46,11 @@ export async function prepareAgentConfiguration(db: Db, existing: AgentConfigura
+ 
+   if (Object.prototype.hasOwnProperty.call(data, "metadata")) {
+     assertBuiltInAgentMetadataMutationAllowed(existing.metadata, data.metadata, options);
++    // ppclip: run-control and drain-after state change only through the board run-control endpoints.
++    data = { ...data, metadata: preserveRunControlMetadata(existing.metadata, data.metadata) };
++    // ppclip: PROV-2 the provider-routing record changes only through the routing controller.
++    data = { ...data, metadata: preserveRoutingMetadata(existing.metadata, data.metadata) };
++    data = { ...data, metadata: preserveComputerUseMetadata(existing.metadata, data.metadata) }; // ppclip: computer use
+   }
+ 
+   if (data.appearance?.customAvatarAssetId) {
+diff --git a/server/src/services/agent-hiring.ts b/server/src/services/agent-hiring.ts
+index 4e0199a1ade81e45d025dd1ba1a2dc8d3e13a7f4..1ed7090257420039d6bda65eed6a2871a844a114 100644
+--- a/server/src/services/agent-hiring.ts
++++ b/server/src/services/agent-hiring.ts
+@@ -12,6 +12,9 @@ import { secretService, assertClaudeOAuthBindingInvariant } from "./secrets.js";
+ import { agentCredentialService } from "./agent-credentials.js";
+ import { agentIdentityService } from "./agent-identity.js";
+ import { initializePrimaryAgent } from "./primary-agent.js";
++import { stripRunControlMetadata } from "../ppclip/run-controls/state.js"; // ppclip: run controls
++import { stripRoutingMetadata } from "../ppclip/providers/policy.js"; // ppclip: PROV-2
++import { stripComputerUseMetadata } from "../ppclip/computer-use/state.js"; // ppclip: computer use
+ import { resolveNewAgentRunnerForCompany } from "./agent-runner-selection.js";
+ 
+ export async function prepareAgentHire(db: Db, companyId: string, input: CreateAgentData, options?: CreateAgentOptions): Promise<CreateAgentData> {
+@@ -26,6 +29,9 @@ export async function prepareAgentHire(db: Db, companyId: string, input: CreateA
+   const { ensureManager, assertBuiltInAgentMetadataMutationAllowed } = agentRecordQueries(db);
+   if (data.appearance?.customAvatarAssetId) throw unprocessable("Create the agent before uploading its avatar");
+   assertBuiltInAgentMetadataMutationAllowed(null, data.metadata, options);
++  if (data.metadata) data.metadata = stripRunControlMetadata(data.metadata); // ppclip: hires never inherit run controls
++  if (data.metadata) data.metadata = stripRoutingMetadata(data.metadata); // ppclip: PROV-2 hires never inherit a routing record
++  if (data.metadata) data.metadata = stripComputerUseMetadata(data.metadata); // ppclip: hires never inherit a computer
+   if (data.reportsTo) {
+     await ensureManager(companyId, data.reportsTo);
+   }
+diff --git a/server/src/services/heartbeat.ts b/server/src/services/heartbeat.ts
+index 8c0f5b32bf87ee4cae7279893034bb2e029aca8d..e84355b311a8c7502f89c47335dc5f733e92c322 100644
+--- a/server/src/services/heartbeat.ts
++++ b/server/src/services/heartbeat.ts
+@@ -4074,6 +4074,8 @@ export function heartbeatService(
+     // run-execution experimental setting). Callers outside the service that
+     // gate on suppression should prefer this over the env-only resolver.
+     resolveSchedulingSuppression: getSchedulingSuppression,
++    // ppclip: run controls read daily caps exactly as the scheduler does.
++    parseHeartbeatPolicy,
+     drainRunningRunsForShutdown,
+     drainActiveRunExecutions,
+     startTaskDrain,
+diff --git a/server/src/services/heartbeat/queue.ts b/server/src/services/heartbeat/queue.ts
+index 6a61871516b99668b0c00066f392b12146cedcba..b6f2b47ab8e87b240f056c6df2bd4d6e64b7b8ed 100644
+--- a/server/src/services/heartbeat/queue.ts
++++ b/server/src/services/heartbeat/queue.ts
+@@ -38,6 +38,8 @@ import {
+   readNativeReviewAssignmentContext,
+ } from "../native-runtime/native-review-participant.js";
+ import { claimQueuedNativeReviewRun } from "../native-runtime/native-review-dispatch.js";
++import { ppclipRunCreditForDay } from "../../ppclip/run-controls/credit.js"; // ppclip: run controls
++import { ppclipDrainAfterOnClaim, ppclipDrainAfterPreLock, ppclipFlushDrainAfterEvents } from "../../ppclip/run-controls/drain-after-claim.js"; // ppclip: run controls
+ import { adapterExecutionControls } from "../adapter-execution-control.js";
+ import { executionFailureRetryCount } from "../execution-recovery-attempt.js";
+ import {
+@@ -469,7 +471,9 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
+     const checkRunCap = options.checkRunCap ?? true;
+     const checkCostCap = options.checkCostCap ?? true;
+     const { start, end } = currentUtcDayWindow();
+-    if (checkRunCap && policy.maxDailyRuns !== null) {
++    // ppclip: runs made while Unlimited was on are credited back for that UTC day only.
++    const runCap = policy.maxDailyRuns === null ? null : policy.maxDailyRuns + ppclipRunCreditForDay(agent.metadata, start);
++    if (checkRunCap && runCap !== null) {
+       const conditions = [
+         eq(heartbeatRuns.companyId, agent.companyId),
+         eq(heartbeatRuns.agentId, agent.id),
+@@ -485,11 +489,11 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
+         .from(heartbeatRuns)
+         .where(and(...conditions));
+       const observed = Number(row?.total ?? 0);
+-      if (observed >= policy.maxDailyRuns) {
++      if (observed >= runCap) {
+         return {
+           reason: "heartbeat.daily_run_limit",
+           observed,
+-          limit: policy.maxDailyRuns,
++          limit: runCap,
+         };
+       }
+     }
+@@ -1140,6 +1144,8 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
+     // All ordinary and comment claims use the same company-scoped issue
+     // lock. A batch may claim several runs before executeRun tracks any owner.
+     async function lockIssueExecutionClaim(tx: Db) {
++      // ppclip: drain-after takes its team locks before official's issue lock.
++      await ppclipDrainAfterPreLock(tx, run);
+       const [owner] = issueId ? await tx.select({
+         assigneeAgentId: issues.assigneeAgentId,
+         executionRunId: issues.executionRunId,
+@@ -1198,6 +1204,8 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
+       return { ownsIssue, blocked: false };
+     }
+     async function bindClaimedIssueExecution(tx: Db, ownsIssue: boolean, claimedRun: typeof heartbeatRuns.$inferSelect | null | undefined) {
++      // ppclip: an armed drain-after drains the team in this claim transaction.
++      await ppclipDrainAfterOnClaim(tx, claimedRun, (row) => parseHeartbeatPolicy(row).maxDailyRuns);
+       if (!claimedRun || !issueId || !ownsIssue) return;
+       await tx.update(issues).set({
+         executionRunId: claimedRun.id,
+@@ -1542,9 +1550,15 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
+               const predecessor = await lockIssueExecutionClaim(tx);
+               if (predecessor.blocked) return null;
+             }
+-            return claimQueuedNativeReviewRun(tx, {
+-              run, claimedAt, claimValues,
+-              agentNameKey: normalizeAgentNameKey(agent.name),
++            // ppclip: wrap so drain-after shares the native review claim transaction.
++            return tx.transaction(async (ppclipTx) => {
++              await ppclipDrainAfterPreLock(ppclipTx as unknown as Db, run);
++              const claimedReviewRun = await claimQueuedNativeReviewRun(ppclipTx as unknown as Db, {
++                run, claimedAt, claimValues,
++                agentNameKey: normalizeAgentNameKey(agent.name),
++              });
++              await ppclipDrainAfterOnClaim(ppclipTx as unknown as Db, claimedReviewRun, (row) => parseHeartbeatPolicy(row).maxDailyRuns);
++              return claimedReviewRun;
+             });
+           }
+           return tx.transaction(async (claimTx) => {
+@@ -1557,6 +1571,7 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
+             return claimedRun;
+           });
+         });
++    ppclipFlushDrainAfterEvents(run.id, claimed); // ppclip
+     if (!claimed) return null;
+ 
+     publishLiveEvent({
+diff --git a/server/src/services/heartbeat/recovery.ts b/server/src/services/heartbeat/recovery.ts
+index 80384df1c84a9115fe6359b0be31c54365528f6d..fc2533445f5cfe8c6837be595581873f3a55ccdf 100644
+--- a/server/src/services/heartbeat/recovery.ts
++++ b/server/src/services/heartbeat/recovery.ts
+@@ -36,6 +36,7 @@ import {
+   nativeRunFinalizations,
+ } from "@paperclipai/db";
+ import { logger } from "../../middleware/logger.js";
++import { repairStaleRunningAgents } from "../../ppclip/stale-agent-status.js"; // ppclip: stale running repair
+ import {
+   claimNativeRestartRecoveries,
+   closeIdleWarmNativeSessionsForRestart,
+@@ -1923,6 +1924,10 @@ export function createHeartbeatRecovery(db: Db, dependencies: HeartbeatRecoveryD
+   async function reapOrphanedRuns(opts?: { staleThresholdMs?: number }) {
+     const staleThresholdMs = opts?.staleThresholdMs ?? 0;
+     const now = new Date();
++    // ppclip: repair agents left "running" with no live or queued run.
++    await repairStaleRunningAgents(db, now).catch(error => {
++      logger.warn({ err: error }, "failed to repair stale running agents");
++    });
+     // Recovery never launches a provider or infers stopped ownership from
+     // terminal status. Uncaptured local copies require durable stop evidence.
+     await instructionCopies.recoverStopped().catch(error => {
+diff --git a/server/src/services/heartbeat/run-lifecycle.ts b/server/src/services/heartbeat/run-lifecycle.ts
+index b9df9f435e519b54626f2b371d377f2c094e1a1b..1fcc7eb7319e4190fc6759ace65657f04207e5f4 100644
+--- a/server/src/services/heartbeat/run-lifecycle.ts
++++ b/server/src/services/heartbeat/run-lifecycle.ts
+@@ -8,6 +8,7 @@ import {
+   DETACHED_PROCESS_ERROR_CODE,
+ } from "./recovery.js";
+ import { normalizeAgentNameKey } from "./retries.js";
++import { ppclipFeature } from "../../ppclip/features.js"; // ppclip: module switch
+ import {
+   type RunSessionOutcome,
+   deriveTaskKeyWithHeartbeatFallback,
+@@ -2192,6 +2193,8 @@ export function createHeartbeatLifecycle(db: Db, dependencies: HeartbeatLifecycl
+           eq(issueComments.companyId, companyId),
+           eq(issueComments.issueId, issueId),
+           eq(issueComments.createdByRunId, runId),
++          // ppclip: a deleted comment is not the run's reply (module switch: deletedCommentReply).
++          ppclipFeature("deletedCommentReply") ? isNull(issueComments.deletedAt) : undefined,
+         ),
+       )
+       .orderBy(desc(issueComments.createdAt), desc(issueComments.id));
+diff --git a/server/src/services/heartbeat/runtime-execution.ts b/server/src/services/heartbeat/runtime-execution.ts
+index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..7bb1e50370366b15e38729c976a798afd9547691 100644
+--- a/server/src/services/heartbeat/runtime-execution.ts
++++ b/server/src/services/heartbeat/runtime-execution.ts
+@@ -92,6 +92,7 @@ import type { NativeExecutionInput, NativeSessionBackend } from "../../vendor/pa
+ import type { PluginWorkerManager } from "../plugin-worker-manager.js";
+ import type { RealizedExecutionWorkspace } from "../workspace-runtime.js";
+ import type { reserveWarmNativeInstructionDirectory } from "../native-runtime/index.js";
++import { ppclipComputerUseMcpServer } from "../../ppclip/computer-use/index.js"; // ppclip: computer use
+ 
+ type Selection = HeartbeatRuntimeSelectionInput;
+ type Selected = Extract<HeartbeatRuntimeSelectionResult, { selected: true }>;
+@@ -774,6 +775,9 @@ export async function executeHeartbeatRuntime(db: Db, input: HeartbeatRuntimeExe
+         runtimeMcpServers.unshift({ name: "Paperclip projects", url: `${paperclipApiBaseUrl()}/api/mcp/project-tools`,
+           token: authToken, connectionId: "paperclip-project-tools" });
+       }
++      // ppclip: computer use tools for agents that have it turned on (off by default).
++      const ppclipComputer = configuredPaperclipApiBaseUrl() ? await ppclipComputerUseMcpServer(db, agent, authToken, paperclipApiBaseUrl()) : null;
++      if (ppclipComputer) runtimeMcpServers.push(ppclipComputer);
+       const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
+       if (runtimeTools && runtimeToolDelivery === "invocation_context") {
+         adapterContext.paperclipRuntimeTools = runtimeTools;
+diff --git a/server/src/services/local-ai-browser-login.ts b/server/src/services/local-ai-browser-login.ts
+index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..dff3327328f569a865aeb38f35199e5666675058 100644
+--- a/server/src/services/local-ai-browser-login.ts
++++ b/server/src/services/local-ai-browser-login.ts
+@@ -6,6 +6,8 @@ import { runSetupTokenLogin } from "@paperclipai/adapter-claude-local/server";
+ import { runDeviceLogin } from "@paperclipai/adapter-codex-local/server";
+ import { ensureCommandResolvable, resolveCommandForLogs } from "@paperclipai/adapter-utils/server-utils";
+ import { resolveCodexCommand } from "../vendor/paperclip-runner/index.js";
++import { createWindowsLoginTerminal, type WindowsLoginTerminal } from "../ppclip/windows-browser-login.js"; // ppclip: Windows sign-in
++import { ppclipFeature } from "../ppclip/features.js"; // ppclip: module switch
+ 
+ export type LocalBrowserLoginState = {
+   authorizationUrl?: string;
+@@ -52,6 +54,7 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+   const state: LocalBrowserLoginState = { abort: () => controller.abort() };
+   const args = provider === "anthropic" ? ["setup-token"] : ["login", "--device-auth"];
+   let child: ChildProcessWithoutNullStreams | null = null;
++  let windowsTerminal: WindowsLoginTerminal | null = null; // ppclip: Windows sign-in
+   const driver = {
+     async start(_command: string, onData: (chunk: string) => void): Promise<{ exitCode: number | null }> {
+       let executable = "claude";
+@@ -80,6 +83,14 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+         CODEX_HOME: provider === "openai" ? home : process.env.CODEX_HOME,
+         BROWSER: "true",
+       };
++      // ppclip: Windows has no Python pty module; run the CLI in a ConPTY instead.
++      if (process.platform === "win32" && ppclipFeature("windowsSignIn")) {
++        windowsTerminal = createWindowsLoginTerminal();
++        return windowsTerminal.start(executable, args, env, onData).catch((error) => {
++          state.error = `Browser sign-in could not start ${provider === "anthropic" ? "Claude Code (claude)" : "Codex (codex)"} in a Windows terminal. Install it on this host and make sure it is on Paperclip's PATH, then start sign-in again.`;
++          throw error;
++        });
++      }
+       return new Promise((resolve, reject) => {
+         child = spawn("python3", ["-u", "-c", PYTHON_PTY_BRIDGE, executable, ...args], { env, stdio: ["pipe", "pipe", "pipe"] });
+         child.stdout.on("data", (bytes: Buffer) => onData(bytes.toString("utf8")));
+@@ -92,9 +103,9 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+         child.once("close", (exitCode) => resolve({ exitCode }));
+       });
+     },
+-    write(input: string) { child?.stdin.write(input); },
+-    stop() { child?.kill("SIGTERM"); },
+-    async dispose() { child?.kill("SIGTERM"); },
++    write(input: string) { windowsTerminal?.write(input); child?.stdin.write(input); }, // ppclip: Windows sign-in
++    stop() { windowsTerminal?.stop(); child?.kill("SIGTERM"); },
++    async dispose() { windowsTerminal?.stop(); child?.kill("SIGTERM"); },
+     async readFile(file: string) { const { readLocalAiCredentialFile } = await import("./local-ai-credential-file.js"); return Buffer.from(await readLocalAiCredentialFile(file)); },
+   };
+   if (provider === "anthropic") {
+diff --git a/server/src/services/local-ai-credential-file.ts b/server/src/services/local-ai-credential-file.ts
+index 4641dde599c2129b9c3b0a4e929e0e1e7d6ab5cf..fbd7932e5bc201deac55ab7ee6ae85ba442de4af 100644
+--- a/server/src/services/local-ai-credential-file.ts
++++ b/server/src/services/local-ai-credential-file.ts
+@@ -1,9 +1,13 @@
++import { readWindowsCredentialFile } from "../ppclip/windows-local-login.js";
++import { ppclipFeature } from "../ppclip/features.js"; // ppclip: module switch
+ import { openRunnerApiWorkspaceFile } from "./native-runtime/runner-api-files.js";
+ 
+ const MAX_CREDENTIAL_BYTES = 64 * 1024;
+ 
+ /** Bounded descriptor read; never follows symlinks or reopens a checked path. */
+ export async function readLocalAiCredentialFile(filename: string): Promise<string> {
++  // ppclip: Windows has no confined open or POSIX owner/mode bits.
++  if (process.platform === "win32" && ppclipFeature("windowsSignIn")) return readWindowsCredentialFile(filename);
+   const file = await openRunnerApiWorkspaceFile(filename);
+   try {
+     const stat = await file.stat();
+diff --git a/server/src/services/local-ai-login.ts b/server/src/services/local-ai-login.ts
+index 71482abc4cbf8ac11f725ae89d6fd35bcbdce0fc..4813f8994f27e9a25e54a60798cd1fc5701ebfd1 100644
+--- a/server/src/services/local-ai-login.ts
++++ b/server/src/services/local-ai-login.ts
+@@ -10,6 +10,8 @@ import { notFound, unprocessable } from "../errors.js";
+ import { aiConnectionService } from "./ai-connections.js";
+ import { readVerifiedLocalAiCredential } from "./local-ai-credentials.js";
+ import { logActivity } from "./activity-log.js";
++import { windowsLocalLoginCommand } from "../ppclip/windows-local-login.js";
++import { ppclipFeature } from "../ppclip/features.js"; // ppclip: module switch
+ import { startLocalBrowserLogin, type LocalBrowserLoginState } from "./local-ai-browser-login.js";
+ 
+ const LOCAL_LOGIN_METHOD = "local_subscription";
+@@ -29,7 +31,8 @@ function presentAttempt(id: string, expiresAt: Date, provider: string): LocalAiL
+   const directory = loginHome(id);
+   return {
+     sessionId: id, expiresAt: expiresAt.toISOString(),
+-    ...(provider === "xai" ? { command: `(export GROK_HOME=${shellQuote(directory)} && mkdir -p "$GROK_HOME" && grok login --device-auth)` } : {}),
++    // ppclip: PowerShell command when the server runs on Windows.
++    ...(provider === "xai" ? { command: process.platform === "win32" && ppclipFeature("windowsSignIn") ? windowsLocalLoginCommand(provider, directory) : `(export GROK_HOME=${shellQuote(directory)} && mkdir -p "$GROK_HOME" && grok login --device-auth)` } : {}),
+   };
+ }
+ async function prepareHome(id: string, provider: string) {
+diff --git a/ui/package.json b/ui/package.json
+index 279b2553b14a47266557764cf8a37d73a71bdac4..a9d5620d83ceafd8fc40dbe21196839f287c14ce 100644
+--- a/ui/package.json
++++ b/ui/package.json
+@@ -65,6 +65,7 @@
+     "motion": "^13.1.1",
+     "radix-ui": "^1.6.7",
+     "react": "^19.2.8",
++    "react-colorful": "5.8.1",
+     "react-dom": "^19.2.8",
+     "react-i18next": "^17.0.15",
+     "react-markdown": "^10.1.0",
+diff --git a/ui/src/App.tsx b/ui/src/App.tsx
+index ba6af93f11a01cbb41d6ba2709097a2cbb283317..50f0bfb7de3818367e598f39d5dd6f52348fb6b5 100644
+--- a/ui/src/App.tsx
++++ b/ui/src/App.tsx
+@@ -96,6 +96,7 @@ import { ProfileSettings } from "./pages/ProfileSettings";
+ import { PluginManager } from "./pages/PluginManager";
+ import { PluginSettings } from "./pages/PluginSettings";
+ import { AdapterManager } from "./pages/AdapterManager";
++import { PpclipSettingsPage } from "./ppclip/features/PpclipSettingsPage"; // ppclip: module switches
+ import { PluginPage } from "./pages/PluginPage";
+ import { NewAgent } from "./pages/NewAgent";
+ import { AuthPage } from "./pages/Auth";
+@@ -143,6 +144,8 @@ const ProductionCompanyActivity = lazy(() =>
+ const ProductionOrgChart = lazy(() =>
+   import("./pages/OrgChart.production").then((module) => ({ default: module.OrgChart })),
+ );
++// ppclip: TEAM-1 Team page (lazy: keeps the canvas and colour picker out of the main bundle)
++const TeamPage = lazy(() => import("./ppclip/team/TeamPage").then((m) => ({ default: m.TeamPage })));
+ 
+ function ProductionSurface({ children }: { children: ReactNode }) {
+   return <Suspense fallback={<PaperclipLoading />}>{children}</Suspense>;
+@@ -266,6 +269,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+       <Route element={<HiddenSettingsPageGate pageKey="instance.adapters" />}>
+         <Route path="company/settings/instance/adapters" element={<AdapterManager />} />
+       </Route>
++      <Route path="company/settings/instance/ppclip" element={<PpclipSettingsPage />} /> {/* ppclip: module switches */}
+       <Route path="company/settings/:settingsRoutePath/*" element={<CompanySettingsPluginPage />} />
+       <Route path="skills/sources" element={<SkillSources />} />
+       <Route path="skills/sources/:sourceId" element={<SkillSources />} />
+@@ -284,6 +288,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+         path="org"
+         element={streamlinedUiEnabled ? <Navigate to="/agents/all" replace /> : <ProductionSurface><ProductionOrgChart /></ProductionSurface>}
+       />
++      <Route path="team" element={<Suspense fallback={null}><TeamPage /></Suspense>} /> {/* ppclip: TEAM-1 */}
+       <Route path="agents" element={<Navigate to="/agents/all" replace />} />
+       {AGENT_FILTER_TABS.map((tab) => (
+         <Route
+@@ -869,6 +874,7 @@ export function App() {
+           <Route path="skills/*" element={<UnprefixedBoardRedirect />} />
+           <Route path="settings" element={<LegacySettingsRedirect />} />
+           <Route path="settings/*" element={<LegacySettingsRedirect />} />
++          <Route path="team" element={<UnprefixedBoardRedirect />} /> {/* ppclip: TEAM-1 */}
+           <Route path="agents" element={<UnprefixedBoardRedirect />} />
+           {AGENT_FILTER_TABS.map((tab) => (
+             <Route key={tab} path={`agents/${tab}`} element={<UnprefixedBoardRedirect />} />
+diff --git a/ui/src/components/ActiveAgentsPanel.tsx b/ui/src/components/ActiveAgentsPanel.tsx
+index b3aaf50a2d77efeac06ca909217323b0cbf331da..be65ad4184340a9218ce3e4812542e79b2502651 100644
+--- a/ui/src/components/ActiveAgentsPanel.tsx
++++ b/ui/src/components/ActiveAgentsPanel.tsx
+@@ -1,6 +1,7 @@
+ import { AgentIdentity } from "@/components/AgentIdentity";
+ import { memo, useMemo } from "react";
+ import { Link } from "@/lib/router";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { useQueries, useQuery } from "@tanstack/react-query";
+ import type { Issue } from "@paperclipai/shared";
+ import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
+@@ -132,7 +133,8 @@ export function ActiveAgentsPanel({
+   return (
+     <div>
+       <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+-        {title}
++        {/* ppclip: DASH-4 the heading opens Live runs */}
++        {showMoreLink ? <PpclipOn feature="liveRuns" fallback={title}><Link to="/dashboard/live" className="hover:text-foreground hover:underline">{title}</Link></PpclipOn> : title}
+       </h3>
+       {runs.length === 0 ? (
+         <div className="rounded-xl border border-border p-4">
+diff --git a/ui/src/components/AgentActionButtons.tsx b/ui/src/components/AgentActionButtons.tsx
+index 860327ec39aacd043284ade8092dd56cc1723ac6..0f951264613418594bc832ae02dbf9e4623b0bef 100644
+--- a/ui/src/components/AgentActionButtons.tsx
++++ b/ui/src/components/AgentActionButtons.tsx
+@@ -29,7 +29,8 @@ import {
+   AlertDialogHeader,
+   AlertDialogTitle,
+ } from "@/components/ui/alert-dialog";
+-import { AgentStatusBadge } from "./StatusBadge";
++import { AgentAttentionBadge } from "@/ppclip/attention/AgentAttentionBadge"; // ppclip: NAV-2
++import { DrainAfterMenuItem } from "@/ppclip/run-controls/DrainAfterMenuItem";
+ import { agentsApi } from "../api/agents";
+ import { ApiError } from "../api/client";
+ import { queryKeys } from "../lib/queryKeys";
+@@ -163,6 +164,7 @@ export function AgentActionButtons({
+   runLabel = "Run now",
+   showStatus = true,
+   showRun = true,
++  showAssign = true, // ppclip: TEAM-1 Team cards hide Assign task
+   actionsDisabled = false,
+   workActionsDisabled = false,
+   workActionsDisabledReason,
+@@ -184,6 +186,8 @@ export function AgentActionButtons({
+   runLabel?: string;
+   showStatus?: boolean;
+   showRun?: boolean;
++  /** ppclip: TEAM-1 — hide the Assign task button (compact Team cards). */
++  showAssign?: boolean;
+   actionsDisabled?: boolean;
+   workActionsDisabled?: boolean;
+   workActionsDisabledReason?: string;
+@@ -393,7 +397,7 @@ export function AgentActionButtons({
+           Raw tracing on
+         </span>
+       ) : null}
+-      <Button
++      {showAssign && <Button /* ppclip: TEAM-1 */
+         variant="outline"
+         size={size}
+         onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
+@@ -402,7 +406,7 @@ export function AgentActionButtons({
+       >
+         <Plus className="h-3.5 w-3.5 sm:mr-1" />
+         <span className="hidden sm:inline">{assignLabel}</span>
+-      </Button>
++      </Button>}
+       {showRun && <RunButton
+         onClick={() => {
+           if (navigateToRunOnInvoke && !confirmNavigationStart(agentActionStartedDirtyRef)) return;
+@@ -462,7 +466,7 @@ export function AgentActionButtons({
+       )}
+       {showStatus && (
+         <span className="hidden sm:inline">
+-          <AgentStatusBadge status={agent.status} />
++          <AgentAttentionBadge agent={agent} />{/* ppclip: NAV-2 attention-aware status */}
+         </span>
+       )}
+       {children}
+@@ -473,6 +477,8 @@ export function AgentActionButtons({
+           </Button>
+         </PopoverTrigger>
+         <PopoverContent className="w-44 p-1" align="end">
++          {/* ppclip: RUN-2 drain after next run (hidden while run controls are off) */}
++          <DrainAfterMenuItem agent={agent} onDone={() => setMoreOpen(false)} onError={reportError} />
+           <button
+             className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+             disabled={duplicateAgent.isPending}
+diff --git a/ui/src/components/AgentConversationsSidebar.tsx b/ui/src/components/AgentConversationsSidebar.tsx
+index bb173be4a17299dbe7aa8ba76e56a69258ad608e..d8b7ab8a0784fb73d518c39d0dc0771d244477bc 100644
+--- a/ui/src/components/AgentConversationsSidebar.tsx
++++ b/ui/src/components/AgentConversationsSidebar.tsx
+@@ -7,6 +7,7 @@ import { useQueries } from "@tanstack/react-query";
+ import { agentsApi } from "@/api/agents";
+ import { queryKeys } from "@/lib/queryKeys";
+ import { resourceMembershipState, useResourceMemberships } from "@/hooks/useResourceMemberships";
++import { useAgentUrgencyOrder } from "@/ppclip/attention/useAgentAttention"; // ppclip: NAV-1
+ 
+ /** Account- and company-scoped data for the secondary chat navigation. */
+ export function AgentConversationsSidebar() {
+@@ -14,6 +15,7 @@ export function AgentConversationsSidebar() {
+   const openChat = useOpenAgentChat(companyId, userId);
+   const navigate = useNavigate();
+   const memberships = useResourceMemberships(companyId);
++  const orderByUrgency = useAgentUrgencyOrder(companyId); // ppclip: NAV-1 urgency first, official order within each group
+   const { isMobile, setSidebarOpen } = useSidebar();
+   const { pathname } = useLocation();
+   const activeRef = pathname.split("/chats/")[1]?.split("/")[0];
+@@ -43,7 +45,7 @@ export function AgentConversationsSidebar() {
+     .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }));
+   const previews = Object.fromEntries((chats.data ?? []).filter(chat => chat.conversationState === "active")
+     .map(chat => [chat.conversationAgentId!, "Working…"]));
+-  return <AgentConversationSidebar key={`${companyId}:${userId}`} agents={[...conversations, ...teammates]} availableAgents={roster}
++  return <AgentConversationSidebar key={`${companyId}:${userId}`} agents={orderByUrgency([...conversations, ...teammates]) /* ppclip: NAV-1 */} availableAgents={roster}
+     existingChatAgentIds={conversations.map(agent => agent.id)}
+     activeId={active?.id} previews={previews}
+     loading={agents.isPending || chats.isPending || session.isPending}
+diff --git a/ui/src/components/BreadcrumbBar.test.tsx b/ui/src/components/BreadcrumbBar.test.tsx
+index 8ba15e379e54a9ef83abe61262eecb9370f2ff78..21f7420da5265abed01bfdc5af5292e699e18560 100644
+--- a/ui/src/components/BreadcrumbBar.test.tsx
++++ b/ui/src/components/BreadcrumbBar.test.tsx
+@@ -41,6 +41,9 @@ vi.mock("@/plugins/launchers", () => ({
+   PluginLauncherOutlet: () => null,
+ }));
+ 
++// ppclip: PROV-1 toolbar has its own tests (ui/src/ppclip/providers).
++vi.mock("@/ppclip/providers/ProviderToolbar", () => ({ ProviderToolbar: () => null }));
++
+ function TaskBreadcrumbs({
+   onOpen,
+   panelControl,
+diff --git a/ui/src/components/BreadcrumbBar.tsx b/ui/src/components/BreadcrumbBar.tsx
+index 9684c360b44f82a84480563a3c76c78147f8cd1b..2f406f811077285c25f60db7416252be986cf64b 100644
+--- a/ui/src/components/BreadcrumbBar.tsx
++++ b/ui/src/components/BreadcrumbBar.tsx
+@@ -17,6 +17,7 @@ import { Fragment, useMemo, type ReactNode } from "react";
+ import { PluginSlotOutlet, usePluginSlots } from "@/plugins/slots";
+ import { PluginLauncherOutlet, usePluginLaunchers } from "@/plugins/launchers";
+ import { cn } from "../lib/utils";
++import { ProviderToolbar } from "@/ppclip/providers/ProviderToolbar"; // ppclip: PROV-1
+ 
+ type GlobalToolbarContext = { companyId: string | null; companyPrefix: string | null };
+ 
+@@ -42,6 +43,7 @@ function GlobalToolbar({
+   return (
+     <div className="ml-auto flex shrink-0 items-center gap-1 pl-2 empty:hidden">
+       {pageToolbar}
++      <ProviderToolbar companyId={context.companyId} />{/* ppclip: PROV-1 provider usage + mode switch */}
+       {slots.length > 0 ? (
+         <PluginSlotOutlet slotTypes={["globalToolbarButton"]} context={context} className="flex items-center gap-1" />
+       ) : null}
+diff --git a/ui/src/components/CompanySettingsSidebar.production.tsx b/ui/src/components/CompanySettingsSidebar.production.tsx
+index 690ffb7fbfe78defd98a36913327d045c616ade4..44bbf849703bad8072db160601968d3a65b62ddc 100644
+--- a/ui/src/components/CompanySettingsSidebar.production.tsx
++++ b/ui/src/components/CompanySettingsSidebar.production.tsx
+@@ -3,6 +3,7 @@ import {
+   ChevronLeft,
+   Clock3,
+   Cpu,
++  Blocks, // ppclip: module switches
+   Download,
+   FlaskConical,
+   KeyRound,
+@@ -213,6 +214,8 @@ export function CompanySettingsSidebar() {
+               icon={Cpu}
+             />
+           )}
++          {/* ppclip: module switches, right below Adapters */}
++          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/ppclip`} label="ppclip" icon={Blocks} />
+         </div>
+       </nav>
+     </aside>
+diff --git a/ui/src/components/CompanySettingsSidebar.tsx b/ui/src/components/CompanySettingsSidebar.tsx
+index d264a15bccbd3c6f0d6856bd60bbf77c7c60d8e5..add923928ba4362a21c388d8ed708bb68bc56af9 100644
+--- a/ui/src/components/CompanySettingsSidebar.tsx
++++ b/ui/src/components/CompanySettingsSidebar.tsx
+@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
+ import {
+   ArrowLeft,
+   Cpu,
++  Blocks, // ppclip: module switches
+   Download,
+   FlaskConical,
+   KeyRound,
+@@ -204,6 +205,8 @@ export function CompanySettingsSidebar() {
+               icon={Cpu}
+             />
+           )}
++          {/* ppclip: module switches, right below Adapters */}
++          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/ppclip`} label="ppclip" icon={Blocks} />
+         </div>
+       </nav>
+     </ContextualSidebarFrame>
+diff --git a/ui/src/components/EntityRow.tsx b/ui/src/components/EntityRow.tsx
+index 7e1a18f211aeda717863243b3c886c3d40adef2a..8070d1359262934e24190a6e7fdb3581b89b092f 100644
+--- a/ui/src/components/EntityRow.tsx
++++ b/ui/src/components/EntityRow.tsx
+@@ -39,6 +39,8 @@ interface EntityRowProps {
+    * behind `hidden xl:flex` so wide layouts are unchanged.
+    */
+   secondaryRow?: ReactNode;
++  /** ppclip: AGENTS-1 custom title node (agent name with its task hover card); replaces the native title tooltip. */
++  titleContent?: ReactNode;
+ }
+ 
+ export function EntityRow({
+@@ -60,6 +62,7 @@ export function EntityRow({
+   reserveSubtitleSpace,
+   titlePriority,
+   secondaryRow,
++  titleContent, // ppclip: AGENTS-1
+ }: EntityRowProps) {
+   const isClickable = !!(to || onClick);
+   const shellClasses = cn(
+@@ -90,8 +93,8 @@ export function EntityRow({
+               {identifier}
+             </span>
+           )}
+-          <span className={cn(!titleTextClassName && "truncate", titleTextClassName)} title={title}>
+-            {title}
++          <span className={cn(!titleTextClassName && "truncate", titleTextClassName)} title={titleContent ? undefined : title}>
++            {titleContent ?? title /* ppclip: AGENTS-1 */}
+           </span>
+           {titleAccessory}
+         </div>
+diff --git a/ui/src/components/Sidebar.production.tsx b/ui/src/components/Sidebar.production.tsx
+index 423c102ccdaff3c1e0c2cd7c09433f5cc0a7baf8..c2464b5229d61360eb205eb20b9e81745e9a509f 100644
+--- a/ui/src/components/Sidebar.production.tsx
++++ b/ui/src/components/Sidebar.production.tsx
+@@ -20,11 +20,13 @@ import {
+   MessagesSquare,
+   GanttChartSquare,
+   LayoutGrid,
++  UsersRound, // ppclip: NAV-1
+ } from "lucide-react";
+ import { useState } from "react";
+ import { useQuery } from "@tanstack/react-query";
+ import { SidebarSection } from "./SidebarSection";
+ import { SidebarNavItem } from "./SidebarNavItem.production";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { SidebarAgents } from "./SidebarAgents.production";
+ import { SidebarProjects } from "./SidebarProjects";
+ import { SidebarStarredProjects } from "./SidebarStarredProjects.production";
+@@ -162,6 +164,8 @@ export function Sidebar() {
+             badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
+             alert={inboxBadge.failedRuns > 0}
+           />
++          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
++          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
+           {showDecisions ? (
+             <SidebarNavItem
+               to="/decisions"
+diff --git a/ui/src/components/Sidebar.tsx b/ui/src/components/Sidebar.tsx
+index c558bf4e96aaf1bff6d359ce1913cbe19d62eff5..26146be1207988740b67de89c409c253f5a93172 100644
+--- a/ui/src/components/Sidebar.tsx
++++ b/ui/src/components/Sidebar.tsx
+@@ -22,11 +22,13 @@ import {
+   GanttChartSquare,
+   LayoutGrid,
+   Users,
++  UsersRound, // ppclip: NAV-1
+ } from "lucide-react";
+ import { useState, type ReactNode } from "react";
+ import { useQuery } from "@tanstack/react-query";
+ import { SidebarSection } from "./SidebarSection";
+ import { SidebarNavItem } from "./SidebarNavItem";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { SidebarAgents } from "./SidebarAgents";
+ import { SidebarProjects } from "./SidebarProjects";
+ import { SidebarStarredProjects } from "./SidebarStarredProjects";
+@@ -186,6 +188,8 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+               alert={inboxBadge.failedRuns > 0}
+             />
+           ) : null}
++          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
++          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
+           {agentChatEnabled && !chatRail ? <SidebarNavItem to="/chats" label="Chat" icon={MessageCircle} /> : null}
+           {showDecisions ? (
+             <SidebarNavItem
+diff --git a/ui/src/components/SidebarAgents.production.tsx b/ui/src/components/SidebarAgents.production.tsx
+index 08231f68b7db70e46072f29bf5eefc0d51e7ac57..74c13e968fb264a75e196a339b5f48f18927b94e 100644
+--- a/ui/src/components/SidebarAgents.production.tsx
++++ b/ui/src/components/SidebarAgents.production.tsx
+@@ -59,6 +59,7 @@ import {
+ } from "@/components/ui/dropdown-menu";
+ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+ import type { Agent } from "@paperclipai/shared";
++import { useAgentUrgencyOrder } from "@/ppclip/attention/useAgentAttention"; // ppclip: NAV-1
+ 
+ /**
+  * When no agent is running, the sidebar falls back to showing at most this many
+@@ -397,9 +398,10 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
+     companyId: selectedCompanyId,
+     userId: currentUserId,
+   });
++  const orderByUrgency = useAgentUrgencyOrder(selectedCompanyId); // ppclip: NAV-1
+   const sortedAgents = useMemo(
+-    () => sortAgents(orderedAgents, sortMode),
+-    [orderedAgents, sortMode],
++    () => orderByUrgency(sortAgents(orderedAgents, sortMode)), // ppclip: NAV-1 urgency first, chosen sort within each group
++    [orderByUrgency, orderedAgents, sortMode],
+   );
+   const sortedAgentIdSet = useMemo(
+     () => new Set(sortedAgents.map((agent: Agent) => agent.id)),
+@@ -602,8 +604,8 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
+     [membershipsQuery.data],
+   );
+   const starredAgents = useMemo(
+-    () => sortAgents(visibleAgents.filter((agent: Agent) => starredAgentIdSet.has(agent.id)), "alphabetical"),
+-    [visibleAgents, starredAgentIdSet],
++    () => orderByUrgency(sortAgents(visibleAgents.filter((agent: Agent) => starredAgentIdSet.has(agent.id)), "alphabetical")), // ppclip: NAV-1
++    [orderByUrgency, visibleAgents, starredAgentIdSet],
+   );
+   const dedupedDisplayedAgents = useMemo(
+     () => displayedAgents.filter((agent: Agent) => !starredAgentIdSet.has(agent.id)),
+diff --git a/ui/src/components/SidebarAgents.test.tsx b/ui/src/components/SidebarAgents.test.tsx
+index 3ce2523f1a759b7120b1d39008c6b3ed8b574c78..17791077242c4e8cdeb9ef121fc4b56d742a4d31 100644
+--- a/ui/src/components/SidebarAgents.test.tsx
++++ b/ui/src/components/SidebarAgents.test.tsx
+@@ -870,10 +870,11 @@ describe("SidebarAgents", () => {
+ 
+     // Show-all: every agent is listed regardless of live-run state. (Bravo's
+     // label includes its live-run badge text, so match by prefix.)
++    // ppclip: NAV-1 urgency ordering lists the running agent first.
+     const labels = agentLinkLabels(container);
+     expect(labels).toHaveLength(3);
+-    expect(labels[0]).toBe("Alpha");
+-    expect(labels[1]).toContain("Bravo");
++    expect(labels[0]).toContain("Bravo");
++    expect(labels[1]).toBe("Alpha");
+     expect(labels[2]).toBe("Charlie");
+     // No recent-5 truncation, so no "See all agents" link in classic mode.
+     expect(seeAllAgentsLink(container)).toBeNull();
+diff --git a/ui/src/components/SidebarAgents.tsx b/ui/src/components/SidebarAgents.tsx
+index 7f5f6a55a6d1b34045bc9cf0cbff2f398407aec1..e79bdd2b8754db9aec00a99d9ad7476d49a13e52 100644
+--- a/ui/src/components/SidebarAgents.tsx
++++ b/ui/src/components/SidebarAgents.tsx
+@@ -59,6 +59,7 @@ import {
+ } from "@/components/ui/dropdown-menu";
+ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+ import type { Agent } from "@paperclipai/shared";
++import { useAgentUrgencyOrder } from "@/ppclip/attention/useAgentAttention"; // ppclip: NAV-1
+ 
+ /**
+  * When no agent is running, the sidebar falls back to showing at most this many
+@@ -397,9 +398,10 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
+     companyId: selectedCompanyId,
+     userId: currentUserId,
+   });
++  const orderByUrgency = useAgentUrgencyOrder(selectedCompanyId); // ppclip: NAV-1
+   const sortedAgents = useMemo(
+-    () => sortAgents(orderedAgents, sortMode),
+-    [orderedAgents, sortMode],
++    () => orderByUrgency(sortAgents(orderedAgents, sortMode)), // ppclip: NAV-1 urgency first, chosen sort within each group
++    [orderByUrgency, orderedAgents, sortMode],
+   );
+   const sortedAgentIdSet = useMemo(
+     () => new Set(sortedAgents.map((agent: Agent) => agent.id)),
+@@ -602,8 +604,8 @@ export function SidebarAgents({ streamlined = false }: { streamlined?: boolean }
+     [membershipsQuery.data],
+   );
+   const starredAgents = useMemo(
+-    () => sortAgents(visibleAgents.filter((agent: Agent) => starredAgentIdSet.has(agent.id)), "alphabetical"),
+-    [visibleAgents, starredAgentIdSet],
++    () => orderByUrgency(sortAgents(visibleAgents.filter((agent: Agent) => starredAgentIdSet.has(agent.id)), "alphabetical")), // ppclip: NAV-1
++    [orderByUrgency, visibleAgents, starredAgentIdSet],
+   );
+   const dedupedDisplayedAgents = useMemo(
+     () => displayedAgents.filter((agent: Agent) => !starredAgentIdSet.has(agent.id)),
+diff --git a/ui/src/components/TaskChatThread.test.tsx b/ui/src/components/TaskChatThread.test.tsx
+index 40677cb3dd388352ddd1322c3325a70b7fee5372..6cd88a64f01a0822a50c76f0e59137622b3671fc 100644
+--- a/ui/src/components/TaskChatThread.test.tsx
++++ b/ui/src/components/TaskChatThread.test.tsx
+@@ -4421,3 +4421,78 @@ it("explains a missing provider runtime with an installation repair", () => {
+   expect(container.textContent).toContain("Reinstall or rebuild Paperclip");
+   expect(container.textContent).toContain("test the agent's runtime");
+ });
++
++// ppclip: CHAT-3 / CHAT-4 — run scoping and activity placement in task chat.
++describe("TaskChatThread ppclip run activity", () => {
++  const run = (id: string, minute: number, contextIssueId?: string | null) => ({
++    runId: id, status: "succeeded", runtimeMode: "legacy" as const, agentId: "agent",
++    agentName: "Assistant", adapterType: "claude_local", contextIssueId,
++    createdAt: `2025-01-01T10:0${minute}:00Z`, startedAt: `2025-01-01T10:0${minute}:01Z`,
++    finishedAt: `2025-01-01T10:0${minute}:30Z`,
++  });
++  // Server-materialized replies land after the run finishes (no timeline split).
++  const reply = (id: string, body: string, runId: string, minute: number, second = 31) => ({
++    id, body, runId, companyId: "company", issueId: "issue", authorType: "agent" as const,
++    authorAgentId: "agent", authorUserId: null, presentation: null, metadata: null,
++    createdAt: new Date(`2025-01-01T10:0${minute}:${second}Z`),
++    updatedAt: new Date(`2025-01-01T10:0${minute}:${second}Z`),
++  });
++  const transcript = (minute: number, tool: string) => [
++    { kind: "assistant", ts: `2025-01-01T10:0${minute}:02Z`, text: `Thinking about ${tool}.` },
++    { kind: "tool_call", ts: `2025-01-01T10:0${minute}:03Z`, name: "Read", input: { path: `${tool}.md` }, toolUseId: tool },
++    { kind: "tool_result", ts: `2025-01-01T10:0${minute}:04Z`, toolUseId: tool, content: `${tool} content` },
++  ];
++  const anchors = () =>
++    Array.from(container.querySelectorAll("[data-thread-anchor]")).map((el) => el.getAttribute("data-thread-anchor"));
++
++  it("hides activity from runs started for another task but keeps their comments and task-less runs", () => {
++    transcriptState.transcriptByRun.set("own", transcript(0, "own-tool"));
++    transcriptState.transcriptByRun.set("foreign", transcript(1, "foreign-tool"));
++    transcriptState.transcriptByRun.set("taskless", transcript(2, "taskless-tool"));
++    render(
++      <TaskChatThread
++        issueId="issue"
++        issueStatus="in_progress"
++        onAdd={async () => {}}
++        comments={[
++          reply("c-own", "Own answer", "own", 0),
++          reply("c-foreign", "Hello from task A", "foreign", 1),
++          reply("c-taskless", "Answer from Agent Chat", "taskless", 2),
++        ]}
++        linkedRuns={[run("own", 0, "issue"), run("foreign", 1, "other-task"), run("taskless", 2, null)]}
++      />,
++    );
++    expect(container.textContent).toContain("Hello from task A");
++    expect(anchors()).toContain("own:turn");
++    expect(anchors()).toContain("taskless:turn");
++    expect(anchors()).not.toContain("foreign:turn");
++    const requested = transcriptHookRuns.legacy.at(-1) as Array<{ id: string }>;
++    expect(requested.map((source) => source.id).sort()).toEqual(["own", "taskless"]);
++  });
++
++  it("places each run's Worked row below its replies, keeps the footer, and marks follow-up runs", () => {
++    transcriptState.transcriptByRun.set("r1", transcript(0, "first-tool"));
++    transcriptState.transcriptByRun.set("r2", transcript(1, "second-tool"));
++    render(
++      <TaskChatThread
++        issueId="issue"
++        issueStatus="in_progress"
++        onAdd={async () => {}}
++        comments={[
++          reply("c1", "First answer", "r1", 0),
++          reply("c1b", "More from the first run", "r1", 0, 33),
++          reply("c2", "Follow-up answer", "r2", 1),
++        ]}
++        linkedRuns={[run("r1", 0, "issue"), run("r2", 1, "issue")]}
++      />,
++    );
++    // ppclip: official coalesced both runs into one row under the last reply;
++    // each run now keeps its own row directly below its last reply.
++    expect(anchors()).toEqual(["c1", "c1b", "r1:turn", "r2:ppclip-follow-up", "c2", "r2:turn"]);
++    expect(container.textContent).toContain("Follow-up run");
++    // The Worked row never takes over the reply's timestamp/actions footer.
++    expect(container.querySelector('[data-testid="task-chat-bubble-attached-turn"]')).toBeNull();
++    const firstReply = container.querySelector('[data-thread-anchor="c1"]');
++    expect(firstReply?.textContent).toMatch(/First answer.*\d{1,2}:\d{2}/);
++  });
++});
+diff --git a/ui/src/components/TaskChatThread.tsx b/ui/src/components/TaskChatThread.tsx
+index de97aa93eb511381e8d5becc1d56f315076e9cec..72b8a7a5b3b5c7bd5cfda9b2a70893d463f71a20 100644
+--- a/ui/src/components/TaskChatThread.tsx
++++ b/ui/src/components/TaskChatThread.tsx
+@@ -43,7 +43,7 @@ import {
+ } from "@/components/task-chat/status-relevance";
+ import {
+   assembleThreadItems,
+-  attachSettledTurns,
++  attachSettledTurns, // ppclip: CHAT-4 official grouping, used when the Task chat module is off
+   buildTurnSummary,
+   coalesceSettledTurns,
+   isTerminalRunStatus,
+@@ -132,6 +132,13 @@ import { issuesApi } from "@/api/issues";
+ import { queryKeys } from "@/lib/queryKeys";
+ import { useQueryClient } from "@tanstack/react-query";
+ import { TaskChatPresentationProvider } from "@/components/task-chat/presentation-mode";
++// ppclip: CHAT-3/CHAT-4 task-chat run scoping and activity placement.
++import {
++  arrangeRunActivity,
++  firstReplyCommentIdByRun,
++  runsForThisTask,
++} from "@/ppclip/task-chat-run-activity";
++import { usePpclipFeature } from "@/ppclip/features/store";
+ 
+ const EMPTY_BROWSERS: TaskBrowser[] = [];
+ 
+@@ -517,7 +524,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+     composerDisabledReason,
+     emptyMessage = "No messages yet.",
+     companyId,
+-    linkedRuns,
++    linkedRuns: ppclipAllLinkedRuns, // ppclip: CHAT-3, scoped below
+     liveRuns,
+     activeRun,
+     onAttachImage,
+@@ -567,6 +574,14 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+     resumeAssigneePending = false,
+     onOpenSkill,
+   } = props;
++  // ppclip: CHAT-3 — runs started for another task only wrote here; their
++  // activity/status stays out of this chat (their comments still render).
++  // Module switch (Settings → ppclip → Task chat): off keeps official's behaviour.
++  const ppclipChatRuns = usePpclipFeature("taskChatRuns");
++  const linkedRuns = useMemo(
++    () => (ppclipChatRuns ? runsForThisTask(ppclipAllLinkedRuns, issueId) : ppclipAllLinkedRuns),
++    [ppclipAllLinkedRuns, issueId, ppclipChatRuns],
++  );
+   const retryFailedRunHandler =
+     isTerminalIssueStatus(issueStatus) ||
+     interactions?.some((interaction) => interaction.status === "pending") ||
+@@ -816,9 +831,11 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+       string,
+       NonNullable<TaskChatThreadProps["linkedRuns"]>[number]
+     >();
+-    for (const run of linkedRuns ?? []) map.set(run.runId, run);
++    // ppclip: CHAT-3 — metadata of every linked run, so a cross-task run's
++    // comment keeps its projected result text; turns only come from `runs`.
++    for (const run of ppclipAllLinkedRuns ?? []) map.set(run.runId, run);
+     return map;
+-  }, [linkedRuns]);
++  }, [ppclipAllLinkedRuns]);
+ 
+   const statusRelevance = useMemo(
+     () => taskChatStatusRelevance(issueStatus, [
+@@ -834,12 +851,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+       string,
+       ReturnType<typeof acceptedSemanticResultVerificationCaveats>
+     >();
+-    for (const run of linkedRuns ?? []) {
++    for (const run of ppclipAllLinkedRuns ?? []) { // ppclip: CHAT-3, comment-level
+       const caveats = acceptedSemanticResultVerificationCaveats(run.resultJson);
+       if (caveats.length > 0) map.set(run.runId, caveats);
+     }
+     return map;
+-  }, [linkedRuns]);
++  }, [ppclipAllLinkedRuns]);
+ 
+   // Historical placeholder comments remain untouched in storage. Projection
+   // prefers the accepted semantic result so runs such as DOT-20 recover their
+@@ -1083,6 +1100,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+     return map;
+   }, [projectedComments]);
+ 
++  // ppclip: CHAT-4 — classic activity anchors to the run's FIRST reply.
++  const ppclipFirstReplyIdByRun = useMemo(
++    () => firstReplyCommentIdByRun(projectedComments),
++    [projectedComments],
++  );
++
+   const steeringAnchorsByRun = useMemo(() => {
+     const map = new Map<string, number[]>();
+     for (const comment of comments) {
+@@ -2019,7 +2042,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+               ? sourceHasPresentationComment
+                 ? sourcePresentationCommentId
+                 : null
+-              : (lastCommentIdByRun.get(source.id) ?? null),
++              : ((ppclipChatRuns ? ppclipFirstReplyIdByRun : lastCommentIdByRun).get(source.id) ?? null), // ppclip: CHAT-4
+           // A post-steering segment ties the acknowledgement-backed human
+           // bubble and is therefore inserted immediately after it. The first
+           // segment retains the normal run-start slot.
+@@ -2140,20 +2163,20 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+       unanchored,
+     );
+ 
+-    // PAP-362: two runs replying back-to-back (same agent, nothing but the
+-    // agent's own bubbles between) fold into ONE "Worked" row below the last
+-    // reply; a user message or interaction keeps them apart.
+-    // Round 9: a settled turn directly following its own agent's reply bubble
+-    // then attaches to that bubble — the "Worked · …" summary renders on the
+-    // bubble's always-visible timestamp line instead of as a standalone row.
+-    // PAP-375: the description-as-first-bubble placeholder prepends LAST, after
+-    // every assembly/merge pass, so nothing can ever sort above it.
++    // ppclip: CHAT-4 — separate runs keep their own Worked row (no PAP-362
++    // coalescing), classic activity sits above its run's first reply with the
++    // reply footer intact, and consecutive same-agent runs get a "Follow-up
++    // run" divider. PAP-375: the description-as-first-bubble placeholder
++    // prepends LAST, after every assembly pass, so nothing sorts above it.
+     return {
+       items: prependIssueBrief(
+-        attachSettledTurns(
+-          coalesceSettledTurns(out, turnMergeMetaById),
+-          turnMergeMetaById,
+-        ),
++        ppclipChatRuns
++          ? arrangeRunActivity(out, {
++            settledTurns,
++            metaById: turnMergeMetaById,
++            comments: projectedComments,
++          })
++          : attachSettledTurns(coalesceSettledTurns(out, turnMergeMetaById), turnMergeMetaById),
+         hasBrief,
+       ),
+       settledRunIds,
+@@ -2169,6 +2192,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+     transcriptByRun,
+     linkedRunMetaById,
+     lastCommentIdByRun,
++    ppclipFirstReplyIdByRun, // ppclip: CHAT-4
++    ppclipChatRuns,
+     comments,
+     projectedComments,
+     steeringAnchorsByRun,
+diff --git a/ui/src/components/task-chat/TaskMessageScroller.tsx b/ui/src/components/task-chat/TaskMessageScroller.tsx
+index ed75caa2953c4a2e32250fdf44330c36942ea0ed..d24264c7d9bbc3d8fa70190f0e770dc4ef52a241 100644
+--- a/ui/src/components/task-chat/TaskMessageScroller.tsx
++++ b/ui/src/components/task-chat/TaskMessageScroller.tsx
+@@ -2,7 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
+ import { readThreadScrollAnchor, threadScrollAnchorDelta, type ThreadScrollAnchor } from "./scroll-anchor";
+ import { cn } from "@/lib/utils";
+ import { useStreamlinedTaskChatPresentation } from "./presentation-mode";
+-import { ArrowDown } from "lucide-react";
++// ppclip: CHAT-4 — owner asked for an up arrow on the scroll-to-latest button.
++import { ArrowUp } from "lucide-react";
+ import { parseCssTimeMs } from "./motion-tokens";
+ import { useTaskChatScrollNavigation } from "./scroll-navigation";
+ 
+@@ -296,7 +297,7 @@ export function TaskMessageScroller({ children, contentKey, className }: TaskMes
+             pillPhase === "out" ? "tc-scroll-pill-out" : "tc-scroll-pill-in",
+           )}
+         >
+-          <ArrowDown className="h-4 w-4" />
++          <ArrowUp className="h-4 w-4" />
+         </button>
+       ) : null}
+     </div>
+diff --git a/ui/src/components/task-chat/transcript-adapter.test.ts b/ui/src/components/task-chat/transcript-adapter.test.ts
+index eda571be8f9acb61e91199495d4a2134e9d15b6f..3003bf311a1d2b3bb143371d5c66f565884c23b1 100644
+--- a/ui/src/components/task-chat/transcript-adapter.test.ts
++++ b/ui/src/components/task-chat/transcript-adapter.test.ts
+@@ -2666,6 +2666,40 @@ describe("attachSettledTurns (round 9)", () => {
+     expect(first.map((i) => i.kind)).toEqual(["turn"]);
+   });
+ 
++  // ppclip: CHAT-4 — identity is the agent id; names are only a fallback and a
++  // missing name never matches (official attached on a missing name).
++  it("matches the reply's agent by id, not by a shared or missing name", () => {
++    const withAgent = (id: string, agentId: string, authorName?: string): TaskChatItem => ({
++      ...(agentBubble(id) as Extract<TaskChatItem, { kind: "message" }>),
++      authorName,
++      agent: { id: agentId },
++    });
++    const namelessMeta = new Map<string, SettledTurnMergeMeta>([
++      ["run-a:turn", { agentKey: "agent-1", parts: [{ entries: runA }] }],
++    ]);
++    // Same display name, different agent: stays standalone.
++    expect(
++      attachSettledTurns([withAgent("msg-b", "agent-2", "CEO"), settledTurn("run-a:turn")], metaById)
++        .map((i) => i.kind),
++    ).toEqual(["message", "turn"]);
++    // Missing run name, different agent: stays standalone.
++    expect(
++      attachSettledTurns([withAgent("msg-b", "agent-2"), settledTurn("run-a:turn")], namelessMeta)
++        .map((i) => i.kind),
++    ).toEqual(["message", "turn"]);
++    // Same agent id: attaches even without names.
++    expect(
++      attachSettledTurns([withAgent("msg-a", "agent-1"), settledTurn("run-a:turn")], namelessMeta),
++    ).toHaveLength(1);
++    // No ids and no names on either side: not provably the same agent.
++    expect(
++      attachSettledTurns(
++        [{ id: "msg-x", kind: "message", author: "agent", text: "Done." }, settledTurn("run-a:turn")],
++        namelessMeta,
++      ).map((i) => i.kind),
++    ).toEqual(["message", "turn"]);
++  });
++
+   it("never attaches the live (unsettled) turn and attaches at most one turn per bubble", () => {
+     const live: TaskChatItem = {
+       id: "run-live:turn",
+diff --git a/ui/src/components/task-chat/transcript-adapter.ts b/ui/src/components/task-chat/transcript-adapter.ts
+index b36559ee199d711b7b100b79ef6409d92dbc366d..a9bc098438c56b1332be0c68d8d0efca7210798c 100644
+--- a/ui/src/components/task-chat/transcript-adapter.ts
++++ b/ui/src/components/task-chat/transcript-adapter.ts
+@@ -28,6 +28,8 @@ import {
+   toolActivityPresentation,
+   toolTaxonomy,
+ } from "./tool-taxonomy";
++// ppclip: CHAT-4 same-agent check by id.
++import { isSameRunAgent } from "@/ppclip/task-chat-same-agent";
+ 
+ const TERMINAL_STATUSES = new Set([
+   "failed",
+@@ -2075,11 +2077,8 @@ export function attachSettledTurns(
+       prev.attachedTurn == null
+     ) {
+       const meta = metaById.get(item.id);
+-      const sameAgent =
+-        meta != null &&
+-        (meta.agentName == null ||
+-          prev.authorName == null ||
+-          meta.agentName === prev.authorName);
++      // ppclip: CHAT-4 — match by agent id first; a missing name is no match.
++      const sameAgent = isSameRunAgent(meta, prev);
+       if (sameAgent) {
+         out[out.length - 1] = { ...prev, attachedTurn: item };
+         continue;
+diff --git a/ui/src/context/LiveUpdatesProvider.tsx b/ui/src/context/LiveUpdatesProvider.tsx
+index 22a111b9d15223564e098e15a9c68dc574fbc39d..7422957c8916721494f33a2485a2822ca2bee530 100644
+--- a/ui/src/context/LiveUpdatesProvider.tsx
++++ b/ui/src/context/LiveUpdatesProvider.tsx
+@@ -51,6 +51,7 @@ import { useLocation } from "../lib/router";
+ import { agentRouteRef } from "../lib/utils";
+ import { buildSameOriginWebSocketUrl } from "../lib/websocket-url";
+ import { tryCreateWebSocket } from "../lib/websocket";
++import { refreshScopedLiveRuns } from "../ppclip/live-run-refresh";
+ 
+ const TOAST_COOLDOWN_WINDOW_MS = 10_000;
+ const TOAST_COOLDOWN_MAX = 3;
+@@ -1744,6 +1745,11 @@ function handleLiveEvent(
+       payload,
+     );
+     invalidateHeartbeatQueries(queryClient, expectedCompanyId, payload);
++    // ppclip: scoped live-run lists (Dashboard, Live page) refetch when a run finishes.
++    const lifecycleStatus = readString(payload.status);
++    if (lifecycleStatus && TERMINAL_RUN_STATUSES.has(lifecycleStatus)) {
++      void refreshScopedLiveRuns(queryClient, expectedCompanyId);
++    }
+     if (!liveRunsPatched) {
+       // A new run we couldn't reconstruct from the event — refetch once to add it.
+       queryClient.invalidateQueries({
+diff --git a/ui/src/lib/company-routes.ts b/ui/src/lib/company-routes.ts
+index 93152e2c91432bd9bbd4b259dcded62fc0e1868f..7bfa28aad23545a5582f64721f400b6b2cffa2bc 100644
+--- a/ui/src/lib/company-routes.ts
++++ b/ui/src/lib/company-routes.ts
+@@ -31,6 +31,7 @@ const BOARD_ROUTE_ROOTS = new Set([
+   "search",
+   "settings",
+   "timeline",
++  "team", // ppclip: TEAM-1 Team page
+ ]);
+ 
+ const GLOBAL_ROUTE_ROOTS = new Set(["auth", "invite", "board-claim", "cli-auth", "mcp-connect", "dot-connect", "assistant-connections", "docs", "instance"]);
+diff --git a/ui/src/lib/issue-chat-messages.ts b/ui/src/lib/issue-chat-messages.ts
+index 446654a112ea558581354874a03f8670c05591ba..5fd3478096aa0bb8a6748947a3f9b55e95bcd7c9 100644
+--- a/ui/src/lib/issue-chat-messages.ts
++++ b/ui/src/lib/issue-chat-messages.ts
+@@ -64,6 +64,8 @@ export interface IssueChatLinkedRun {
+   scheduledRetryAt?: string | null;
+   nextAction?: string | null;
+   resultJson?: Record<string, unknown> | null;
++  // ppclip: CHAT-3 — the task the run was started for (null for task-less runs).
++  contextIssueId?: string | null;
+ }
+ 
+ export interface IssueChatTranscriptEntry {
+diff --git a/ui/src/pages/Agents.test.tsx b/ui/src/pages/Agents.test.tsx
+index aad8e4ae4fbb2a81e9218c2972b7bebfe32a2b53..7e4393f26c1a25621141fa390a7eefffd765b5ba 100644
+--- a/ui/src/pages/Agents.test.tsx
++++ b/ui/src/pages/Agents.test.tsx
+@@ -499,7 +499,9 @@ describe("Agents", () => {
+     expect(row?.querySelector(".flex-1.hidden.\\@5xl\\:block")).not.toBeNull();
+     expect(row?.classList.contains("text-foreground/55")).toBe(false);
+     expect(row?.classList.contains("sm:text-foreground/55")).toBe(true);
+-    const name = row?.querySelector("span[title='Paperclip Engineer With A Much Longer Display Name']");
++    // ppclip: AGENTS-1 the name is the current-tasks hover-card trigger (no native title tooltip)
++    const name = row?.querySelector("[data-ppclip-agent-name]");
++    expect(name?.textContent).toBe("Paperclip Engineer With A Much Longer Display Name");
+     const subtitle = Array.from(row?.querySelectorAll("p") ?? []).find((node) =>
+       node.textContent?.includes("Software Engineer With A Much Longer Specialty Title"),
+     );
+diff --git a/ui/src/pages/Agents.tsx b/ui/src/pages/Agents.tsx
+index d128d9cf16a771dbaf99204d951723205de9b25e..eaa8569d40b98b1b3cdf9de9cf6480187de312e7 100644
+--- a/ui/src/pages/Agents.tsx
++++ b/ui/src/pages/Agents.tsx
+@@ -35,6 +35,11 @@ import {
+ import { usePublishSharedQueryData, useSharedPollingQuery } from "../hooks/useSharedPolling";
+ 
+ import { agentDisplayAdapterType, getAdapterLabel } from "../adapters/adapter-display-registry";
++import { TeamRunControls } from "@/ppclip/run-controls/TeamRunControls";
++import { ExtraColumnsToggle, RosterExtraColumns, useRosterExtraColumns } from "@/ppclip/roster/RosterExtraColumns"; // ppclip: AGENTS-1
++import { AgentTaskHoverCard } from "@/ppclip/roster/AgentTaskHoverCard"; // ppclip: AGENTS-1
++import { AgentAttentionBadge } from "@/ppclip/attention/AgentAttentionBadge"; // ppclip: NAV-2
++import { PendingConfirmations } from "@/ppclip/attention/PendingConfirmations"; // ppclip: NAV-2
+ 
+ const roleLabels = AGENT_ROLE_LABELS as Record<string, string>;
+ 
+@@ -203,6 +208,7 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } =
+   const requestedTab: FilterTab = isFilterTab(pathSegment) ? pathSegment : "all";
+   const [view, setView] = useState<AgentsView>(() => streamlinedUiEnabled ? initialView : "org");
+   const forceListView = !streamlinedUiEnabled && isMobile;
++  const extraColumns = useRosterExtraColumns(); // ppclip: AGENTS-1
+   const effectiveView: AgentsView = forceListView ? "list" : view;
+ 
+   useEffect(() => {
+@@ -378,6 +384,7 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } =
+         key={agent.id}
+         title={agent.name}
+         titleAccessory={<PrimaryAgentIndicator agentId={agent.id} companyId={agent.companyId} />}
++        titleContent={<AgentTaskHoverCard agent={agent} />} // ppclip: AGENTS-1
+         titleClassName="flex-1 @5xl:flex-none @5xl:w-56"
+         titleTextClassName="truncate"
+         subtitleClassName="truncate"
+@@ -406,10 +413,13 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } =
+               </div>
+             )}
+             <div className="hidden @5xl:flex items-center gap-3">
++              {/* ppclip: AGENTS-1 Model / provider + Runs left (RUN-1), behind the extra-columns toggle */}
++              {extraColumns.visible ? <RosterExtraColumns agent={agent} /> : null}
+               <AgentMetaColumns
+                 agent={agent}
+                 environment={resolveRenderedEnvironment(agent.id)}
+                 showEnvironment={showEnvironmentColumn}
++                showModel={!extraColumns.enabled} // ppclip: AGENTS-1 model moved into RosterExtraColumns (back when the module is off)
+               />
+             </div>
+           </div>
+@@ -426,8 +436,8 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } =
+                   liveCount={liveRunByAgent.get(agent.id)!.liveCount}
+                 />
+               )}
+-              <span className="w-20 flex justify-end">
+-                <AgentStatusBadge status={agent.status} />
++              <span className="w-32 flex justify-end">{/* ppclip: NAV-2 wider for "Waiting for you" */}
++                <AgentAttentionBadge agent={agent} />
+               </span>
+             </div>
+           </div>
+@@ -451,7 +461,13 @@ export function Agents({ initialView = "list" }: { initialView?: AgentsView } =
+             onValueChange={(v) => navigate(`/agents/${v}`)}
+           />
+         </Tabs>
+-        <div className="flex items-center gap-2">
++        <div className="flex flex-wrap items-center gap-2">
++          {/* ppclip: team Unlimited / Drain / Resume (hidden while run controls are off) */}
++          <TeamRunControls companyId={selectedCompanyId} agents={agents ?? []} />
++          {/* ppclip: NAV-2 pending confirmation cards */}
++          <PendingConfirmations companyId={selectedCompanyId} />
++          {/* ppclip: AGENTS-1 show/hide the extra roster columns */}
++          {effectiveView === "list" ? <ExtraColumnsToggle visible={extraColumns.visible} onToggle={extraColumns.toggle} /> : null}
+           {!forceListView ? <div className="flex items-center overflow-hidden rounded-md border border-border" role="group" aria-label="Agent view">
+               <Button
+                 type="button"
+@@ -694,16 +710,18 @@ function AgentMetaColumns({
+   agent,
+   environment,
+   showEnvironment,
++  showModel = true, // ppclip: AGENTS-1
+ }: {
+   agent: Agent;
+   environment: EnvironmentDescriptor;
+   showEnvironment: boolean;
++  showModel?: boolean; // ppclip: AGENTS-1
+ }) {
+   const model = getConfiguredModel(agent);
+   const adapterLabel = getAdapterLabel(agentDisplayAdapterType(agent));
+   return (
+     <>
+-      <div className="w-44 min-w-0 leading-tight">
++      {showModel && <div className="w-44 min-w-0 leading-tight">
+         <div
+           className="truncate font-mono text-xs text-muted-foreground"
+           title={model ?? undefined}
+@@ -713,7 +731,7 @@ function AgentMetaColumns({
+         <div className="truncate font-mono text-(length:--text-micro) text-muted-foreground/70" title={adapterLabel}>
+           {adapterLabel}
+         </div>
+-      </div>
++      </div>}
+       {showEnvironment && (
+         <div className="w-44 min-w-0 leading-tight">
+           <div className="truncate text-xs text-muted-foreground" title={environment.title}>
+diff --git a/ui/src/pages/CompanySettings.tsx b/ui/src/pages/CompanySettings.tsx
+index a83f33c2f39cfffb0aa4634ba1d05ed4d04fe197..75cd45f864193284f0957bfb3a71fdfb5e2f4846 100644
+--- a/ui/src/pages/CompanySettings.tsx
++++ b/ui/src/pages/CompanySettings.tsx
+@@ -31,6 +31,8 @@ import {
+ import { InstanceGeneralSettings } from "./InstanceGeneralSettings";
+ import { DecisionModelSettingsSection } from "../components/decision-models/DecisionModelSettings";
+ import { useFastResponsesEnabled } from "../hooks/useFastResponsesEnabled";
++import { RunControlsSettingsSection } from "@/ppclip/run-controls/RunControlsSettingsSection";
++import { ComputerUseSettingsSection } from "@/ppclip/computer-use/ComputerUseSettingsSection"; // ppclip: computer use
+ 
+ export function CompanySettings() {
+   const {
+@@ -357,6 +359,10 @@ export function CompanySettings() {
+         </div>
+       </div>
+ 
++      {/* ppclip: run-controls master switch */}
++      <RunControlsSettingsSection companyId={selectedCompany.id} />
++      <ComputerUseSettingsSection companyId={selectedCompany.id} /> {/* ppclip: computer use (off by default) */}
++
+       {/* Interaction governance */}
+       <InteractionGovernancePanel
+         governance={governance}
+diff --git a/ui/src/pages/Dashboard.tsx b/ui/src/pages/Dashboard.tsx
+index 38bf9e51efb202683655fe51f952dbcd83982778..39dbf0de1b9e43a9ada54dc9f271f4bab79c3bc1 100644
+--- a/ui/src/pages/Dashboard.tsx
++++ b/ui/src/pages/Dashboard.tsx
+@@ -38,6 +38,7 @@ import { InlineBanner } from "../components/InlineBanner";
+ import type { Agent, Issue } from "@paperclipai/shared";
+ import { PluginSlotOutlet } from "@/plugins/slots";
+ import { SmokeLabDashboardCard } from "../components/SmokeLabDashboardCard";
++import { SubscriptionUsagePanel } from "@/ppclip/providers/SubscriptionUsagePanel"; // ppclip: DASH-3
+ 
+ const DASHBOARD_ACTIVITY_LIMIT = 10;
+ 
+@@ -554,6 +555,8 @@ export function Dashboard() {
+             </div>
+           </div>
+ 
++          {/* ppclip: DASH-3 subscription usage from official Connections usage */}
++          <SubscriptionUsagePanel companyId={selectedCompanyId!} />
+         </>
+       )}
+     </div>
+diff --git a/ui/src/pages/DashboardLive.tsx b/ui/src/pages/DashboardLive.tsx
+index 1a6309fb0aad708504779567d24a8919d782c35e..e2c05286b0689ad31bd7a2539791f9e0dd298fb5 100644
+--- a/ui/src/pages/DashboardLive.tsx
++++ b/ui/src/pages/DashboardLive.tsx
+@@ -3,6 +3,9 @@ import { ArrowLeft, RadioTower } from "lucide-react";
+ import { Link } from "@/lib/router";
+ import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
+ import { EmptyState } from "../components/EmptyState";
++// ppclip: DASH-2 Live page as big per-agent stations.
++import { LiveStations } from "../ppclip/live/LiveStations";
++import { usePpclipFeature } from "../ppclip/features/store";
+ import { useBreadcrumbs } from "../context/BreadcrumbContext";
+ import { useCompany } from "../context/CompanyContext";
+ 
+@@ -11,6 +14,7 @@ const DASHBOARD_LIVE_RUN_LIMIT = 50;
+ export function DashboardLive() {
+   const { selectedCompanyId, companies } = useCompany();
+   const { setBreadcrumbs } = useBreadcrumbs();
++  const ppclipLiveStations = usePpclipFeature("liveRuns"); // ppclip: DASH-2 module switch
+ 
+   useEffect(() => {
+     setBreadcrumbs([
+@@ -28,6 +32,10 @@ export function DashboardLive() {
+     );
+   }
+ 
++  // ppclip: DASH-2 one big station per agent replaces official's run cards here
++  // (the Dashboard keeps official's ActiveAgentsPanel). Official markup kept below.
++  if (ppclipLiveStations) return <LiveStations companyId={selectedCompanyId} />;
++
+   return (
+     <div className="space-y-5">
+       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+diff --git a/ui/vite.config.ts b/ui/vite.config.ts
+index 6ac1be642c9ba3ba8bab8ef2840ed3c396ee9f71..3d708c402b72deae8203ceb41a84c35de0e61edf 100644
+--- a/ui/vite.config.ts
++++ b/ui/vite.config.ts
+@@ -16,6 +16,8 @@ export default defineConfig(({ mode }) => ({
+     ),
+   },
+   plugins: [react(), tailwindcss(), serviceWorkerBuildIdPlugin()],
++  // ppclip: pre-bundle the Team colour picker so its first visit doesn't re-optimize deps and reload.
++  optimizeDeps: { include: ["react-colorful"] },
+   build: {
+     minify: "esbuild",
+   },

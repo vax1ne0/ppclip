@@ -1,0 +1,87 @@
+{
+  "$comment": "Which module folder each ppclip file belongs to. Paths are Paperclip-relative; the first matching rule wins. tools/export.mjs refuses files that match no rule.",
+  "modules": [
+    {
+      "id": "core",
+      "title": "Core",
+      "summary": "Settings → ppclip module switches, shared server route access, the local launcher, and small shared helpers.",
+      "paths": [
+        "server/src/ppclip/features.ts",
+        "server/src/ppclip/features-routes.ts",
+        "server/src/ppclip/route-access.ts",
+        "server/src/__tests__/ppclip-features.test.ts",
+        "ui/src/ppclip/features/",
+        "ui/src/ppclip/agent-model.ts",
+        "scripts/ppclip/start-local.mjs"
+      ]
+    },
+    {
+      "id": "team",
+      "title": "Team page",
+      "summary": "The /team canvas with reporting and work lines, Edit mode, Magic sort and group colours.",
+      "paths": ["ui/src/ppclip/team/"]
+    },
+    {
+      "id": "live-runs",
+      "title": "Live runs",
+      "summary": "The Live runs page as one large card per agent with live activity, current task and last reply.",
+      "paths": ["ui/src/ppclip/live/"]
+    },
+    {
+      "id": "providers",
+      "title": "Providers",
+      "summary": "Top-bar usage bars, dashboard subscription usage, the Providers panel and automatic provider switching.",
+      "paths": [
+        "server/src/ppclip/providers/",
+        "server/src/__tests__/ppclip-provider-routing",
+        "ui/src/ppclip/providers/"
+      ]
+    },
+    {
+      "id": "run-controls",
+      "title": "Run controls",
+      "summary": "Team Unlimited / Drain / Resume, daily runs left, and drain after next run.",
+      "paths": [
+        "server/src/ppclip/run-controls/",
+        "server/src/__tests__/ppclip-run-controls",
+        "ui/src/ppclip/run-controls/"
+      ]
+    },
+    {
+      "id": "computer-use",
+      "title": "Computer use",
+      "summary": "A sandboxed Linux desktop and Chromium per agent in Docker, with live view, takeover and agent tools over MCP.",
+      "paths": [
+        "server/src/ppclip/computer-use/",
+        "server/src/__tests__/ppclip-computer-use",
+        "ui/src/ppclip/computer-use/",
+        "scripts/ppclip/computer-image/",
+        "scripts/ppclip/computer-supervisor.mjs"
+      ]
+    },
+    {
+      "id": "agents",
+      "title": "Agents and sidebar",
+      "summary": "Attention statuses, pending confirmations, urgency ordering, and the Agents page extra columns and task hover card.",
+      "paths": ["ui/src/ppclip/attention/", "ui/src/ppclip/roster/", "ui/src/ppclip/nav/"]
+    },
+    {
+      "id": "task-chat",
+      "title": "Task chat",
+      "summary": "Run scoping, follow-up run dividers, Worked rows under replies, and matching agents by ID in task chat.",
+      "paths": ["ui/src/ppclip/task-chat-"]
+    },
+    {
+      "id": "fixes",
+      "title": "Fixes",
+      "summary": "Repair of agents stuck on running, live list refresh, ignoring deleted replies, and Claude/Codex sign-in on Windows.",
+      "paths": [
+        "server/src/ppclip/stale-agent-status.ts",
+        "server/src/ppclip/windows-",
+        "server/src/__tests__/ppclip-stale-agent-status",
+        "server/src/__tests__/ppclip-windows-",
+        "ui/src/ppclip/live-run-refresh"
+      ]
+    }
+  ]
+}

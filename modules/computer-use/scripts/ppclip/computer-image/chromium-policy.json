@@ -1,0 +1,13 @@
+{
+  "BrowserSignin": 0,
+  "SyncDisabled": true,
+  "PasswordManagerEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "PaymentMethodQueryEnabled": false,
+  "DefaultBrowserSettingEnabled": false,
+  "MetricsReportingEnabled": false,
+  "PromotionalTabsEnabled": false,
+  "CommandLineFlagSecurityWarningsEnabled": false,
+  "URLBlocklist": ["file://*", "view-source:*"],
+  "DownloadDirectory": "/home/agent/Downloads"
+}
