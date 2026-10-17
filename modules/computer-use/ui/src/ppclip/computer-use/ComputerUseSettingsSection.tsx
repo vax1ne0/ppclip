@@ -93,7 +93,7 @@ export function SupervisorStatus({ supervisor }: { supervisor: SupervisorHealth 
     </p>
   ) : (
     <p className="text-xs text-destructive" role="status" data-testid="computer-supervisor-status">
-      {supervisor.error} Start it with: node scripts/ppclip/computer-supervisor.mjs (or start-local.mjs --with-computer).
+      {/Start it with/.test(supervisor.error) ? supervisor.error : `${supervisor.error} Start it with: node scripts/ppclip/computer-supervisor.mjs (or start-local.mjs --with-computer).`}
     </p>
   );
 }

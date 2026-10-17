@@ -32,3 +32,22 @@ export function readToken(file = defaultTokenFile()) {
     return null;
   }
 }
+
+/** The supervisor's own default, used when it was started without --token-file. */
+export function homeTokenFile() {
+  return path.join(os.homedir(), ".paperclip", "ppclip-computer-supervisor.token");
+}
+
+/**
+ * The configured token file first, then the supervisor's default. A supervisor
+ * started by hand without --token-file still works with a Paperclip started by
+ * start-local (which points at a token file in its data folder).
+ */
+export function readAnyToken(): { token: string | null; looked: string[] } {
+  const looked = [...new Set([defaultTokenFile(), homeTokenFile()])];
+  for (const file of looked) {
+    const token = readToken(file);
+    if (token) return { token, looked };
+  }
+  return { token: null, looked };
+}

@@ -1,5 +1,5 @@
 import type { ActOptions, ActResult, ComputerAction, ComputerInfo, Observation, PageAction, PageSnapshot, ProviderInfo } from "./supervisor/provider.js";
-import { defaultSupervisorUrl, readToken } from "./supervisor/config.js";
+import { defaultSupervisorUrl, readAnyToken } from "./supervisor/config.js";
 
 export class SupervisorError extends Error {
   constructor(readonly code: string, message: string, readonly status: number) {
@@ -33,11 +33,13 @@ export interface SupervisorClient {
 /** HTTP client. The token is read from the supervisor's token file on each call (it may appear after Paperclip starts). */
 export function httpSupervisorClient(opts: { url?: string; token?: () => string | null } = {}): SupervisorClient {
   const base = (opts.url ?? defaultSupervisorUrl()).replace(/\/+$/, "");
-  const token = opts.token ?? (() => process.env.PPCLIP_COMPUTER_SUPERVISOR_TOKEN ?? readToken());
+  const token = opts.token ?? (() => process.env.PPCLIP_COMPUTER_SUPERVISOR_TOKEN ?? readAnyToken().token);
 
   function auth() {
     const value = token();
-    if (!value) throw new SupervisorError("unavailable", "The computer supervisor is not set up yet. Start it with: node scripts/ppclip/computer-supervisor.mjs", 503);
+    if (!value) {
+      throw new SupervisorError("unavailable", `The computer supervisor isn't running (no token found at ${readAnyToken().looked.join(" or ")}). Start it with: node scripts/ppclip/computer-supervisor.mjs, or start Paperclip with start-local.mjs --with-computer.`, 503);
+    }
     return { authorization: `Bearer ${value}` };
   }
 

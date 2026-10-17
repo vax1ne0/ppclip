@@ -57,6 +57,6 @@ describe("ppclip computer supervisor", () => {
     const offline = httpSupervisorClient({ url: "http://127.0.0.1:1", token: () => TOKEN });
     expect(await offline.health()).toMatchObject({ ok: false });
     const untokened = httpSupervisorClient({ url: base, token: () => null });
-    await expect(untokened.inspect("a")).rejects.toThrow(/not set up/);
+    await expect(untokened.inspect("a")).rejects.toThrow(/isn.t running/);
   });
 });
