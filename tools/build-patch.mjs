@@ -21,8 +21,8 @@ const base = arg("--base");
 const ref = arg("--ref", "main");
 if (!base) throw new Error("Pass --base <official tag>, e.g. --base v2026.1012.0");
 
-// Repository housekeeping and private notes are not part of the overlay.
-const EXCLUDE = ["fork-inventory", "overlay", ".github/dependabot.yml"];
+// Repository housekeeping, private notes and a workshop's own install record are not part of the overlay.
+const EXCLUDE = ["fork-inventory", "overlay", ".github/dependabot.yml", ".ppclip-overlay.json"];
 
 const git = (...args) => execFileSync("git", ["-C", source, ...args], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
 const baseCommit = git("rev-parse", `${base}^{commit}`).trim();

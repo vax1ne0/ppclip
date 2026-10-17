@@ -9,6 +9,12 @@ It doesn't replace Paperclip or need a separate install: you keep your own offic
 - **Team page** (`/team`): a canvas of your agents with reporting and work lines, Edit mode, Magic sort, and group colours.
 - **Live runs** (`/dashboard/live`): one big card per agent, showing live activity, the current task and the last reply.
 - **Run controls** (off by default; Company Settings): team Unlimited / Drain / Resume, daily runs left, and "Drain after next run".
+- **Computer use** (off by default; Company Settings, then per agent): each chosen agent gets its own sandboxed Linux desktop and Chromium in Docker.
+  - You watch it live on its Live runs card, take control (for example to sign in), take control privately so the agent can't see the screen, and release it.
+  - While you have control, the agent's computer actions are refused. Only you can release control.
+  - Each agent's browser profile is kept in its own Docker volume, so logins survive restarts.
+  - Pause, Stop and Revoke work at any time, and every action and takeover is written to the activity log.
+  - See [docs/computer-use.md](docs/computer-use.md).
 - **Providers**: a top-bar usage and provider switch, a Dashboard subscription usage panel, model tiers, and optional automatic provider routing. All of these use official Connections usage.
 - **Agents and sidebar**:
   - a Team link under Inbox, and agents ordered by urgency;
@@ -56,6 +62,17 @@ The installer:
 
 On Windows, see Paperclip's own build notes. The usual traps are pnpm scripts needing Git Bash as the script shell, and building `packages/paperclip-runner` by hand.
 
+### Computer use (optional)
+
+Computer use needs Docker (Docker Desktop with WSL2 on Windows, Docker Engine on Linux). The supervisor is the only process that talks to Docker, and it listens on 127.0.0.1 only.
+
+```bash
+node scripts/ppclip/computer-supervisor.mjs build-image   # once: builds the sandbox image (about 1 GB)
+node scripts/ppclip/computer-supervisor.mjs               # keep running next to Paperclip
+```
+
+Then turn on **Computer use** in Company Settings and switch it on for each agent that should have a computer. The computer tools reach Claude and Codex local agents. See [docs/computer-use.md](docs/computer-use.md) for Windows notes and testing.
+
 To start an isolated instance with its own data folder:
 
 ```bash
@@ -82,7 +99,14 @@ The database is migrated by Paperclip itself when it starts. Back up your data f
 
 - ppclip adds no database migrations. Its settings (Run controls switch, provider routing policy) are stored as activity-log entries and in agents' existing metadata.
 - Uninstalling leaves your data in place. Plain Paperclip simply ignores ppclip's entries.
-- Run controls and provider routing are off by default.
+- Run controls, provider routing and computer use are off by default.
+- Computer use settings are stored the same way: a company switch in the activity log and `metadata.computerUse` on each agent. Agent edits and new hires can't change or inherit it.
+- Computer use safety:
+  - **Sandboxing:** agent commands never run on your machine. The desktop runs in a hardened container with every capability dropped and memory, CPU and process limits. Shell is off by default and, when enabled, runs inside the sandbox as a separate unprivileged user.
+  - **Network:** the browser goes through a filter that blocks private, local and cloud-metadata addresses. You can also limit each agent to a list of sites.
+  - **Prompt injection:** page content is handed to the agent marked as untrusted data. The agent can't type into password fields, and clicks that pay, delete, send or publish need an explicit confirm.
+  - **Private ports and audit:** the supervisor and the sandbox ports listen on 127.0.0.1 only and need tokens. The live view uses short-lived tickets that stop working when control changes. Every agent action, refusal and takeover is in the activity log, without typed text or full URLs.
+  - **Limits:** a container shares your computer's kernel, and no guardrail fully prevents prompt injection. Only enable it for agents and sites you trust. See [docs/computer-use.md](docs/computer-use.md) for the full list.
 
 ## For maintainers
 
@@ -97,3 +121,14 @@ That writes `versions/<tag>/ppclip.patch` and its manifest. Private notes (`fork
 ## License
 
 Paperclip is MIT-licensed, and ppclip's additions are distributed under the same terms. See [LICENSE](LICENSE).
+
+### Acknowledgements
+
+Computer use reimplements ideas from these projects. No code was copied, so no third-party license notices are bundled.
+- [elie222/rakazo](https://github.com/elie222/rakazo) (Apache-2.0): supervisor and provider split, separate view-only and control streams, takeover leases.
+- [connbot/desktop-bridge](https://github.com/connbot/desktop-bridge) (Apache-2.0): the control state machine, private takeover and epochs.
+- [trycua/cua](https://github.com/trycua/cua) (MIT): short-lived viewer tickets and container hardening defaults.
+- [Roadmvn/linux-computer-use](https://github.com/Roadmvn/linux-computer-use) (MIT): only a person can release control, and fail-closed guardrails.
+- [the-agents-work/taw-computer](https://github.com/the-agents-work/taw-computer) (MIT): numbered element badges (Set-of-Mark).
+- [anthropics/anthropic-quickstarts](https://github.com/anthropics/anthropic-quickstarts) (MIT): the desktop image recipe.
+- The sandbox image installs Debian packages, including noVNC (MPL-2.0), websockify (LGPL-3.0), x11vnc (GPL-2.0) and Chromium, under their own licenses when you build it. None of them are redistributed in this repository.

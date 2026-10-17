@@ -2,17 +2,18 @@
   "paperclipVersion": "v2026.1012.0",
   "paperclipCommit": "bba6a45f0d364cfd962ac59b3bdf2426a8222adb",
   "paperclipTree": "42c3a8b4364f4006e7249ecfe7365534cfdbea86",
-  "ppclipSourceCommit": "ce92737b443159433f7f906c455bbc8d80a5ea5a",
-  "patchSha256": "4348f879242d3ba13e8de3480131ef8e156892b0d5da16c75c5221fcd87df500",
-  "generatedAt": "2026-10-16T19:54:08.649Z",
+  "ppclipSourceCommit": "a57ac4716deed3bd4383f4c1f91f8a41632aa2ed",
+  "patchSha256": "538868b0e7bbac164061fb5d47b5cf54dca9206cf86f53441b83716ae987a17c",
+  "generatedAt": "2026-10-17T02:45:00.222Z",
   "files": {
-    "added": 73,
-    "modified": 31,
+    "added": 104,
+    "modified": 32,
     "deleted": 0
   },
   "officialFilesModified": [
     "pnpm-lock.yaml",
     "server/src/app.ts",
+    "server/src/index.ts",
     "server/src/services/agents.ts",
     "server/src/services/heartbeat.ts",
     "server/src/services/local-ai-credential-file.ts",
@@ -50,7 +51,47 @@
     },
     {
       "status": "A",
+      "path": "scripts/ppclip/computer-image/Dockerfile"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/computer-image/chromium-policy.json"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/computer-image/control.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/computer-image/egress_proxy.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/computer-image/shell_runner.py"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/computer-image/start.sh"
+    },
+    {
+      "status": "A",
+      "path": "scripts/ppclip/computer-supervisor.mjs"
+    },
+    {
+      "status": "A",
       "path": "scripts/ppclip/start-local.mjs"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-computer-use-state.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-computer-use-supervisor.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-computer-use.test.ts"
     },
     {
       "status": "A",
@@ -79,6 +120,70 @@
     {
       "status": "M",
       "path": "server/src/app.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/index.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/guardrails.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/index.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/mcp.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/routes.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/service.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/state.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/stream-proxy.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor-client.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/config.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/docker-api.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/docker-provider.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/fake-provider.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/main.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/provider.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/computer-use/supervisor/server.ts"
     },
     {
       "status": "A",
@@ -266,6 +371,26 @@
     },
     {
       "status": "A",
+      "path": "ui/src/ppclip/computer-use/ComputerPanel.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/computer-use/ComputerUseSettingsSection.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/computer-use/api.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/computer-use/computer-use.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/computer-use/useComputerUse.ts"
+    },
+    {
+      "status": "A",
       "path": "ui/src/ppclip/live-run-refresh.test.ts"
     },
     {
@@ -299,6 +424,10 @@
     {
       "status": "A",
       "path": "ui/src/ppclip/live/station-order.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/live/use-seen.ts"
     },
     {
       "status": "A",
