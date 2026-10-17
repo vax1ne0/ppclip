@@ -2,12 +2,12 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "ppclipSourceCommit": "d357f48ca53b602b0a228e1a59b7ce78606cba8e",
-  "patchSha256": "43e735ce6dee95b7d3a0abbeb39d40a62b75a596388e90cd18b782c04b037f8b",
-  "generatedAt": "2026-10-17T05:50:43.764Z",
+  "ppclipSourceCommit": "0ab67bae90e1f8558ec519acc17cb5347d9d3dc1",
+  "patchSha256": "60a52db3c954887ac8921620579b8575d5d62c816078fb4ddda3da33dac470ac",
+  "generatedAt": "2026-10-17T06:31:26.343Z",
   "files": {
-    "added": 106,
-    "modified": 41,
+    "added": 115,
+    "modified": 43,
     "deleted": 0
   },
   "officialFilesModified": [
@@ -32,6 +32,8 @@
     "ui/src/components/AgentConversationsSidebar.tsx",
     "ui/src/components/BreadcrumbBar.test.tsx",
     "ui/src/components/BreadcrumbBar.tsx",
+    "ui/src/components/CompanySettingsSidebar.production.tsx",
+    "ui/src/components/CompanySettingsSidebar.tsx",
     "ui/src/components/EntityRow.tsx",
     "ui/src/components/Sidebar.production.tsx",
     "ui/src/components/Sidebar.tsx",
@@ -105,6 +107,10 @@
     {
       "status": "A",
       "path": "server/src/__tests__/ppclip-computer-use.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-features.test.ts"
     },
     {
       "status": "A",
@@ -201,6 +207,14 @@
     {
       "status": "A",
       "path": "server/src/ppclip/computer-use/supervisor/server.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/features-routes.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/ppclip/features.ts"
     },
     {
       "status": "A",
@@ -313,6 +327,14 @@
     {
       "status": "M",
       "path": "ui/src/components/BreadcrumbBar.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/CompanySettingsSidebar.production.tsx"
+    },
+    {
+      "status": "M",
+      "path": "ui/src/components/CompanySettingsSidebar.tsx"
     },
     {
       "status": "M",
@@ -437,6 +459,30 @@
     {
       "status": "A",
       "path": "ui/src/ppclip/computer-use/useComputerUse.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/features/PpclipOn.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/features/PpclipSettingsPage.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/features/features.test.tsx"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/features/flags.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/features/registry.ts"
+    },
+    {
+      "status": "A",
+      "path": "ui/src/ppclip/features/store.ts"
     },
     {
       "status": "A",

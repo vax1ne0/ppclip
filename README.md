@@ -27,6 +27,7 @@ It doesn't replace Paperclip or need a separate install: you keep your own offic
   - a deleted comment no longer counts as an agent's reply;
   - Claude/Codex sign-in works when the server runs on Windows (on newer Paperclip, browser sign-in runs in a Windows terminal through `@lydell/node-pty` instead of Python's `pty`, which Windows lacks).
 - **`scripts/ppclip/start-local.mjs`**: starts an isolated local instance with its own data folder and ports.
+- **Settings → ppclip** (below Adapters; `master-669d329f2` patch): switch each module above on or off for the whole install. Everything is on by default; turning a module off brings back official Paperclip's own behaviour and keeps your data. Only an instance admin can change them, and every change is written to each company's activity log. Stored in `ppclip-features.json` in the instance folder (no database change).
 
 ## Supported Paperclip versions
 

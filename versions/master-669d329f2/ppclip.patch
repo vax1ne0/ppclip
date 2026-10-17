@@ -1598,6 +1598,87 @@ index 0000000000000000000000000000000000000000..5c8919c0c0223e7a9d8cbdc924482f3e
 +    expect((await request(app).post("/api/ppclip/computer-use/mcp").send({ jsonrpc: "2.0", id: 5, method: "tools/list" })).status).toBe(403);
 +  });
 +});
+diff --git a/server/src/__tests__/ppclip-features.test.ts b/server/src/__tests__/ppclip-features.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..4e0664d224f159091c84ea546f645ef8f3e914ba
+--- /dev/null
++++ b/server/src/__tests__/ppclip-features.test.ts
+@@ -0,0 +1,75 @@
++import fs from "node:fs";
++import os from "node:os";
++import path from "node:path";
++import { afterEach, beforeEach, describe, expect, it } from "vitest";
++import {
++  PPCLIP_FEATURE_KEYS,
++  ppclipFeature,
++  ppclipFeatureGate,
++  readPpclipFeatures,
++  setPpclipFeaturesFileForTests,
++  writePpclipFeatures,
++} from "../ppclip/features.js";
++import { ppclipRunCreditForDay } from "../ppclip/run-controls/credit.js";
++
++let dir: string;
++let file: string;
++
++beforeEach(() => {
++  dir = fs.mkdtempSync(path.join(os.tmpdir(), "ppclip-features-"));
++  file = path.join(dir, "ppclip-features.json");
++  setPpclipFeaturesFileForTests(file);
++});
++
++afterEach(() => {
++  setPpclipFeaturesFileForTests(null);
++  fs.rmSync(dir, { recursive: true, force: true });
++});
++
++describe("ppclip module switches", () => {
++  it("turns every module on until something is saved", () => {
++    expect(fs.existsSync(file)).toBe(false);
++    const features = readPpclipFeatures();
++    expect(Object.keys(features).sort()).toEqual([...PPCLIP_FEATURE_KEYS].sort());
++    expect(Object.values(features).every(Boolean)).toBe(true);
++  });
++
++  it("saves a change, keeps the rest, and survives a reload", () => {
++    writePpclipFeatures({ team: false });
++    expect(ppclipFeature("team")).toBe(false);
++    expect(ppclipFeature("liveRuns")).toBe(true);
++    setPpclipFeaturesFileForTests(file); // drops the cache, as a restart would
++    expect(ppclipFeature("team")).toBe(false);
++    expect(JSON.parse(fs.readFileSync(file, "utf8")).team).toBe(false);
++  });
++
++  it("falls back to everything on for an unreadable file and ignores unknown keys", () => {
++    fs.writeFileSync(file, "{ not json");
++    expect(readPpclipFeatures().team).toBe(true);
++    fs.writeFileSync(file, JSON.stringify({ team: false, somethingElse: false, liveRuns: "no" }));
++    setPpclipFeaturesFileForTests(file);
++    const features = readPpclipFeatures();
++    expect(features.team).toBe(false);
++    expect(features.liveRuns).toBe(true);
++    expect("somethingElse" in features).toBe(false);
++  });
++
++  it("answers 404 on a switched-off module's routes and passes through otherwise", () => {
++    const gate = ppclipFeatureGate("runControls");
++    const res = { code: 0, body: null as unknown, status(code: number) { this.code = code; return { json: (body: unknown) => { this.body = body; } }; } };
++    let passed = 0;
++    gate({}, res, () => { passed += 1; });
++    expect(passed).toBe(1);
++    writePpclipFeatures({ runControls: false });
++    gate({}, res, () => { passed += 1; });
++    expect(passed).toBe(1);
++    expect(res.code).toBe(404);
++  });
++
++  it("stops crediting Unlimited runs when Run controls is off", () => {
++    const day = new Date("2026-10-17T00:00:00.000Z");
++    const metadata = { ppclipRunControls: { unlimited: true, credit: { day: "2026-10-17", runs: 3 } } };
++    writePpclipFeatures({ runControls: false });
++    expect(ppclipRunCreditForDay(metadata, day)).toBe(0);
++  });
++});
 diff --git a/server/src/__tests__/ppclip-provider-routing-policy.test.ts b/server/src/__tests__/ppclip-provider-routing-policy.test.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..8af37b05509ae37b601b8d86cb1b4d1f0bf96e0d
@@ -2756,10 +2837,10 @@ index 0000000000000000000000000000000000000000..2da3f3dfee09f34d598199d4a2b5618d
 +  });
 +});
 diff --git a/server/src/app.ts b/server/src/app.ts
-index 14814f644196632c542ea3b95926c6d34745c890..c1b49243096d903e6f058756b2fab4ac90d6f943 100644
+index 14814f644196632c542ea3b95926c6d34745c890..0afb40a86f124e481b35dca9ba646e7f2c8802f0 100644
 --- a/server/src/app.ts
 +++ b/server/src/app.ts
-@@ -80,6 +80,10 @@ import { companyRoutes } from "./routes/companies.js";
+@@ -80,6 +80,11 @@ import { companyRoutes } from "./routes/companies.js";
  import { companySkillRoutes } from "./routes/company-skills.js";
  import { companySkillPolicyRoutes } from "./routes/company-skill-policy.js";
  import { inboxAgentPolicyRoutes } from "./routes/inbox-agent-policy.js";
@@ -2767,20 +2848,22 @@ index 14814f644196632c542ea3b95926c6d34745c890..c1b49243096d903e6f058756b2fab4ac
 +import { ppclipProviderRoutingRoutes } from "./ppclip/providers/routes.js"; // ppclip: PROV-1/PROV-2
 +import { startProviderRoutingController } from "./ppclip/providers/service.js"; // ppclip: PROV-2
 +import { ppclipComputerUseRoutes } from "./ppclip/computer-use/routes.js"; // ppclip: computer use
++import { ppclipFeatureRoutes } from "./ppclip/features-routes.js"; // ppclip: module switches
  import { builtInAgentRoutes } from "./routes/built-in-agents.js";
  import { folderRoutes } from "./routes/folders.js";
  import { summarySlotRoutes } from "./routes/summary-slots.js";
-@@ -753,6 +757,9 @@ export async function createApp(
+@@ -753,6 +758,10 @@ export async function createApp(
    api.use(companySkillPolicyRoutes(db));
    api.use(inboxAgentPolicyRoutes(db));
    api.use(agentCommentaryRoutes(db));
 +  api.use(ppclipRunControlRoutes(db)); // ppclip: run controls (RUN-1, RUN-2, master switch)
 +  api.use(ppclipProviderRoutingRoutes(db)); // ppclip: provider routing (PROV-1, PROV-2)
 +  api.use(ppclipComputerUseRoutes(db)); // ppclip: computer use (off by default)
++  api.use(ppclipFeatureRoutes(db)); // ppclip: module switches (Settings → ppclip)
    api.use(builtInAgentRoutes(db));
    api.use(summarySlotRoutes(db));
    api.use(statusCardRoutes(db));
-@@ -1335,6 +1342,8 @@ export async function createApp(
+@@ -1335,6 +1344,8 @@ export async function createApp(
        });
    };
    registerBrowserUseCleanup(deliveryWork, browserUse, () => !isIdleTaskDrainActive());
@@ -2789,7 +2872,7 @@ index 14814f644196632c542ea3b95926c6d34745c890..c1b49243096d903e6f058756b2fab4ac
    let importTransferSweepTimer: ReturnType<typeof setInterval> | null =
      setInterval(
        sweepImportTransferSpools,
-@@ -1448,6 +1457,7 @@ export async function createApp(
+@@ -1448,6 +1459,7 @@ export async function createApp(
          chatPublicationTimer = null;
        }
        await chatReconciliation.drain();
@@ -2949,15 +3032,16 @@ index 0000000000000000000000000000000000000000..3517443a8faf37cfa2c38653ae9c6478
 +}
 diff --git a/server/src/ppclip/computer-use/index.ts b/server/src/ppclip/computer-use/index.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..dedd4e2dee799ffd5f35b850e0d2ddf2a47e378e
+index 0000000000000000000000000000000000000000..dbe1753d23f0c965437fac313c9a0702ae65aaf3
 --- /dev/null
 +++ b/server/src/ppclip/computer-use/index.ts
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,30 @@
 +import type { Db } from "@paperclipai/db";
 +import { computerUseService, isComputerUseEnabled, sharedComputerUseService } from "./service.js";
 +import { readComputerUse } from "./state.js";
 +import { httpSupervisorClient } from "./supervisor-client.js";
 +import { COMPUTER_MCP_PATH } from "./mcp.js";
++import { ppclipFeature } from "../features.js";
 +
 +/** The process-wide service, talking to the supervisor configured by environment variables. */
 +export function ppclipComputerUse(db: Db) {
@@ -2976,6 +3060,7 @@ index 0000000000000000000000000000000000000000..dedd4e2dee799ffd5f35b850e0d2ddf2
 +  apiBaseUrl: string,
 +) {
 +  if (!authToken) return null;
++  if (!ppclipFeature("computerUse")) return null;
 +  const meta = readComputerUse(agent.metadata);
 +  if (!meta.enabled || meta.state === "revoked") return null;
 +  if (!(await isComputerUseEnabled(db, agent.companyId))) return null;
@@ -3307,10 +3392,10 @@ index 0000000000000000000000000000000000000000..268500ae32f7040b2b8d97a8102a08d7
 +}
 diff --git a/server/src/ppclip/computer-use/routes.ts b/server/src/ppclip/computer-use/routes.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..71a60f82d1cc17e54d691070c64950a5a7b24ad5
+index 0000000000000000000000000000000000000000..a92d05d66bf9d7198123c6063e69785140c6de74
 --- /dev/null
 +++ b/server/src/ppclip/computer-use/routes.ts
-@@ -0,0 +1,132 @@
+@@ -0,0 +1,135 @@
 +import { Router, type Request } from "express";
 +import { z } from "zod";
 +import type { Db } from "@paperclipai/db";
@@ -3322,6 +3407,7 @@ index 0000000000000000000000000000000000000000..71a60f82d1cc17e54d691070c64950a5
 +import { computerMcpRoutes } from "./mcp.js";
 +import type { ComputerUseService, OperatorAction } from "./service.js";
 +import { ppclipComputerUse } from "./index.js";
++import { ppclipFeatureGate } from "../features.js";
 +
 +const switchSchema = z.object({ enabled: z.boolean() }).strict();
 +const agentSchema = z.object({
@@ -3361,6 +3447,8 @@ index 0000000000000000000000000000000000000000..71a60f82d1cc17e54d691070c64950a5
 + */
 +export function ppclipComputerUseRoutes(db: Db, service: ComputerUseService = ppclipComputerUse(db)) {
 +  const router = Router();
++  router.use("/companies/:companyId/ppclip/computer-use", ppclipFeatureGate("computerUse"));
++  router.use(VIEW_PREFIX, ppclipFeatureGate("computerUse"));
 +  const access = accessService(db);
 +
 +  const sweeper = setInterval(() => { void service.sweep().catch(() => undefined); }, 30_000);
@@ -4208,10 +4296,10 @@ index 0000000000000000000000000000000000000000..84e882d175141550e8008f3ba8f794ca
 +}
 diff --git a/server/src/ppclip/computer-use/stream-proxy.ts b/server/src/ppclip/computer-use/stream-proxy.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..2b6196798f3f792801ea15b37fecd812a45c9653
+index 0000000000000000000000000000000000000000..6e4364fac07571c071b8f31c261aca931ff6fc81
 --- /dev/null
 +++ b/server/src/ppclip/computer-use/stream-proxy.ts
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,52 @@
 +import type { IncomingMessage, Server } from "node:http";
 +import type { Duplex } from "node:stream";
 +import { WebSocket, WebSocketServer } from "ws";
@@ -4219,6 +4307,7 @@ index 0000000000000000000000000000000000000000..2b6196798f3f792801ea15b37fecd812
 +import { ppclipComputerUse } from "./index.js";
 +import type { ComputerUseService } from "./service.js";
 +import { pipeSockets } from "./supervisor/server.js";
++import { ppclipFeature } from "../features.js";
 +
 +const PATH = /^\/api\/ppclip\/computer-use\/view\/([A-Za-z0-9_-]{16,64})\/websockify$/;
 +const RECHECK_MS = 1000;
@@ -4237,6 +4326,7 @@ index 0000000000000000000000000000000000000000..2b6196798f3f792801ea15b37fecd812
 +    if (!match) return;
 +    req.paperclipWebSocketHandled = true;
 +    const reject = (status: string) => socket.end(`HTTP/1.1 ${status}\r\nConnection: close\r\n\r\n`);
++    if (!ppclipFeature("computerUse")) return reject("404 Not Found");
 +    const ticketId = match[1]!;
 +    void service.resolveTicket(ticketId).then((ticket) => {
 +      if (!ticket) return reject("403 Forbidden");
@@ -5379,6 +5469,155 @@ index 0000000000000000000000000000000000000000..3debc4d03300bc47a7055e1e8334af55
 +  }
 +  throw new ProviderError("invalid", "invalid page action", 400);
 +}
+diff --git a/server/src/ppclip/features-routes.ts b/server/src/ppclip/features-routes.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..2094e7eba17aa4d9e0ef58378da62c8b9600bf42
+--- /dev/null
++++ b/server/src/ppclip/features-routes.ts
+@@ -0,0 +1,49 @@
++import { Router } from "express";
++import { z } from "zod";
++import { companies, type Db } from "@paperclipai/db";
++import { validate } from "../middleware/validate.js";
++import { logActivity } from "../services/activity-log.js";
++import { assertBoardOrgAccess, assertInstanceAdmin, getActorInfo } from "../routes/authz.js";
++import { PPCLIP_FEATURE_KEYS, readPpclipFeatures, writePpclipFeatures } from "./features.js";
++
++const patchSchema = z
++  .object(Object.fromEntries(PPCLIP_FEATURE_KEYS.map((key) => [key, z.boolean().optional()])) as Record<(typeof PPCLIP_FEATURE_KEYS)[number], z.ZodOptional<z.ZodBoolean>>)
++  .strict()
++  .refine((patch) => Object.keys(patch).length > 0, "Change at least one module.");
++
++/**
++ * ppclip module switches, mirroring official's Experimental settings: any
++ * board member may read them, only an instance admin may change them, and each
++ * change is written to every company's activity log.
++ */
++export function ppclipFeatureRoutes(db: Db) {
++  const router = Router();
++
++  router.get("/ppclip/features", (req, res) => {
++    assertBoardOrgAccess(req);
++    res.json(readPpclipFeatures());
++  });
++
++  router.patch("/ppclip/features", validate(patchSchema), async (req, res) => {
++    assertInstanceAdmin(req);
++    const patch = req.body as Partial<Record<(typeof PPCLIP_FEATURE_KEYS)[number], boolean>>;
++    const updated = writePpclipFeatures(patch);
++    const actor = getActorInfo(req);
++    const rows = await db.select({ id: companies.id }).from(companies);
++    await Promise.all(rows.map(({ id }) => logActivity(db, {
++      companyId: id,
++      actorType: actor.actorType,
++      actorId: actor.actorId,
++      agentId: actor.agentId,
++      runId: actor.runId,
++      agentApiKeyId: actor.agentApiKeyId,
++      action: "ppclip.features_updated",
++      entityType: "instance_settings",
++      entityId: "ppclip-features",
++      details: { changed: patch },
++    })));
++    res.json(updated);
++  });
++
++  return router;
++}
+diff --git a/server/src/ppclip/features.ts b/server/src/ppclip/features.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..5f152304a0dbb4d183acc05f0e7bdb05a05e18b9
+--- /dev/null
++++ b/server/src/ppclip/features.ts
+@@ -0,0 +1,88 @@
++import fs from "node:fs";
++import path from "node:path";
++import { resolvePaperclipInstanceRoot } from "../home-paths.js";
++
++/**
++ * ppclip module switches. Instance-wide (like official's Experimental
++ * settings), every module on by default, stored in a small JSON file in the
++ * instance folder so ppclip needs no database migration. Keep the keys in step
++ * with ui/src/ppclip/features/registry.ts.
++ */
++export const PPCLIP_FEATURE_KEYS = [
++  "team",
++  "liveRuns",
++  "providerUsage",
++  "providerRouting",
++  "runControls",
++  "computerUse",
++  "urgencyOrder",
++  "attention",
++  "rosterExtras",
++  "taskChatRuns",
++  "staleRunningRepair",
++  "liveRefresh",
++  "deletedCommentReply",
++  "windowsSignIn",
++] as const;
++export type PpclipFeatureKey = (typeof PPCLIP_FEATURE_KEYS)[number];
++export type PpclipFeatures = Record<PpclipFeatureKey, boolean>;
++
++const FILE_NAME = "ppclip-features.json";
++
++export function defaultPpclipFeatures(): PpclipFeatures {
++  return Object.fromEntries(PPCLIP_FEATURE_KEYS.map((key) => [key, true])) as PpclipFeatures;
++}
++
++let filePathOverride: string | null = null;
++/** Tests point the store at a temporary file. */
++export function setPpclipFeaturesFileForTests(file: string | null) {
++  filePathOverride = file;
++  cache = null;
++}
++function featuresFile() {
++  return filePathOverride ?? path.join(resolvePaperclipInstanceRoot(), FILE_NAME);
++}
++
++let cache: PpclipFeatures | null = null;
++
++/** Missing or unreadable file, or unknown keys, fall back to the defaults (everything on). */
++function load(): PpclipFeatures {
++  const features = defaultPpclipFeatures();
++  try {
++    const stored = JSON.parse(fs.readFileSync(featuresFile(), "utf8")) as Record<string, unknown>;
++    for (const key of PPCLIP_FEATURE_KEYS) if (typeof stored[key] === "boolean") features[key] = stored[key] as boolean;
++  } catch {
++    // Not written yet: every module stays on.
++  }
++  return features;
++}
++
++export function readPpclipFeatures(): PpclipFeatures {
++  cache ??= load();
++  return { ...cache };
++}
++
++/** Synchronous check for hot paths (scheduler, run queries). */
++export function ppclipFeature(key: PpclipFeatureKey): boolean {
++  cache ??= load();
++  return cache[key];
++}
++
++export function writePpclipFeatures(patch: Partial<PpclipFeatures>): PpclipFeatures {
++  const next = { ...readPpclipFeatures(), ...patch };
++  const file = featuresFile();
++  fs.mkdirSync(path.dirname(file), { recursive: true });
++  const temp = `${file}.${process.pid}.tmp`;
++  fs.writeFileSync(temp, JSON.stringify(next, null, 2) + "\n");
++  fs.renameSync(temp, file);
++  cache = next;
++  return { ...next };
++}
++
++/** Express gate for a module's own routes: a switched-off module answers 404. */
++export function ppclipFeatureGate(key: PpclipFeatureKey) {
++  return (_req: unknown, res: { status(code: number): { json(body: unknown): void } }, next: () => void) => {
++    if (ppclipFeature(key)) return next();
++    res.status(404).json({ error: "This ppclip module is turned off in Settings → ppclip." });
++  };
++}
 diff --git a/server/src/ppclip/providers/policy.ts b/server/src/ppclip/providers/policy.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..0ebe158caea3c623bff54bb71a091391a383f1e9
@@ -5787,10 +6026,10 @@ index 0000000000000000000000000000000000000000..0ebe158caea3c623bff54bb71a091391
 +}
 diff --git a/server/src/ppclip/providers/routes.ts b/server/src/ppclip/providers/routes.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..3d3e20790654d4586310f1dcbc68328317068a5b
+index 0000000000000000000000000000000000000000..7d6dbde0213fb5386b776a739ed6194726a43aee
 --- /dev/null
 +++ b/server/src/ppclip/providers/routes.ts
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,81 @@
 +import { Router, type Request } from "express";
 +import { z } from "zod";
 +import type { Db } from "@paperclipai/db";
@@ -5801,6 +6040,7 @@ index 0000000000000000000000000000000000000000..3d3e20790654d4586310f1dcbc683283
 +import { assertBoard, assertCompanyAccess } from "../../routes/authz.js";
 +import { routingPolicyUpdateSchema } from "./policy.js";
 +import { providerRoutingService, type RoutingActor } from "./service.js";
++import { ppclipFeatureGate } from "../features.js";
 +
 +type ProviderRoutingService = Pick<ReturnType<typeof providerRoutingService>, "status" | "savePolicy" | "release" | "reconcile">;
 +type WriteAccessCheck = (req: Request, companyId: string) => Promise<void>;
@@ -5818,6 +6058,7 @@ index 0000000000000000000000000000000000000000..3d3e20790654d4586310f1dcbc683283
 +  deps: { service?: ProviderRoutingService; assertWrite?: WriteAccessCheck } = {},
 +) {
 +  const router = Router();
++  router.use("/companies/:companyId/ppclip/provider-routing", ppclipFeatureGate("providerRouting"));
 +  const service = deps.service ?? providerRoutingService(db);
 +  const access = accessService(db);
 +  const assertWrite: WriteAccessCheck = deps.assertWrite ?? (async (req, companyId) => {
@@ -5872,10 +6113,10 @@ index 0000000000000000000000000000000000000000..3d3e20790654d4586310f1dcbc683283
 +}
 diff --git a/server/src/ppclip/providers/service.ts b/server/src/ppclip/providers/service.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..abcb1831835cc41532616b9959525a541fcb36ce
+index 0000000000000000000000000000000000000000..12fd820e251b0874afe19b4793b6e093461c6667
 --- /dev/null
 +++ b/server/src/ppclip/providers/service.ts
-@@ -0,0 +1,499 @@
+@@ -0,0 +1,501 @@
 +/**
 + * ppclip PROV-2: provider-routing policy storage and the in-server controller.
 + *
@@ -5905,6 +6146,7 @@ index 0000000000000000000000000000000000000000..abcb1831835cc41532616b9959525a54
 +import { logActivity } from "../../services/activity-log.js";
 +import { updateAgentConfigurationInTransaction } from "../../services/agent-configuration-transaction.js";
 +import { aiConnectionService } from "../../services/ai-connections.js";
++import { ppclipFeature } from "../features.js";
 +import {
 +  aiProviderForAdapter,
 +  buildRoutedConfig,
@@ -6354,6 +6596,7 @@ index 0000000000000000000000000000000000000000..abcb1831835cc41532616b9959525a54
 +  let running = false;
 +  const tick = async () => {
 +    if (running || options.isPaused?.()) return;
++    if (!ppclipFeature("providerRouting")) return;
 +    running = true;
 +    try {
 +      for (const companyId of await service.enabledCompanyIds()) {
@@ -6377,11 +6620,12 @@ index 0000000000000000000000000000000000000000..abcb1831835cc41532616b9959525a54
 +}
 diff --git a/server/src/ppclip/run-controls/credit.ts b/server/src/ppclip/run-controls/credit.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..80bf9f2030f2b64f5cc664712d6b28433d69caf4
+index 0000000000000000000000000000000000000000..45e81415a9f0fefefa2b6f3cd0ef4f0b0c89c48d
 --- /dev/null
 +++ b/server/src/ppclip/run-controls/credit.ts
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,14 @@
 +import { activeRunCredit, readRunControl, utcDay } from "./state.js";
++import { ppclipFeature } from "../features.js";
 +
 +/**
 + * ppclip RUN-1 hook for official's daily cap check: runs made while Unlimited was
@@ -6390,21 +6634,23 @@ index 0000000000000000000000000000000000000000..80bf9f2030f2b64f5cc664712d6b2843
 + * agent gets no credit: Drain's cap of 0 is a hard stop.
 + */
 +export function ppclipRunCreditForDay(metadata: unknown, dayStart: Date) {
++  if (!ppclipFeature("runControls")) return 0;
 +  if (readRunControl(metadata).draining) return 0;
 +  return activeRunCredit(metadata, utcDay(dayStart));
 +}
 diff --git a/server/src/ppclip/run-controls/drain-after-claim.ts b/server/src/ppclip/run-controls/drain-after-claim.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..8daeed782278e9c5230cd55f2f207c4dbec47f34
+index 0000000000000000000000000000000000000000..419ba69e07b58b8f75e2c528be9cb0615869ae86
 --- /dev/null
 +++ b/server/src/ppclip/run-controls/drain-after-claim.ts
-@@ -0,0 +1,93 @@
+@@ -0,0 +1,96 @@
 +import { eq } from "drizzle-orm";
 +import { agents, heartbeatRuns, type Db } from "@paperclipai/db";
 +import { logActivity, publishActivity, type ActivityPublication } from "../../services/activity-log.js";
 +import { publishLiveEvent } from "../../services/live-events.js";
 +import { lockRunControlTeam, type DailyRunCapReader } from "./service.js";
 +import { applyRunControl, isDrainAfterArmed, readDrainAfter, readRunControl, withDrainAfter } from "./state.js";
++import { ppclipFeature } from "../features.js";
 +
 +/**
 + * ppclip RUN-2: when an agent armed with "Drain after next run" has its run
@@ -6435,11 +6681,13 @@ index 0000000000000000000000000000000000000000..8daeed782278e9c5230cd55f2f207c4d
 +
 +/** Called at the start of the claim transaction, before official's issue lock. */
 +export async function ppclipDrainAfterPreLock(tx: Tx, run: Pick<ClaimedRun, "companyId" | "agentId">) {
++  if (!ppclipFeature("runControls")) return;
 +  if (await claimingAgentArmed(tx, run.agentId)) await lockRunControlTeam(tx, run.companyId);
 +}
 +
 +/** Called inside the claim transaction right after the run row became "running". */
 +export async function ppclipDrainAfterOnClaim(tx: Tx, claimed: ClaimedRun | null | undefined, readCap: DailyRunCapReader) {
++  if (!ppclipFeature("runControls")) return;
 +  if (!claimed || claimed.status !== "running") return;
 +  if (!(await claimingAgentArmed(tx, claimed.agentId))) return;
 +  // Re-entrant when the pre-lock already ran: Postgres does not wait on locks it holds.
@@ -6494,10 +6742,10 @@ index 0000000000000000000000000000000000000000..8daeed782278e9c5230cd55f2f207c4d
 +}
 diff --git a/server/src/ppclip/run-controls/routes.ts b/server/src/ppclip/run-controls/routes.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..468a2f6c5514abc00cc649a080aa0b9c6e823bbd
+index 0000000000000000000000000000000000000000..7860d6766b88b05d4aca63c205110dd8b5699f38
 --- /dev/null
 +++ b/server/src/ppclip/run-controls/routes.ts
-@@ -0,0 +1,94 @@
+@@ -0,0 +1,96 @@
 +import { Router, type Request } from "express";
 +import { z } from "zod";
 +import type { Db } from "@paperclipai/db";
@@ -6508,6 +6756,7 @@ index 0000000000000000000000000000000000000000..468a2f6c5514abc00cc649a080aa0b9c
 +import { heartbeatService } from "../../services/heartbeat.js";
 +import { assertBoard, assertCompanyAccess } from "../../routes/authz.js";
 +import { runControlsService, type RunControlActor } from "./service.js";
++import { ppclipFeatureGate } from "../features.js";
 +
 +const switchSchema = z.object({ enabled: z.boolean() }).strict();
 +const unlimitedSchema = z.object({ enabled: z.boolean() }).strict();
@@ -6520,6 +6769,7 @@ index 0000000000000000000000000000000000000000..468a2f6c5514abc00cc649a080aa0b9c
 + */
 +export function ppclipRunControlRoutes(db: Db) {
 +  const router = Router();
++  router.use("/companies/:companyId/ppclip/run-controls", ppclipFeatureGate("runControls"));
 +  const access = accessService(db);
 +  const heartbeat = heartbeatService(db);
 +  const service = runControlsService(db, {
@@ -7301,13 +7551,14 @@ index 0000000000000000000000000000000000000000..54cc05a3a14e35b531c0474f0417fcad
 +}
 diff --git a/server/src/ppclip/stale-agent-status.ts b/server/src/ppclip/stale-agent-status.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..c895d1fa73413ee8af999bc4cbfafa3b6910f8d6
+index 0000000000000000000000000000000000000000..76a40f04422df76b8960b3ce24ac8f6fee460087
 --- /dev/null
 +++ b/server/src/ppclip/stale-agent-status.ts
-@@ -0,0 +1,39 @@
+@@ -0,0 +1,41 @@
 +import { and, eq, sql } from "drizzle-orm";
 +import { agents, heartbeatRuns, type Db } from "@paperclipai/db";
 +import { publishLiveEvent } from "../services/live-events.js";
++import { ppclipFeature } from "./features.js";
 +
 +/** An agent row must stay "running" this long without live work before it is repaired. */
 +export const STALE_RUNNING_AGENT_GRACE_MS = 30_000;
@@ -7319,6 +7570,7 @@ index 0000000000000000000000000000000000000000..c895d1fa73413ee8af999bc4cbfafa3b
 + * otherwise to "idle". Live events keep open boards in sync.
 + */
 +export async function repairStaleRunningAgents(db: Db, now = new Date()) {
++  if (!ppclipFeature("staleRunningRepair")) return [];
 +  const cutoff = new Date(now.getTime() - STALE_RUNNING_AGENT_GRACE_MS);
 +  const repaired = await db
 +    .update(agents)
@@ -7683,15 +7935,23 @@ index 80384df1c84a9115fe6359b0be31c54365528f6d..fc2533445f5cfe8c6837be595581873f
      // terminal status. Uncaptured local copies require durable stop evidence.
      await instructionCopies.recoverStopped().catch(error => {
 diff --git a/server/src/services/heartbeat/run-lifecycle.ts b/server/src/services/heartbeat/run-lifecycle.ts
-index b9df9f435e519b54626f2b371d377f2c094e1a1b..23ae55238cc0f0961c7374211afe8163bfce5765 100644
+index b9df9f435e519b54626f2b371d377f2c094e1a1b..1fcc7eb7319e4190fc6759ace65657f04207e5f4 100644
 --- a/server/src/services/heartbeat/run-lifecycle.ts
 +++ b/server/src/services/heartbeat/run-lifecycle.ts
-@@ -2192,6 +2192,8 @@ export function createHeartbeatLifecycle(db: Db, dependencies: HeartbeatLifecycl
+@@ -8,6 +8,7 @@ import {
+   DETACHED_PROCESS_ERROR_CODE,
+ } from "./recovery.js";
+ import { normalizeAgentNameKey } from "./retries.js";
++import { ppclipFeature } from "../../ppclip/features.js"; // ppclip: module switch
+ import {
+   type RunSessionOutcome,
+   deriveTaskKeyWithHeartbeatFallback,
+@@ -2192,6 +2193,8 @@ export function createHeartbeatLifecycle(db: Db, dependencies: HeartbeatLifecycl
            eq(issueComments.companyId, companyId),
            eq(issueComments.issueId, issueId),
            eq(issueComments.createdByRunId, runId),
-+          // ppclip: a deleted comment is not the run's reply.
-+          isNull(issueComments.deletedAt),
++          // ppclip: a deleted comment is not the run's reply (module switch: deletedCommentReply).
++          ppclipFeature("deletedCommentReply") ? isNull(issueComments.deletedAt) : undefined,
          ),
        )
        .orderBy(desc(issueComments.createdAt), desc(issueComments.id));
@@ -7718,18 +7978,19 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..7bb1e50370366b15e38729c976a798af
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
 diff --git a/server/src/services/local-ai-browser-login.ts b/server/src/services/local-ai-browser-login.ts
-index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..57f355eb9e43bd1d5039178f6b3a650f4a3dbb18 100644
+index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..dff3327328f569a865aeb38f35199e5666675058 100644
 --- a/server/src/services/local-ai-browser-login.ts
 +++ b/server/src/services/local-ai-browser-login.ts
-@@ -6,6 +6,7 @@ import { runSetupTokenLogin } from "@paperclipai/adapter-claude-local/server";
+@@ -6,6 +6,8 @@ import { runSetupTokenLogin } from "@paperclipai/adapter-claude-local/server";
  import { runDeviceLogin } from "@paperclipai/adapter-codex-local/server";
  import { ensureCommandResolvable, resolveCommandForLogs } from "@paperclipai/adapter-utils/server-utils";
  import { resolveCodexCommand } from "../vendor/paperclip-runner/index.js";
 +import { createWindowsLoginTerminal, type WindowsLoginTerminal } from "../ppclip/windows-browser-login.js"; // ppclip: Windows sign-in
++import { ppclipFeature } from "../ppclip/features.js"; // ppclip: module switch
  
  export type LocalBrowserLoginState = {
    authorizationUrl?: string;
-@@ -52,6 +53,7 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+@@ -52,6 +54,7 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
    const state: LocalBrowserLoginState = { abort: () => controller.abort() };
    const args = provider === "anthropic" ? ["setup-token"] : ["login", "--device-auth"];
    let child: ChildProcessWithoutNullStreams | null = null;
@@ -7737,12 +7998,12 @@ index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..57f355eb9e43bd1d5039178f6b3a650f
    const driver = {
      async start(_command: string, onData: (chunk: string) => void): Promise<{ exitCode: number | null }> {
        let executable = "claude";
-@@ -80,6 +82,14 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+@@ -80,6 +83,14 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
          CODEX_HOME: provider === "openai" ? home : process.env.CODEX_HOME,
          BROWSER: "true",
        };
 +      // ppclip: Windows has no Python pty module; run the CLI in a ConPTY instead.
-+      if (process.platform === "win32") {
++      if (process.platform === "win32" && ppclipFeature("windowsSignIn")) {
 +        windowsTerminal = createWindowsLoginTerminal();
 +        return windowsTerminal.start(executable, args, env, onData).catch((error) => {
 +          state.error = `Browser sign-in could not start ${provider === "anthropic" ? "Claude Code (claude)" : "Codex (codex)"} in a Windows terminal. Install it on this host and make sure it is on Paperclip's PATH, then start sign-in again.`;
@@ -7752,7 +8013,7 @@ index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..57f355eb9e43bd1d5039178f6b3a650f
        return new Promise((resolve, reject) => {
          child = spawn("python3", ["-u", "-c", PYTHON_PTY_BRIDGE, executable, ...args], { env, stdio: ["pipe", "pipe", "pipe"] });
          child.stdout.on("data", (bytes: Buffer) => onData(bytes.toString("utf8")));
-@@ -92,9 +102,9 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+@@ -92,9 +103,9 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
          child.once("close", (exitCode) => resolve({ exitCode }));
        });
      },
@@ -7766,11 +8027,12 @@ index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..57f355eb9e43bd1d5039178f6b3a650f
    };
    if (provider === "anthropic") {
 diff --git a/server/src/services/local-ai-credential-file.ts b/server/src/services/local-ai-credential-file.ts
-index 4641dde599c2129b9c3b0a4e929e0e1e7d6ab5cf..d21eaeebaefd3c75efa22874a9fa629fc7bdc1ff 100644
+index 4641dde599c2129b9c3b0a4e929e0e1e7d6ab5cf..fbd7932e5bc201deac55ab7ee6ae85ba442de4af 100644
 --- a/server/src/services/local-ai-credential-file.ts
 +++ b/server/src/services/local-ai-credential-file.ts
-@@ -1,9 +1,12 @@
+@@ -1,9 +1,13 @@
 +import { readWindowsCredentialFile } from "../ppclip/windows-local-login.js";
++import { ppclipFeature } from "../ppclip/features.js"; // ppclip: module switch
  import { openRunnerApiWorkspaceFile } from "./native-runtime/runner-api-files.js";
  
  const MAX_CREDENTIAL_BYTES = 64 * 1024;
@@ -7778,29 +8040,30 @@ index 4641dde599c2129b9c3b0a4e929e0e1e7d6ab5cf..d21eaeebaefd3c75efa22874a9fa629f
  /** Bounded descriptor read; never follows symlinks or reopens a checked path. */
  export async function readLocalAiCredentialFile(filename: string): Promise<string> {
 +  // ppclip: Windows has no confined open or POSIX owner/mode bits.
-+  if (process.platform === "win32") return readWindowsCredentialFile(filename);
++  if (process.platform === "win32" && ppclipFeature("windowsSignIn")) return readWindowsCredentialFile(filename);
    const file = await openRunnerApiWorkspaceFile(filename);
    try {
      const stat = await file.stat();
 diff --git a/server/src/services/local-ai-login.ts b/server/src/services/local-ai-login.ts
-index 71482abc4cbf8ac11f725ae89d6fd35bcbdce0fc..51bf9690f3dd576e4bbee0306e14433cf51f8eff 100644
+index 71482abc4cbf8ac11f725ae89d6fd35bcbdce0fc..4813f8994f27e9a25e54a60798cd1fc5701ebfd1 100644
 --- a/server/src/services/local-ai-login.ts
 +++ b/server/src/services/local-ai-login.ts
-@@ -10,6 +10,7 @@ import { notFound, unprocessable } from "../errors.js";
+@@ -10,6 +10,8 @@ import { notFound, unprocessable } from "../errors.js";
  import { aiConnectionService } from "./ai-connections.js";
  import { readVerifiedLocalAiCredential } from "./local-ai-credentials.js";
  import { logActivity } from "./activity-log.js";
 +import { windowsLocalLoginCommand } from "../ppclip/windows-local-login.js";
++import { ppclipFeature } from "../ppclip/features.js"; // ppclip: module switch
  import { startLocalBrowserLogin, type LocalBrowserLoginState } from "./local-ai-browser-login.js";
  
  const LOCAL_LOGIN_METHOD = "local_subscription";
-@@ -29,7 +30,8 @@ function presentAttempt(id: string, expiresAt: Date, provider: string): LocalAiL
+@@ -29,7 +31,8 @@ function presentAttempt(id: string, expiresAt: Date, provider: string): LocalAiL
    const directory = loginHome(id);
    return {
      sessionId: id, expiresAt: expiresAt.toISOString(),
 -    ...(provider === "xai" ? { command: `(export GROK_HOME=${shellQuote(directory)} && mkdir -p "$GROK_HOME" && grok login --device-auth)` } : {}),
 +    // ppclip: PowerShell command when the server runs on Windows.
-+    ...(provider === "xai" ? { command: process.platform === "win32" ? windowsLocalLoginCommand(provider, directory) : `(export GROK_HOME=${shellQuote(directory)} && mkdir -p "$GROK_HOME" && grok login --device-auth)` } : {}),
++    ...(provider === "xai" ? { command: process.platform === "win32" && ppclipFeature("windowsSignIn") ? windowsLocalLoginCommand(provider, directory) : `(export GROK_HOME=${shellQuote(directory)} && mkdir -p "$GROK_HOME" && grok login --device-auth)` } : {}),
    };
  }
  async function prepareHome(id: string, provider: string) {
@@ -7817,10 +8080,18 @@ index 279b2553b14a47266557764cf8a37d73a71bdac4..a9d5620d83ceafd8fc40dbe21196839f
      "react-i18next": "^17.0.15",
      "react-markdown": "^10.1.0",
 diff --git a/ui/src/App.tsx b/ui/src/App.tsx
-index ba6af93f11a01cbb41d6ba2709097a2cbb283317..e1ec3a498fe7faeb4b80203fb768b88c99c74487 100644
+index ba6af93f11a01cbb41d6ba2709097a2cbb283317..50f0bfb7de3818367e598f39d5dd6f52348fb6b5 100644
 --- a/ui/src/App.tsx
 +++ b/ui/src/App.tsx
-@@ -143,6 +143,8 @@ const ProductionCompanyActivity = lazy(() =>
+@@ -96,6 +96,7 @@ import { ProfileSettings } from "./pages/ProfileSettings";
+ import { PluginManager } from "./pages/PluginManager";
+ import { PluginSettings } from "./pages/PluginSettings";
+ import { AdapterManager } from "./pages/AdapterManager";
++import { PpclipSettingsPage } from "./ppclip/features/PpclipSettingsPage"; // ppclip: module switches
+ import { PluginPage } from "./pages/PluginPage";
+ import { NewAgent } from "./pages/NewAgent";
+ import { AuthPage } from "./pages/Auth";
+@@ -143,6 +144,8 @@ const ProductionCompanyActivity = lazy(() =>
  const ProductionOrgChart = lazy(() =>
    import("./pages/OrgChart.production").then((module) => ({ default: module.OrgChart })),
  );
@@ -7829,7 +8100,15 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..e1ec3a498fe7faeb4b80203fb768b88c
  
  function ProductionSurface({ children }: { children: ReactNode }) {
    return <Suspense fallback={<PaperclipLoading />}>{children}</Suspense>;
-@@ -284,6 +286,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+@@ -266,6 +269,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+       <Route element={<HiddenSettingsPageGate pageKey="instance.adapters" />}>
+         <Route path="company/settings/instance/adapters" element={<AdapterManager />} />
+       </Route>
++      <Route path="company/settings/instance/ppclip" element={<PpclipSettingsPage />} /> {/* ppclip: module switches */}
+       <Route path="company/settings/:settingsRoutePath/*" element={<CompanySettingsPluginPage />} />
+       <Route path="skills/sources" element={<SkillSources />} />
+       <Route path="skills/sources/:sourceId" element={<SkillSources />} />
+@@ -284,6 +288,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
          path="org"
          element={streamlinedUiEnabled ? <Navigate to="/agents/all" replace /> : <ProductionSurface><ProductionOrgChart /></ProductionSurface>}
        />
@@ -7837,7 +8116,7 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..e1ec3a498fe7faeb4b80203fb768b88c
        <Route path="agents" element={<Navigate to="/agents/all" replace />} />
        {AGENT_FILTER_TABS.map((tab) => (
          <Route
-@@ -869,6 +872,7 @@ export function App() {
+@@ -869,6 +874,7 @@ export function App() {
            <Route path="skills/*" element={<UnprefixedBoardRedirect />} />
            <Route path="settings" element={<LegacySettingsRedirect />} />
            <Route path="settings/*" element={<LegacySettingsRedirect />} />
@@ -7846,16 +8125,24 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..e1ec3a498fe7faeb4b80203fb768b88c
            {AGENT_FILTER_TABS.map((tab) => (
              <Route key={tab} path={`agents/${tab}`} element={<UnprefixedBoardRedirect />} />
 diff --git a/ui/src/components/ActiveAgentsPanel.tsx b/ui/src/components/ActiveAgentsPanel.tsx
-index b3aaf50a2d77efeac06ca909217323b0cbf331da..9fdf54ac8c1a84cf38c0bf14c05abe4dc1cf648c 100644
+index b3aaf50a2d77efeac06ca909217323b0cbf331da..be65ad4184340a9218ce3e4812542e79b2502651 100644
 --- a/ui/src/components/ActiveAgentsPanel.tsx
 +++ b/ui/src/components/ActiveAgentsPanel.tsx
-@@ -132,7 +132,8 @@ export function ActiveAgentsPanel({
+@@ -1,6 +1,7 @@
+ import { AgentIdentity } from "@/components/AgentIdentity";
+ import { memo, useMemo } from "react";
+ import { Link } from "@/lib/router";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { useQueries, useQuery } from "@tanstack/react-query";
+ import type { Issue } from "@paperclipai/shared";
+ import { heartbeatsApi, type LiveRunForIssue } from "../api/heartbeats";
+@@ -132,7 +133,8 @@ export function ActiveAgentsPanel({
    return (
      <div>
        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
 -        {title}
 +        {/* ppclip: DASH-4 the heading opens Live runs */}
-+        {showMoreLink ? <Link to="/dashboard/live" className="hover:text-foreground hover:underline">{title}</Link> : title}
++        {showMoreLink ? <PpclipOn feature="liveRuns" fallback={title}><Link to="/dashboard/live" className="hover:text-foreground hover:underline">{title}</Link></PpclipOn> : title}
        </h3>
        {runs.length === 0 ? (
          <div className="rounded-xl border border-border p-4">
@@ -7989,6 +8276,48 @@ index 9684c360b44f82a84480563a3c76c78147f8cd1b..2f406f811077285c25f60db7416252be
        {slots.length > 0 ? (
          <PluginSlotOutlet slotTypes={["globalToolbarButton"]} context={context} className="flex items-center gap-1" />
        ) : null}
+diff --git a/ui/src/components/CompanySettingsSidebar.production.tsx b/ui/src/components/CompanySettingsSidebar.production.tsx
+index 690ffb7fbfe78defd98a36913327d045c616ade4..44bbf849703bad8072db160601968d3a65b62ddc 100644
+--- a/ui/src/components/CompanySettingsSidebar.production.tsx
++++ b/ui/src/components/CompanySettingsSidebar.production.tsx
+@@ -3,6 +3,7 @@ import {
+   ChevronLeft,
+   Clock3,
+   Cpu,
++  Blocks, // ppclip: module switches
+   Download,
+   FlaskConical,
+   KeyRound,
+@@ -213,6 +214,8 @@ export function CompanySettingsSidebar() {
+               icon={Cpu}
+             />
+           )}
++          {/* ppclip: module switches, right below Adapters */}
++          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/ppclip`} label="ppclip" icon={Blocks} />
+         </div>
+       </nav>
+     </aside>
+diff --git a/ui/src/components/CompanySettingsSidebar.tsx b/ui/src/components/CompanySettingsSidebar.tsx
+index d264a15bccbd3c6f0d6856bd60bbf77c7c60d8e5..add923928ba4362a21c388d8ed708bb68bc56af9 100644
+--- a/ui/src/components/CompanySettingsSidebar.tsx
++++ b/ui/src/components/CompanySettingsSidebar.tsx
+@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
+ import {
+   ArrowLeft,
+   Cpu,
++  Blocks, // ppclip: module switches
+   Download,
+   FlaskConical,
+   KeyRound,
+@@ -204,6 +205,8 @@ export function CompanySettingsSidebar() {
+               icon={Cpu}
+             />
+           )}
++          {/* ppclip: module switches, right below Adapters */}
++          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/ppclip`} label="ppclip" icon={Blocks} />
+         </div>
+       </nav>
+     </ContextualSidebarFrame>
 diff --git a/ui/src/components/EntityRow.tsx b/ui/src/components/EntityRow.tsx
 index 7e1a18f211aeda717863243b3c886c3d40adef2a..8070d1359262934e24190a6e7fdb3581b89b092f 100644
 --- a/ui/src/components/EntityRow.tsx
@@ -8022,10 +8351,10 @@ index 7e1a18f211aeda717863243b3c886c3d40adef2a..8070d1359262934e24190a6e7fdb3581
            {titleAccessory}
          </div>
 diff --git a/ui/src/components/Sidebar.production.tsx b/ui/src/components/Sidebar.production.tsx
-index 423c102ccdaff3c1e0c2cd7c09433f5cc0a7baf8..3de275a8940826069f22af438f6b5a6ff5bb5f0f 100644
+index 423c102ccdaff3c1e0c2cd7c09433f5cc0a7baf8..c2464b5229d61360eb205eb20b9e81745e9a509f 100644
 --- a/ui/src/components/Sidebar.production.tsx
 +++ b/ui/src/components/Sidebar.production.tsx
-@@ -20,6 +20,7 @@ import {
+@@ -20,11 +20,13 @@ import {
    MessagesSquare,
    GanttChartSquare,
    LayoutGrid,
@@ -8033,20 +8362,26 @@ index 423c102ccdaff3c1e0c2cd7c09433f5cc0a7baf8..3de275a8940826069f22af438f6b5a6f
  } from "lucide-react";
  import { useState } from "react";
  import { useQuery } from "@tanstack/react-query";
-@@ -162,6 +163,8 @@ export function Sidebar() {
+ import { SidebarSection } from "./SidebarSection";
+ import { SidebarNavItem } from "./SidebarNavItem.production";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { SidebarAgents } from "./SidebarAgents.production";
+ import { SidebarProjects } from "./SidebarProjects";
+ import { SidebarStarredProjects } from "./SidebarStarredProjects.production";
+@@ -162,6 +164,8 @@ export function Sidebar() {
              badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
              alert={inboxBadge.failedRuns > 0}
            />
 +          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
-+          <SidebarNavItem to="/team" label="Team" icon={UsersRound} />
++          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
            {showDecisions ? (
              <SidebarNavItem
                to="/decisions"
 diff --git a/ui/src/components/Sidebar.tsx b/ui/src/components/Sidebar.tsx
-index c558bf4e96aaf1bff6d359ce1913cbe19d62eff5..146d81ab6a083729c046080949a04eac35994397 100644
+index c558bf4e96aaf1bff6d359ce1913cbe19d62eff5..26146be1207988740b67de89c409c253f5a93172 100644
 --- a/ui/src/components/Sidebar.tsx
 +++ b/ui/src/components/Sidebar.tsx
-@@ -22,6 +22,7 @@ import {
+@@ -22,11 +22,13 @@ import {
    GanttChartSquare,
    LayoutGrid,
    Users,
@@ -8054,12 +8389,18 @@ index c558bf4e96aaf1bff6d359ce1913cbe19d62eff5..146d81ab6a083729c046080949a04eac
  } from "lucide-react";
  import { useState, type ReactNode } from "react";
  import { useQuery } from "@tanstack/react-query";
-@@ -186,6 +187,8 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+ import { SidebarSection } from "./SidebarSection";
+ import { SidebarNavItem } from "./SidebarNavItem";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { SidebarAgents } from "./SidebarAgents";
+ import { SidebarProjects } from "./SidebarProjects";
+ import { SidebarStarredProjects } from "./SidebarStarredProjects";
+@@ -186,6 +188,8 @@ export function Sidebar({ children }: { children?: ReactNode }) {
                alert={inboxBadge.failedRuns > 0}
              />
            ) : null}
 +          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
-+          <SidebarNavItem to="/team" label="Team" icon={UsersRound} />
++          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
            {agentChatEnabled && !chatRail ? <SidebarNavItem to="/chats" label="Chat" icon={MessageCircle} /> : null}
            {showDecisions ? (
              <SidebarNavItem
@@ -8237,21 +8578,19 @@ index 40677cb3dd388352ddd1322c3325a70b7fee5372..6cd88a64f01a0822a50c76f0e5913762
 +  });
 +});
 diff --git a/ui/src/components/TaskChatThread.tsx b/ui/src/components/TaskChatThread.tsx
-index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76a59fd097 100644
+index de97aa93eb511381e8d5becc1d56f315076e9cec..72b8a7a5b3b5c7bd5cfda9b2a70893d463f71a20 100644
 --- a/ui/src/components/TaskChatThread.tsx
 +++ b/ui/src/components/TaskChatThread.tsx
-@@ -43,9 +43,8 @@ import {
+@@ -43,7 +43,7 @@ import {
  } from "@/components/task-chat/status-relevance";
  import {
    assembleThreadItems,
 -  attachSettledTurns,
-+  // ppclip: CHAT-4 — attach/coalesce replaced by arrangeRunActivity.
++  attachSettledTurns, // ppclip: CHAT-4 official grouping, used when the Task chat module is off
    buildTurnSummary,
--  coalesceSettledTurns,
+   coalesceSettledTurns,
    isTerminalRunStatus,
-   embedPlanDocumentAtWriteBoundary,
-   omitProgressRepeatedByResponseAcrossSegments,
-@@ -132,6 +131,12 @@ import { issuesApi } from "@/api/issues";
+@@ -132,6 +132,13 @@ import { issuesApi } from "@/api/issues";
  import { queryKeys } from "@/lib/queryKeys";
  import { useQueryClient } from "@tanstack/react-query";
  import { TaskChatPresentationProvider } from "@/components/task-chat/presentation-mode";
@@ -8261,10 +8600,11 @@ index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76
 +  firstReplyCommentIdByRun,
 +  runsForThisTask,
 +} from "@/ppclip/task-chat-run-activity";
++import { usePpclipFeature } from "@/ppclip/features/store";
  
  const EMPTY_BROWSERS: TaskBrowser[] = [];
  
-@@ -517,7 +522,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -517,7 +524,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
      composerDisabledReason,
      emptyMessage = "No messages yet.",
      companyId,
@@ -8273,20 +8613,22 @@ index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76
      liveRuns,
      activeRun,
      onAttachImage,
-@@ -567,6 +572,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -567,6 +574,14 @@ export function TaskChatThread(props: TaskChatThreadProps) {
      resumeAssigneePending = false,
      onOpenSkill,
    } = props;
 +  // ppclip: CHAT-3 — runs started for another task only wrote here; their
 +  // activity/status stays out of this chat (their comments still render).
++  // Module switch (Settings → ppclip → Task chat): off keeps official's behaviour.
++  const ppclipChatRuns = usePpclipFeature("taskChatRuns");
 +  const linkedRuns = useMemo(
-+    () => runsForThisTask(ppclipAllLinkedRuns, issueId),
-+    [ppclipAllLinkedRuns, issueId],
++    () => (ppclipChatRuns ? runsForThisTask(ppclipAllLinkedRuns, issueId) : ppclipAllLinkedRuns),
++    [ppclipAllLinkedRuns, issueId, ppclipChatRuns],
 +  );
    const retryFailedRunHandler =
      isTerminalIssueStatus(issueStatus) ||
      interactions?.some((interaction) => interaction.status === "pending") ||
-@@ -816,9 +827,11 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -816,9 +831,11 @@ export function TaskChatThread(props: TaskChatThreadProps) {
        string,
        NonNullable<TaskChatThreadProps["linkedRuns"]>[number]
      >();
@@ -8300,7 +8642,7 @@ index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76
  
    const statusRelevance = useMemo(
      () => taskChatStatusRelevance(issueStatus, [
-@@ -834,12 +847,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -834,12 +851,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
        string,
        ReturnType<typeof acceptedSemanticResultVerificationCaveats>
      >();
@@ -8315,7 +8657,7 @@ index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76
  
    // Historical placeholder comments remain untouched in storage. Projection
    // prefers the accepted semantic result so runs such as DOT-20 recover their
-@@ -1083,6 +1096,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -1083,6 +1100,12 @@ export function TaskChatThread(props: TaskChatThreadProps) {
      return map;
    }, [projectedComments]);
  
@@ -8328,16 +8670,16 @@ index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76
    const steeringAnchorsByRun = useMemo(() => {
      const map = new Map<string, number[]>();
      for (const comment of comments) {
-@@ -2019,7 +2038,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -2019,7 +2042,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
                ? sourceHasPresentationComment
                  ? sourcePresentationCommentId
                  : null
 -              : (lastCommentIdByRun.get(source.id) ?? null),
-+              : (ppclipFirstReplyIdByRun.get(source.id) ?? null), // ppclip: CHAT-4
++              : ((ppclipChatRuns ? ppclipFirstReplyIdByRun : lastCommentIdByRun).get(source.id) ?? null), // ppclip: CHAT-4
            // A post-steering segment ties the acknowledgement-backed human
            // bubble and is therefore inserted immediately after it. The first
            // segment retains the normal run-start slot.
-@@ -2140,20 +2159,18 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -2140,20 +2163,20 @@ export function TaskChatThread(props: TaskChatThreadProps) {
        unanchored,
      );
  
@@ -8360,19 +8702,22 @@ index de97aa93eb511381e8d5becc1d56f315076e9cec..00b0ef8d9010acaffe2c841ca42d6b76
 -          coalesceSettledTurns(out, turnMergeMetaById),
 -          turnMergeMetaById,
 -        ),
-+        arrangeRunActivity(out, {
-+          settledTurns,
-+          metaById: turnMergeMetaById,
-+          comments: projectedComments,
-+        }),
++        ppclipChatRuns
++          ? arrangeRunActivity(out, {
++            settledTurns,
++            metaById: turnMergeMetaById,
++            comments: projectedComments,
++          })
++          : attachSettledTurns(coalesceSettledTurns(out, turnMergeMetaById), turnMergeMetaById),
          hasBrief,
        ),
        settledRunIds,
-@@ -2169,6 +2186,7 @@ export function TaskChatThread(props: TaskChatThreadProps) {
+@@ -2169,6 +2192,8 @@ export function TaskChatThread(props: TaskChatThreadProps) {
      transcriptByRun,
      linkedRunMetaById,
      lastCommentIdByRun,
 +    ppclipFirstReplyIdByRun, // ppclip: CHAT-4
++    ppclipChatRuns,
      comments,
      projectedComments,
      steeringAnchorsByRun,
@@ -8536,7 +8881,7 @@ index aad8e4ae4fbb2a81e9218c2972b7bebfe32a2b53..7e4393f26c1a25621141fa390a7eefff
        node.textContent?.includes("Software Engineer With A Much Longer Specialty Title"),
      );
 diff --git a/ui/src/pages/Agents.tsx b/ui/src/pages/Agents.tsx
-index d128d9cf16a771dbaf99204d951723205de9b25e..7b787c5ec63fe3a73b7d36114e9873e4a890583c 100644
+index d128d9cf16a771dbaf99204d951723205de9b25e..eaa8569d40b98b1b3cdf9de9cf6480187de312e7 100644
 --- a/ui/src/pages/Agents.tsx
 +++ b/ui/src/pages/Agents.tsx
 @@ -35,6 +35,11 @@ import {
@@ -8577,7 +8922,7 @@ index d128d9cf16a771dbaf99204d951723205de9b25e..7b787c5ec63fe3a73b7d36114e9873e4
                  agent={agent}
                  environment={resolveRenderedEnvironment(agent.id)}
                  showEnvironment={showEnvironmentColumn}
-+                showModel={false} // ppclip: AGENTS-1 model moved into RosterExtraColumns
++                showModel={!extraColumns.enabled} // ppclip: AGENTS-1 model moved into RosterExtraColumns (back when the module is off)
                />
              </div>
            </div>
@@ -8682,40 +9027,44 @@ index 38bf9e51efb202683655fe51f952dbcd83982778..39dbf0de1b9e43a9ada54dc9f271f4ba
        )}
      </div>
 diff --git a/ui/src/pages/DashboardLive.tsx b/ui/src/pages/DashboardLive.tsx
-index 1a6309fb0aad708504779567d24a8919d782c35e..4318022c82296817d1a3e500ac6fd1c570612f85 100644
+index 1a6309fb0aad708504779567d24a8919d782c35e..e2c05286b0689ad31bd7a2539791f9e0dd298fb5 100644
 --- a/ui/src/pages/DashboardLive.tsx
 +++ b/ui/src/pages/DashboardLive.tsx
-@@ -3,10 +3,13 @@ import { ArrowLeft, RadioTower } from "lucide-react";
+@@ -3,6 +3,9 @@ import { ArrowLeft, RadioTower } from "lucide-react";
  import { Link } from "@/lib/router";
  import { ActiveAgentsPanel } from "../components/ActiveAgentsPanel";
  import { EmptyState } from "../components/EmptyState";
 +// ppclip: DASH-2 Live page as big per-agent stations.
 +import { LiveStations } from "../ppclip/live/LiveStations";
++import { usePpclipFeature } from "../ppclip/features/store";
  import { useBreadcrumbs } from "../context/BreadcrumbContext";
  import { useCompany } from "../context/CompanyContext";
  
- const DASHBOARD_LIVE_RUN_LIMIT = 50;
-+const PPCLIP_LIVE_STATIONS = true; // ppclip: DASH-2
- 
+@@ -11,6 +14,7 @@ const DASHBOARD_LIVE_RUN_LIMIT = 50;
  export function DashboardLive() {
    const { selectedCompanyId, companies } = useCompany();
-@@ -28,6 +31,10 @@ export function DashboardLive() {
+   const { setBreadcrumbs } = useBreadcrumbs();
++  const ppclipLiveStations = usePpclipFeature("liveRuns"); // ppclip: DASH-2 module switch
+ 
+   useEffect(() => {
+     setBreadcrumbs([
+@@ -28,6 +32,10 @@ export function DashboardLive() {
      );
    }
  
 +  // ppclip: DASH-2 one big station per agent replaces official's run cards here
 +  // (the Dashboard keeps official's ActiveAgentsPanel). Official markup kept below.
-+  if (PPCLIP_LIVE_STATIONS) return <LiveStations companyId={selectedCompanyId} />;
++  if (ppclipLiveStations) return <LiveStations companyId={selectedCompanyId} />;
 +
    return (
      <div className="space-y-5">
        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
 diff --git a/ui/src/ppclip/attention/AgentAttentionBadge.tsx b/ui/src/ppclip/attention/AgentAttentionBadge.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..859d1efd5adaa8a0324d4d48710640c9542d18d6
+index 0000000000000000000000000000000000000000..6f909df8710090a8f8d7987339124be276fbac6c
 --- /dev/null
 +++ b/ui/src/ppclip/attention/AgentAttentionBadge.tsx
-@@ -0,0 +1,111 @@
+@@ -0,0 +1,117 @@
 +import { useMemo, type CSSProperties, type ReactNode } from "react";
 +import { useQuery } from "@tanstack/react-query";
 +import type { Agent } from "@paperclipai/shared";
@@ -8731,6 +9080,7 @@ index 0000000000000000000000000000000000000000..859d1efd5adaa8a0324d4d48710640c9
 +  type TaskRef,
 +} from "./agent-attention";
 +import { useAgentAttention } from "./useAgentAttention";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +/**
 + * Derived statuses reuse official status hues (no new tokens): a person's
@@ -8802,7 +9152,12 @@ index 0000000000000000000000000000000000000000..859d1efd5adaa8a0324d4d48710640c9
 + * you", "Pending on agent" or "Blocked task" when they apply (with the reason
 + * on hover), otherwise official's badge unchanged.
 + */
-+export function AgentAttentionBadge({ agent }: { agent: Pick<Agent, "id" | "companyId" | "status"> }) {
++/** ppclip module switch (Settings → ppclip): attention. */
++export function AgentAttentionBadge(props: Parameters<typeof AgentAttentionBadgeContent>[0]) {
++  return usePpclipFeature("attention") ? <AgentAttentionBadgeContent {...props} /> : <AgentStatusBadge status={props.agent.status} />;
++}
++
++function AgentAttentionBadgeContent({ agent }: { agent: Pick<Agent, "id" | "companyId" | "status"> }) {
 +  const { get } = useAgentAttention(agent.companyId);
 +  const attention = get(agent.id);
 +  const status = attentionStatusFor(agent, attention);
@@ -8829,10 +9184,10 @@ index 0000000000000000000000000000000000000000..859d1efd5adaa8a0324d4d48710640c9
 +}
 diff --git a/ui/src/ppclip/attention/PendingConfirmations.tsx b/ui/src/ppclip/attention/PendingConfirmations.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..a324ad8649e13e596b5a2783de50716b9236a4d1
+index 0000000000000000000000000000000000000000..5266ea78c581ce834667b3640f8aaba52ce87c96
 --- /dev/null
 +++ b/ui/src/ppclip/attention/PendingConfirmations.tsx
-@@ -0,0 +1,87 @@
+@@ -0,0 +1,93 @@
 +import { useMemo, useState } from "react";
 +import { MessageSquareMore } from "lucide-react";
 +import type { AttentionItem } from "@paperclipai/shared";
@@ -8842,6 +9197,7 @@ index 0000000000000000000000000000000000000000..a324ad8649e13e596b5a2783de50716b
 +import { relativeTime } from "@/lib/utils";
 +import { splitPendingConfirmations } from "./agent-attention";
 +import { useAttentionFeed } from "./useAgentAttention";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +function CardRow({ item, onNavigate }: { item: AttentionItem; onNavigate: () => void }) {
 +  const from = item.resolverAudience?.createdByAgentName ?? item.originAgentName;
@@ -8891,7 +9247,12 @@ index 0000000000000000000000000000000000000000..a324ad8649e13e596b5a2783de50716b
 + * who can answer. Reads official's attention feed (the Decisions data); each
 + * row links to the card on its task, where official's resolver handles it.
 + */
-+export function PendingConfirmations({ companyId }: { companyId: string | null | undefined }) {
++/** ppclip module switch (Settings → ppclip): attention. */
++export function PendingConfirmations(props: Parameters<typeof PendingConfirmationsContent>[0]) {
++  return usePpclipFeature("attention") ? <PendingConfirmationsContent {...props} /> : null;
++}
++
++function PendingConfirmationsContent({ companyId }: { companyId: string | null | undefined }) {
 +  const [open, setOpen] = useState(false);
 +  const feed = useAttentionFeed(companyId);
 +  const groups = useMemo(() => splitPendingConfirmations(feed.data?.items ?? []), [feed.data]);
@@ -9469,10 +9830,10 @@ index 0000000000000000000000000000000000000000..bbc7542dec443f4b34d48a19aacdbaec
 +}
 diff --git a/ui/src/ppclip/attention/useAgentAttention.ts b/ui/src/ppclip/attention/useAgentAttention.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..4d6654728668e8e2147ac15e597732fda185e0f2
+index 0000000000000000000000000000000000000000..f3d4833197d62f5d84b38167614d70608635e65d
 --- /dev/null
 +++ b/ui/src/ppclip/attention/useAgentAttention.ts
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,111 @@
 +import { useCallback, useMemo } from "react";
 +import { useQuery } from "@tanstack/react-query";
 +import type { Agent, AttentionItem } from "@paperclipai/shared";
@@ -9480,6 +9841,7 @@ index 0000000000000000000000000000000000000000..4d6654728668e8e2147ac15e597732fd
 +import { heartbeatsApi } from "@/api/heartbeats";
 +import { issuesApi } from "@/api/issues";
 +import { queryKeys } from "@/lib/queryKeys";
++import { usePpclipFeature, usePpclipFeatures } from "@/ppclip/features/store";
 +import {
 +  deriveAgentAttention,
 +  orderByUrgency,
@@ -9502,21 +9864,29 @@ index 0000000000000000000000000000000000000000..4d6654728668e8e2147ac15e597732fd
 +
 +/** The official attention feed (Decisions data), dismissed rows included: a dismissed card still blocks its agent. */
 +export function useAttentionFeed(companyId: string | null | undefined) {
++  const needed = useAttentionNeeded();
 +  return useQuery({
 +    queryKey: attentionFeedQueryKey(companyId!),
 +    queryFn: () => attentionApi.list(companyId!, { all: true, includeDismissed: true }),
-+    enabled: !!companyId,
++    enabled: !!companyId && needed,
 +    refetchInterval: ATTENTION_REFRESH_MS,
 +    staleTime: 10_000,
 +    retry: false,
 +  });
 +}
 +
++/** Attention data feeds both the statuses and the urgency order; skip it when both are off. */
++function useAttentionNeeded() {
++  const features = usePpclipFeatures();
++  return features.attention || features.urgencyOrder;
++}
++
 +function useBlockedTasks(companyId: string | null | undefined) {
++  const needed = useAttentionNeeded();
 +  return useQuery({
 +    queryKey: blockedTasksQueryKey(companyId!),
 +    queryFn: () => issuesApi.list(companyId!, { status: "blocked", includeBlockedBy: true, limit: BLOCKED_TASK_LIMIT }),
-+    enabled: !!companyId,
++    enabled: !!companyId && needed,
 +    refetchInterval: ATTENTION_REFRESH_MS,
 +    staleTime: 10_000,
 +    retry: false,
@@ -9568,18 +9938,19 @@ index 0000000000000000000000000000000000000000..4d6654728668e8e2147ac15e597732fd
 +    return counts;
 +  }, [liveRuns]);
 +  const { byAgent } = attention;
++  const on = usePpclipFeature("urgencyOrder");
 +  return useCallback(
 +    <T extends Pick<Agent, "id" | "status" | "pauseReason">>(agents: readonly T[]): T[] =>
-+      orderByUrgency(agents, (agent) => urgencyRank(agent, liveByAgent.get(agent.id) ?? 0, byAgent.get(agent.id))),
-+    [byAgent, liveByAgent],
++      on ? orderByUrgency(agents, (agent) => urgencyRank(agent, liveByAgent.get(agent.id) ?? 0, byAgent.get(agent.id))) : [...agents],
++    [byAgent, liveByAgent, on],
 +  );
 +}
 diff --git a/ui/src/ppclip/computer-use/ComputerPanel.tsx b/ui/src/ppclip/computer-use/ComputerPanel.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..95a6f6bb047c9b2ecf84b604364ef7ef0220f3d4
+index 0000000000000000000000000000000000000000..06d87562be4cdb9e4862c301d211564be11fba05
 --- /dev/null
 +++ b/ui/src/ppclip/computer-use/ComputerPanel.tsx
-@@ -0,0 +1,161 @@
+@@ -0,0 +1,167 @@
 +import { useEffect, useRef, useState } from "react";
 +import { useMutation, useQuery } from "@tanstack/react-query";
 +import { Hand, LockKeyhole, Monitor, Pause, Play, Power, ShieldOff, Undo2 } from "lucide-react";
@@ -9588,6 +9959,7 @@ index 0000000000000000000000000000000000000000..95a6f6bb047c9b2ecf84b604364ef7ef
 +import { useSeen } from "../live/use-seen";
 +import { computerUseApi, type AgentComputer, type ComputerAction } from "./api";
 +import { availableActions, isLiveState, STATE_LABELS, useInvalidateComputerUse } from "./useComputerUse";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +const ACTION_LABELS: Record<ComputerAction, string> = {
 +  start: "Start computer",
@@ -9674,7 +10046,12 @@ index 0000000000000000000000000000000000000000..95a6f6bb047c9b2ecf84b604364ef7ef
 + * ppclip computer use: the agent's sandboxed desktop on its Live card, with the
 + * takeover controls. Every action goes through the board API and is audited.
 + */
-+export function ComputerPanel({ companyId, computer, agentName, liveView }: {
++/** ppclip module switch (Settings → ppclip): computerUse. */
++export function ComputerPanel(props: Parameters<typeof ComputerPanelContent>[0]) {
++  return usePpclipFeature("computerUse") ? <ComputerPanelContent {...props} /> : null;
++}
++
++function ComputerPanelContent({ companyId, computer, agentName, liveView }: {
 +  companyId: string;
 +  computer: AgentComputer;
 +  agentName: string;
@@ -9743,10 +10120,10 @@ index 0000000000000000000000000000000000000000..95a6f6bb047c9b2ecf84b604364ef7ef
 +}
 diff --git a/ui/src/ppclip/computer-use/ComputerUseSettingsSection.tsx b/ui/src/ppclip/computer-use/ComputerUseSettingsSection.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..df44e84540746f13bb5707300d6c4b92f7fc0f9a
+index 0000000000000000000000000000000000000000..bf355efc0959dfa299973cafa5c0b1a5d5e60ac2
 --- /dev/null
 +++ b/ui/src/ppclip/computer-use/ComputerUseSettingsSection.tsx
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,134 @@
 +import { useState } from "react";
 +import { useMutation } from "@tanstack/react-query";
 +import { ToggleField } from "@/components/agent-config-primitives";
@@ -9754,6 +10131,7 @@ index 0000000000000000000000000000000000000000..df44e84540746f13bb5707300d6c4b92
 +import { Input } from "@/components/ui/input";
 +import { computerUseApi, type AgentComputer } from "./api";
 +import { isLiveState, STATE_LABELS, useComputerUse, useInvalidateComputerUse } from "./useComputerUse";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +function AgentRow({ companyId, computer }: { companyId: string; computer: AgentComputer }) {
 +  const invalidate = useInvalidateComputerUse(companyId);
@@ -9826,7 +10204,12 @@ index 0000000000000000000000000000000000000000..df44e84540746f13bb5707300d6c4b92
 + * ppclip: Company Settings section for computer use. Off by default. Turning it
 + * off stops every computer, closes every stream and ends any takeover at once.
 + */
-+export function ComputerUseSettingsSection({ companyId }: { companyId: string }) {
++/** ppclip module switch (Settings → ppclip): computerUse. */
++export function ComputerUseSettingsSection(props: Parameters<typeof ComputerUseSettingsSectionContent>[0]) {
++  return usePpclipFeature("computerUse") ? <ComputerUseSettingsSectionContent {...props} /> : null;
++}
++
++function ComputerUseSettingsSectionContent({ companyId }: { companyId: string }) {
 +  const overview = useComputerUse(companyId);
 +  const invalidate = useInvalidateComputerUse(companyId);
 +  const mutation = useMutation({
@@ -10169,6 +10552,485 @@ index 0000000000000000000000000000000000000000..a433f9d8c1f4493535da0e1146ae0fd7
 +      return ["restore"] as const;
 +  }
 +}
+diff --git a/ui/src/ppclip/features/PpclipOn.tsx b/ui/src/ppclip/features/PpclipOn.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..cdea9114936dfb0a0eef35ef873a7f215eaadca1
+--- /dev/null
++++ b/ui/src/ppclip/features/PpclipOn.tsx
+@@ -0,0 +1,8 @@
++import type { ReactNode } from "react";
++import type { PpclipFeatureKey } from "./registry";
++import { usePpclipFeature } from "./store";
++
++/** Renders its children only while the ppclip module is on (Settings → ppclip); otherwise the fallback. */
++export function PpclipOn({ feature, children, fallback = null }: { feature: PpclipFeatureKey; children: ReactNode; fallback?: ReactNode }) {
++  return <>{usePpclipFeature(feature) ? children : fallback}</>;
++}
+diff --git a/ui/src/ppclip/features/PpclipSettingsPage.tsx b/ui/src/ppclip/features/PpclipSettingsPage.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..7b26c88b78a7ebe20d06480a71fc3d69bb6b4892
+--- /dev/null
++++ b/ui/src/ppclip/features/PpclipSettingsPage.tsx
+@@ -0,0 +1,93 @@
++import { useEffect, useState } from "react";
++import { useMutation } from "@tanstack/react-query";
++import { Blocks } from "lucide-react";
++import { useBreadcrumbs } from "@/context/BreadcrumbContext";
++import { Card } from "@/components/ui/card";
++import { ToggleSwitch } from "@/components/ui/toggle-switch";
++import { PPCLIP_MODULES, type PpclipFeatureInfo, type PpclipFeatureKey } from "./registry";
++import { ppclipFeaturesApi, setPpclipFeatures, usePpclipFeatures } from "./store";
++
++function FeatureToggleCard({ feature, checked, disabled, onChange }: {
++  feature: PpclipFeatureInfo;
++  checked: boolean;
++  disabled: boolean;
++  onChange: (checked: boolean) => void;
++}) {
++  return (
++    <Card className="block bg-transparent p-5" data-testid={`ppclip-feature-${feature.key}`}>
++      <div className="flex items-start justify-between gap-4">
++        <div className="space-y-1.5">
++          <h3 className="text-sm font-semibold">{feature.title}</h3>
++          <p className="max-w-2xl text-sm text-muted-foreground">{feature.description}</p>
++          {feature.footnote ? <p className="max-w-2xl text-xs text-muted-foreground">{feature.footnote}</p> : null}
++        </div>
++        <ToggleSwitch
++          checked={checked}
++          onCheckedChange={onChange}
++          disabled={disabled}
++          aria-label={`Toggle ${feature.title}`}
++        />
++      </div>
++    </Card>
++  );
++}
++
++/** Settings → ppclip: turn each ppclip module on or off for this Paperclip install. */
++export function PpclipSettingsPage() {
++  const { setBreadcrumbs } = useBreadcrumbs();
++  const features = usePpclipFeatures();
++  const [error, setError] = useState<string | null>(null);
++
++  useEffect(() => {
++    setBreadcrumbs([
++      { label: "Settings", href: "/company/settings" },
++      { label: "ppclip" },
++    ]);
++  }, [setBreadcrumbs]);
++
++  const update = useMutation({
++    mutationFn: (patch: Partial<Record<PpclipFeatureKey, boolean>>) => ppclipFeaturesApi.update(patch),
++    onMutate: () => setError(null),
++    onSuccess: setPpclipFeatures,
++    onError: (err) => setError(err instanceof Error ? err.message : "Couldn’t change the ppclip module."),
++  });
++
++  return (
++    <div className="max-w-6xl space-y-6" data-testid="ppclip-settings-page">
++      <div className="space-y-2">
++        <div className="flex items-center gap-2">
++          <Blocks className="h-5 w-5 text-muted-foreground" />
++          <h1 className="text-lg font-semibold">ppclip</h1>
++        </div>
++        <p className="text-sm text-muted-foreground">
++          Turn the additions from your ppclip package on or off. Everything is on by default, applies to every company on this
++          install, and takes effect immediately. Turning a module off brings back official Paperclip’s own behaviour; your data is kept.
++        </p>
++      </div>
++
++      {error ? (
++        <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
++          {error}
++        </div>
++      ) : null}
++
++      {PPCLIP_MODULES.map((group) => (
++        <section key={group.id} className="space-y-3" aria-labelledby={`ppclip-module-${group.id}`}>
++          <div className="space-y-1">
++            <h2 id={`ppclip-module-${group.id}`} className="text-sm font-semibold">{group.title}</h2>
++            <p className="text-sm text-muted-foreground">{group.description}</p>
++          </div>
++          {group.features.map((feature) => (
++            <FeatureToggleCard
++              key={feature.key}
++              feature={feature}
++              checked={update.isPending && update.variables?.[feature.key] !== undefined ? update.variables[feature.key]! : features[feature.key]}
++              disabled={update.isPending}
++              onChange={(checked) => update.mutate({ [feature.key]: checked })}
++            />
++          ))}
++        </section>
++      ))}
++    </div>
++  );
++}
+diff --git a/ui/src/ppclip/features/features.test.tsx b/ui/src/ppclip/features/features.test.tsx
+new file mode 100644
+index 0000000000000000000000000000000000000000..6103ca659e485484aba4a0af07e99ebab20d452a
+--- /dev/null
++++ b/ui/src/ppclip/features/features.test.tsx
+@@ -0,0 +1,97 @@
++// @vitest-environment jsdom
++
++import { act, type ReactNode } from "react";
++import { createRoot, type Root } from "react-dom/client";
++import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++
++const mockApi = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn() }));
++vi.mock("@/api/client", () => ({ api: mockApi }));
++vi.mock("@/context/BreadcrumbContext", () => ({ useBreadcrumbs: () => ({ setBreadcrumbs: () => {} }) }));
++
++import { PpclipSettingsPage } from "./PpclipSettingsPage";
++import { PpclipOn } from "./PpclipOn";
++import { PPCLIP_FEATURE_KEYS, PPCLIP_MODULES, defaultPpclipFeatures } from "./registry";
++import { ppclipFeatureEnabled, resetPpclipFeaturesForTests } from "./store";
++import { isSameRunAgent } from "../task-chat-same-agent";
++
++(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
++
++let container: HTMLDivElement;
++let root: Root;
++
++async function render(node: ReactNode) {
++  const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
++  await act(async () => { root.render(<QueryClientProvider client={client}>{node}</QueryClientProvider>); });
++  for (let i = 0; i < 3; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
++}
++
++beforeEach(() => {
++  container = document.createElement("div");
++  document.body.appendChild(container);
++  root = createRoot(container);
++  mockApi.get.mockReset();
++  mockApi.patch.mockReset();
++  resetPpclipFeaturesForTests();
++});
++
++afterEach(async () => {
++  await act(async () => root.unmount());
++  container.remove();
++});
++
++describe("ppclip module registry", () => {
++  it("lists every module once, all on by default", () => {
++    expect(new Set(PPCLIP_FEATURE_KEYS).size).toBe(PPCLIP_FEATURE_KEYS.length);
++    expect(PPCLIP_FEATURE_KEYS).toHaveLength(14);
++    expect(Object.values(defaultPpclipFeatures()).every(Boolean)).toBe(true);
++    for (const group of PPCLIP_MODULES) for (const feature of group.features) expect(feature.description.length).toBeGreaterThan(20);
++  });
++});
++
++describe("Settings → ppclip", () => {
++  it("shows each module group with a toggle per feature, and saves a change", async () => {
++    mockApi.patch.mockResolvedValue({ ...defaultPpclipFeatures(), team: false });
++    await render(<PpclipSettingsPage />);
++    const headings = [...container.querySelectorAll("h2")].map((h) => h.textContent);
++    expect(headings).toEqual(PPCLIP_MODULES.map((group) => group.title));
++    const switches = container.querySelectorAll("[role='switch']");
++    expect(switches).toHaveLength(14);
++    expect([...switches].every((s) => s.getAttribute("aria-checked") === "true")).toBe(true);
++
++    const team = container.querySelector("[data-testid='ppclip-feature-team'] [role='switch']") as HTMLButtonElement;
++    await act(async () => { team.click(); });
++    for (let i = 0; i < 3; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
++    expect(mockApi.patch).toHaveBeenCalledWith("/ppclip/features", { team: false });
++    expect(ppclipFeatureEnabled("team")).toBe(false);
++    expect(team.getAttribute("aria-checked")).toBe("false");
++  });
++
++  it("shows the server's refusal and keeps the switch as it was", async () => {
++    mockApi.patch.mockRejectedValue(new Error("Instance admin access required"));
++    await render(<PpclipSettingsPage />);
++    const team = container.querySelector("[data-testid='ppclip-feature-team'] [role='switch']") as HTMLButtonElement;
++    await act(async () => { team.click(); });
++    for (let i = 0; i < 3; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
++    expect(container.querySelector("[role='alert']")?.textContent).toContain("Instance admin access required");
++    expect(ppclipFeatureEnabled("team")).toBe(true);
++  });
++});
++
++describe("module switches in use", () => {
++  it("renders gated content only while the module is on", async () => {
++    await render(<PpclipOn feature="liveRuns" fallback={<span>plain</span>}><a href="/live">Agents</a></PpclipOn>);
++    expect(container.querySelector("a")).not.toBeNull();
++    await act(async () => { resetPpclipFeaturesForTests({ liveRuns: false }); });
++    expect(container.querySelector("a")).toBeNull();
++    expect(container.textContent).toBe("plain");
++  });
++
++  it("uses official's name-only same-agent check when Task chat is off", () => {
++    const turn = { agentKey: "agent-a", agentName: null };
++    const bubble = { agent: { id: "agent-b" }, authorName: "Bob" };
++    expect(isSameRunAgent(turn, bubble)).toBe(false);
++    resetPpclipFeaturesForTests({ taskChatRuns: false });
++    expect(isSameRunAgent(turn, bubble)).toBe(true);
++  });
++});
+diff --git a/ui/src/ppclip/features/flags.ts b/ui/src/ppclip/features/flags.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0177cec5f99921e6ac4a2be70dec6db49987a3f2
+--- /dev/null
++++ b/ui/src/ppclip/features/flags.ts
+@@ -0,0 +1,14 @@
++/**
++ * Current ppclip module switches, dependency-free so low-level helpers (for
++ * example the transcript adapter's same-agent check) can read them without an
++ * import cycle. The store in ./store.ts keeps this up to date.
++ */
++let flags: Record<string, boolean> = {};
++
++export function readPpclipFlag(key: string) {
++  return flags[key] !== false;
++}
++
++export function writePpclipFlags(next: Record<string, boolean>) {
++  flags = next;
++}
+diff --git a/ui/src/ppclip/features/registry.ts b/ui/src/ppclip/features/registry.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..6c2bc9823f91aba6585f10c636fa1a83292f28b9
+--- /dev/null
++++ b/ui/src/ppclip/features/registry.ts
+@@ -0,0 +1,169 @@
++/**
++ * ppclip modules shown in Settings → ppclip. Keys mirror
++ * server/src/ppclip/features.ts. Every module is on by default; turning one off
++ * brings back official Paperclip's own behaviour for that area.
++ */
++export type PpclipFeatureKey =
++  | "team"
++  | "liveRuns"
++  | "providerUsage"
++  | "providerRouting"
++  | "runControls"
++  | "computerUse"
++  | "urgencyOrder"
++  | "attention"
++  | "rosterExtras"
++  | "taskChatRuns"
++  | "staleRunningRepair"
++  | "liveRefresh"
++  | "deletedCommentReply"
++  | "windowsSignIn";
++export type PpclipFeatures = Record<PpclipFeatureKey, boolean>;
++
++export type PpclipFeatureInfo = {
++  key: PpclipFeatureKey;
++  title: string;
++  /** What turning it on gives you. */
++  description: string;
++  /** What happens when it is off, or anything else worth knowing. */
++  footnote?: string;
++};
++export type PpclipModuleGroup = { id: string; title: string; description: string; features: PpclipFeatureInfo[] };
++
++export const PPCLIP_MODULES: PpclipModuleGroup[] = [
++  {
++    id: "pages",
++    title: "Pages",
++    description: "Extra pages for watching your agents.",
++    features: [
++      {
++        key: "team",
++        title: "Team page",
++        description: "A canvas of your agents at /team with their reporting and work lines, Edit mode, Magic sort and group colours, plus a Team link in the sidebar under Inbox.",
++        footnote: "Off: the Team link disappears and /team goes back to the dashboard. Saved layouts and colours are kept.",
++      },
++      {
++        key: "liveRuns",
++        title: "Live runs",
++        description: "The Live runs page shows one large card per agent with its live activity, current task and last reply. The dashboard's Agents heading opens it.",
++        footnote: "Off: Live runs shows official Paperclip's run cards, and the Agents heading is plain text again.",
++      },
++    ],
++  },
++  {
++    id: "providers",
++    title: "Providers",
++    description: "Usage of your AI accounts, and moving agents between providers.",
++    features: [
++      {
++        key: "providerUsage",
++        title: "Usage bars and subscription usage",
++        description: "Usage bars for each connected AI account in the top bar, and a Subscription usage panel at the bottom of the dashboard. Usage comes from official Connections and is checked every 5 minutes.",
++        footnote: "Off: no usage bars or dashboard panel, and no usage checks are made.",
++      },
++      {
++        key: "providerRouting",
++        title: "Provider switching",
++        description: "The Providers panel in the top bar, where you can let idle agents move to another provider when theirs runs out (Hybrid, or one provider only), with model tiers that pair equivalent models.",
++        footnote: "Switching itself stays off until you turn it on in that panel. Off here: the panel and mode switch are hidden and no agent is moved. Agents already moved keep their current settings.",
++      },
++    ],
++  },
++  {
++    id: "run-controls",
++    title: "Run controls",
++    description: "Limits on how much your team runs.",
++    features: [
++      {
++        key: "runControls",
++        title: "Run controls",
++        description: "Team Unlimited / Drain / Resume, daily runs left on the Agents page, and “Drain after next run” on each agent.",
++        footnote: "This makes the feature available. It still has its own switch in Company Settings, which is off by default. Off here: the controls are hidden and daily caps work exactly as in official Paperclip.",
++      },
++    ],
++  },
++  {
++    id: "computer-use",
++    title: "Computer use",
++    description: "A sandboxed desktop and browser per agent.",
++    features: [
++      {
++        key: "computerUse",
++        title: "Computer use",
++        description: "Lets chosen agents use their own sandboxed Linux desktop and Chromium in Docker, which you can watch live, take over and release from their Live runs card.",
++        footnote: "Needs Docker and its own switches in Company Settings and on each agent, all off by default. Off here: the settings and live view are hidden, and agents get no computer tools.",
++      },
++    ],
++  },
++  {
++    id: "agents",
++    title: "Agents and sidebar",
++    description: "Seeing which agents need you.",
++    features: [
++      {
++        key: "urgencyOrder",
++        title: "Urgent agents first",
++        description: "The sidebar's agent lists put agents that are waiting for you or blocked at the top, keeping your chosen order within each group.",
++        footnote: "Off: the sidebar uses official Paperclip's order only.",
++      },
++      {
++        key: "attention",
++        title: "Attention statuses",
++        description: "“Waiting for you”, “Pending on agent” and “Blocked task” statuses on agents, and a pending confirmations list on the Agents page.",
++        footnote: "Off: agents show official Paperclip's statuses.",
++      },
++      {
++        key: "rosterExtras",
++        title: "Agents page extras",
++        description: "Extra columns on the Agents page (model and provider, runs left), and the agent's open tasks when you hover its name.",
++      },
++    ],
++  },
++  {
++    id: "task-chat",
++    title: "Task chat",
++    description: "How run activity reads inside a task.",
++    features: [
++      {
++        key: "taskChatRuns",
++        title: "Clearer run activity",
++        description: "A task's chat hides activity from runs that belong to other tasks, keeps separate runs apart with a “Follow-up run” divider, puts each run's Worked row under its reply, and matches agents by ID rather than name.",
++        footnote: "Off: task chat groups run activity exactly as official Paperclip does.",
++      },
++    ],
++  },
++  {
++    id: "fixes",
++    title: "Fixes",
++    description: "Small repairs to official behaviour.",
++    features: [
++      {
++        key: "staleRunningRepair",
++        title: "Repair agents stuck on “running”",
++        description: "Agents left “running” with no live or queued run are set back to idle during the server's regular recovery pass.",
++      },
++      {
++        key: "liveRefresh",
++        title: "Refresh live lists when a run finishes",
++        description: "The dashboard's Agents section and Live runs refresh as soon as a run ends instead of waiting for the next poll.",
++      },
++      {
++        key: "deletedCommentReply",
++        title: "Ignore deleted replies",
++        description: "A comment you deleted no longer counts as the agent's reply to its run.",
++      },
++      {
++        key: "windowsSignIn",
++        title: "Claude and Codex sign-in on Windows",
++        description: "Sign-in runs in a Windows terminal instead of Python's pty (which Windows lacks), shows PowerShell commands, and reads saved credentials the Windows way.",
++        footnote: "Only matters when the server runs on Windows. Off: sign-in from the app fails on Windows.",
++      },
++    ],
++  },
++];
++
++export const PPCLIP_FEATURE_KEYS = PPCLIP_MODULES.flatMap((group) => group.features.map((feature) => feature.key));
++
++export function defaultPpclipFeatures(): PpclipFeatures {
++  return Object.fromEntries(PPCLIP_FEATURE_KEYS.map((key) => [key, true])) as PpclipFeatures;
++}
+diff --git a/ui/src/ppclip/features/store.ts b/ui/src/ppclip/features/store.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ed9b3687558f441d609e2c9c92bad9a15786a083
+--- /dev/null
++++ b/ui/src/ppclip/features/store.ts
+@@ -0,0 +1,62 @@
++import { useSyncExternalStore } from "react";
++import { api } from "@/api/client";
++import { defaultPpclipFeatures, type PpclipFeatureKey, type PpclipFeatures } from "./registry";
++import { writePpclipFlags } from "./flags";
++
++/**
++ * ppclip module switches for the whole UI. Loaded once from the server and
++ * shared by React components (usePpclipFeature) and plain functions
++ * (ppclipFeatureEnabled). Until the server answers, every module counts as on,
++ * matching the server default, so a normal load never flickers.
++ */
++export const ppclipFeaturesApi = {
++  get: () => api.get<PpclipFeatures>("/ppclip/features"),
++  update: (patch: Partial<PpclipFeatures>) => api.patch<PpclipFeatures>("/ppclip/features", patch),
++};
++
++let current: PpclipFeatures = defaultPpclipFeatures();
++let loading: Promise<void> | null = null;
++const listeners = new Set<() => void>();
++
++function emit() {
++  for (const listener of listeners) listener();
++}
++
++export function setPpclipFeatures(next: PpclipFeatures) {
++  current = { ...defaultPpclipFeatures(), ...next };
++  writePpclipFlags(current);
++  emit();
++}
++
++function ensureLoaded() {
++  loading ??= ppclipFeaturesApi.get().then(setPpclipFeatures, () => {
++    // Unreachable or not signed in yet: keep the defaults and try again on the next subscriber.
++    loading = null;
++  });
++}
++
++function subscribe(listener: () => void) {
++  listeners.add(listener);
++  ensureLoaded();
++  return () => listeners.delete(listener);
++}
++
++export function ppclipFeatureEnabled(key: PpclipFeatureKey) {
++  return current[key];
++}
++
++export function usePpclipFeatures(): PpclipFeatures {
++  return useSyncExternalStore(subscribe, () => current, () => current);
++}
++
++export function usePpclipFeature(key: PpclipFeatureKey) {
++  return usePpclipFeatures()[key];
++}
++
++/** Tests reset the store between cases. */
++export function resetPpclipFeaturesForTests(next: Partial<PpclipFeatures> = {}) {
++  current = { ...defaultPpclipFeatures(), ...next };
++  writePpclipFlags(current);
++  loading = Promise.resolve();
++  emit();
++}
 diff --git a/ui/src/ppclip/live-run-refresh.test.ts b/ui/src/ppclip/live-run-refresh.test.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..3811e48965ea39c09daf933129e5b328c4991fb8
@@ -10199,11 +11061,12 @@ index 0000000000000000000000000000000000000000..3811e48965ea39c09daf933129e5b328
 +});
 diff --git a/ui/src/ppclip/live-run-refresh.ts b/ui/src/ppclip/live-run-refresh.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..3be62f674f7df47668f4b95224893c39a321b649
+index 0000000000000000000000000000000000000000..8669d08acef59d521680af2ac1dbc98eccfe96b8
 --- /dev/null
 +++ b/ui/src/ppclip/live-run-refresh.ts
-@@ -0,0 +1,14 @@
+@@ -0,0 +1,16 @@
 +import type { QueryClient } from "@tanstack/react-query";
++import { ppclipFeatureEnabled } from "./features/store";
 +
 +/**
 + * ppclip FIX-1: official keeps the exact company live-runs list in sync from
@@ -10212,6 +11075,7 @@ index 0000000000000000000000000000000000000000..3be62f674f7df47668f4b95224893c39
 + * finished run stays "live" there until reload. Refetch only those scoped lists.
 + */
 +export function refreshScopedLiveRuns(queryClient: QueryClient, companyId: string) {
++  if (!ppclipFeatureEnabled("liveRefresh")) return Promise.resolve();
 +  return queryClient.invalidateQueries({
 +    predicate: ({ queryKey }) =>
 +      queryKey.length > 2 && queryKey[0] === "live-runs" && queryKey[1] === companyId,
@@ -11413,10 +12277,10 @@ index 0000000000000000000000000000000000000000..44ff7efa68e149b6d32e8bef10342b93
 +});
 diff --git a/ui/src/ppclip/providers/ProviderSettingsSheet.tsx b/ui/src/ppclip/providers/ProviderSettingsSheet.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..802f7acf7353a40890cc283a7ccdb1fdd743bdbb
+index 0000000000000000000000000000000000000000..8ee7612eaf0979c1a7b45639503afd3758f33c7f
 --- /dev/null
 +++ b/ui/src/ppclip/providers/ProviderSettingsSheet.tsx
-@@ -0,0 +1,464 @@
+@@ -0,0 +1,469 @@
 +import { useMemo, useState } from "react";
 +import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 +import { aiConnectionCatalogSlug } from "@paperclipai/shared";
@@ -11447,6 +12311,7 @@ index 0000000000000000000000000000000000000000..802f7acf7353a40890cc283a7ccdb1fd
 +  type AccountUsage,
 +} from "./usage";
 +import { providerRoutingQueryKey, useProviderRouting, useSaveProviderRouting } from "./useProviderRouting";
++import { usePpclipFeatures } from "../features/store";
 +
 +const THRESHOLDS = [90, 95, 100];
 +const STATE_LABEL = { ready: "Ready", switched: "Switched", waiting: "Waiting", blocked: "Needs attention" } as const;
@@ -11852,6 +12717,8 @@ index 0000000000000000000000000000000000000000..802f7acf7353a40890cc283a7ccdb1fd
 +export function ProviderSettingsSheet({ companyId, open, onOpenChange }: { companyId: string; open: boolean; onOpenChange: (open: boolean) => void }) {
 +  const routing = useProviderRouting(companyId);
 +  const save = useSaveProviderRouting(companyId);
++  const features = usePpclipFeatures();
++  const accounts = features.providerUsage ? <AccountsSection companyId={companyId} status={routing.data} /> : null;
 +  return (
 +    <Sheet open={open} onOpenChange={onOpenChange}>
 +      <SheetContent className="w-full gap-0 p-0 sm:max-w-xl" data-testid="ppclip-provider-settings">
@@ -11859,19 +12726,21 @@ index 0000000000000000000000000000000000000000..802f7acf7353a40890cc283a7ccdb1fd
 +          <SheetTitle>Providers</SheetTitle>
 +          <SheetDescription>Your AI accounts, and whether agents may move to another provider when one runs out.</SheetDescription>
 +        </SheetHeader>
-+        {routing.data ? (
++        {!features.providerRouting ? (
++          <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">{accounts}</div>
++        ) : routing.data ? (
 +          // Remount the editor when another window saves a new revision.
 +          <PolicyEditor
 +            key={routing.data.policy.revision}
 +            companyId={companyId}
 +            status={routing.data}
 +            save={save}
-+            before={<AccountsSection companyId={companyId} status={routing.data} />}
++            before={accounts}
 +            after={<ControllerStatus companyId={companyId} status={routing.data} />}
 +          />
 +        ) : (
 +          <div className="flex-1 space-y-8 overflow-y-auto px-4 py-5">
-+            <AccountsSection companyId={companyId} status={undefined} />
++            {accounts}
 +            <p className="text-sm text-muted-foreground" role={routing.isError ? "alert" : "status"}>
 +              {routing.isError ? "Couldn’t load provider settings." : "Loading…"}
 +            </p>
@@ -11883,10 +12752,10 @@ index 0000000000000000000000000000000000000000..802f7acf7353a40890cc283a7ccdb1fd
 +}
 diff --git a/ui/src/ppclip/providers/ProviderToolbar.tsx b/ui/src/ppclip/providers/ProviderToolbar.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..2c39b6acee54d1fc34168534039b9e66c2e65b1e
+index 0000000000000000000000000000000000000000..56165f3f729a74ff31ff95b5f7c0dd697f30e1be
 --- /dev/null
 +++ b/ui/src/ppclip/providers/ProviderToolbar.tsx
-@@ -0,0 +1,160 @@
+@@ -0,0 +1,162 @@
 +import { useState } from "react";
 +import { aiConnectionCatalogSlug } from "@paperclipai/shared";
 +import { AlertTriangle, Settings2 } from "lucide-react";
@@ -11907,6 +12776,7 @@ index 0000000000000000000000000000000000000000..2c39b6acee54d1fc34168534039b9e66
 +  type AccountUsage,
 +} from "./usage";
 +import { useProviderRouting, useSetRoutingMode } from "./useProviderRouting";
++import { usePpclipFeatures } from "../features/store";
 +
 +// Marks drawn in black need their own dark-theme file (as official's connection picker does).
 +const DARK_LOGOS: Partial<Record<string, string>> = { xai: "/brands/adapters/grok-dark.svg" };
@@ -11983,7 +12853,8 @@ index 0000000000000000000000000000000000000000..2c39b6acee54d1fc34168534039b9e66
 +  const usage = useProviderUsage(companyId);
 +  const routing = useProviderRouting(companyId);
 +  const mode = useSetRoutingMode(companyId ?? "");
-+  if (!companyId) return null;
++  const features = usePpclipFeatures();
++  if (!companyId || (!features.providerUsage && !features.providerRouting)) return null;
 +
 +  const policy = routing.data?.policy;
 +  const providers = policy?.providers.map((p) => p.adapterType) ?? [];
@@ -12049,10 +12920,10 @@ index 0000000000000000000000000000000000000000..2c39b6acee54d1fc34168534039b9e66
 +}
 diff --git a/ui/src/ppclip/providers/SubscriptionUsagePanel.tsx b/ui/src/ppclip/providers/SubscriptionUsagePanel.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..f4765063e35d02553f03e87197248c3426e3732f
+index 0000000000000000000000000000000000000000..442425f5f8cce5acb7f419a031d95390844033f6
 --- /dev/null
 +++ b/ui/src/ppclip/providers/SubscriptionUsagePanel.tsx
-@@ -0,0 +1,76 @@
+@@ -0,0 +1,81 @@
 +import { Link } from "@/lib/router";
 +import { Card } from "@/components/ui/card";
 +import { Skeleton } from "@/components/ui/skeleton";
@@ -12060,6 +12931,7 @@ index 0000000000000000000000000000000000000000..f4765063e35d02553f03e87197248c34
 +import { AiConnectionUsagePanel } from "@/components/ai-connections/AiConnectionUsagePanel";
 +import { formatDateTime } from "@/lib/utils";
 +import { useProviderUsage, usageStatusText, type AccountUsage } from "./usage";
++import { usePpclipFeature } from "../features/store";
 +
 +function AccountCard({ entry }: { entry: AccountUsage }) {
 +  // Official's panel renders bars, limits, overage and its own error states.
@@ -12081,6 +12953,10 @@ index 0000000000000000000000000000000000000000..f4765063e35d02553f03e87197248c34
 + * official Connections usage. Rendered at the bottom of the Dashboard.
 + */
 +export function SubscriptionUsagePanel({ companyId }: { companyId: string }) {
++  return usePpclipFeature("providerUsage") ? <SubscriptionUsageContent companyId={companyId} /> : null;
++}
++
++function SubscriptionUsageContent({ companyId }: { companyId: string }) {
 +  const usage = useProviderUsage(companyId);
 +  const accounts = usage.data?.accounts ?? [];
 +  return (
@@ -12475,10 +13351,10 @@ index 0000000000000000000000000000000000000000..f3d56da7e184fbd1bb59308cfc81befb
 +});
 diff --git a/ui/src/ppclip/providers/usage.ts b/ui/src/ppclip/providers/usage.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..3b91e1f69577ea53955bdb718e882e66280ff964
+index 0000000000000000000000000000000000000000..3ffb4fa9e5b1a2a20bda7a38d846690561c25f63
 --- /dev/null
 +++ b/ui/src/ppclip/providers/usage.ts
-@@ -0,0 +1,147 @@
+@@ -0,0 +1,149 @@
 +/**
 + * ppclip DASH-3 / PROV-1: account usage read from official Connections usage.
 + *
@@ -12502,6 +13378,7 @@ index 0000000000000000000000000000000000000000..3b91e1f69577ea53955bdb718e882e66
 +import { AI_PROVIDERS } from "@/components/ai-connections/model";
 +import { getAdapterLabel } from "@/adapters/adapter-display-registry";
 +import { usePublishSharedQueryData, useSharedPollingQuery } from "@/hooks/useSharedPolling";
++import { usePpclipFeature } from "../features/store";
 +
 +export const USAGE_REFRESH_MS = 5 * 60_000;
 +
@@ -12533,12 +13410,13 @@ index 0000000000000000000000000000000000000000..3b91e1f69577ea53955bdb718e882e66
 +}
 +
 +export function useProviderUsage(companyId: string | null | undefined) {
++  const usageOn = usePpclipFeature("providerUsage");
 +  const queryKey = providerUsageQueryKey(companyId ?? "");
 +  const shared = useSharedPollingQuery({
 +    companyId,
 +    resourceKey: "ppclip-provider-usage",
 +    queryKey,
-+    enabled: !!companyId,
++    enabled: !!companyId && usageOn,
 +    refetchInterval: USAGE_REFRESH_MS,
 +    leaderOnly: true,
 +  });
@@ -12628,20 +13506,22 @@ index 0000000000000000000000000000000000000000..3b91e1f69577ea53955bdb718e882e66
 +}
 diff --git a/ui/src/ppclip/providers/useProviderRouting.ts b/ui/src/ppclip/providers/useProviderRouting.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..5306080395ac285d5eeacce8153c6c42df4390d2
+index 0000000000000000000000000000000000000000..cc8a7020992c6970eb59d3d73dbd001c7a0e2f54
 --- /dev/null
 +++ b/ui/src/ppclip/providers/useProviderRouting.ts
-@@ -0,0 +1,40 @@
+@@ -0,0 +1,42 @@
 +import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 +import { providerRoutingApi, policyInput, type ProviderRoutingStatus, type RoutingPolicyInput } from "./api";
++import { usePpclipFeature } from "../features/store";
 +
 +export const providerRoutingQueryKey = (companyId: string) => ["ppclip", "provider-routing", companyId] as const;
 +
 +export function useProviderRouting(companyId: string | null | undefined) {
++  const routingOn = usePpclipFeature("providerRouting");
 +  return useQuery({
 +    queryKey: providerRoutingQueryKey(companyId ?? ""),
 +    queryFn: () => providerRoutingApi.status(companyId!),
-+    enabled: !!companyId,
++    enabled: !!companyId && routingOn,
 +    refetchInterval: 30_000,
 +    refetchOnWindowFocus: false,
 +  });
@@ -12674,10 +13554,10 @@ index 0000000000000000000000000000000000000000..5306080395ac285d5eeacce8153c6c42
 +}
 diff --git a/ui/src/ppclip/roster/AgentTaskHoverCard.tsx b/ui/src/ppclip/roster/AgentTaskHoverCard.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..8e7b820461dff7e388c129e88ba8f95e2ccd9aa1
+index 0000000000000000000000000000000000000000..72c7286b5f801e7c75fd8919100fe327f233a867
 --- /dev/null
 +++ b/ui/src/ppclip/roster/AgentTaskHoverCard.tsx
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,90 @@
 +import { useState } from "react";
 +import { HoverCard as HoverCardPrimitive } from "radix-ui";
 +import { useQuery } from "@tanstack/react-query";
@@ -12687,6 +13567,7 @@ index 0000000000000000000000000000000000000000..8e7b820461dff7e388c129e88ba8f95e
 +import { Link } from "@/lib/router";
 +import { issueUrl } from "@/lib/utils";
 +import { StatusIcon } from "@/components/StatusIcon";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +const OPEN_STATUSES = "todo,in_progress,in_review,blocked";
 +const TASK_ORDER: Record<string, number> = { in_progress: 0, in_review: 1, blocked: 2, todo: 3 };
@@ -12733,7 +13614,12 @@ index 0000000000000000000000000000000000000000..8e7b820461dff7e388c129e88ba8f95e
 + * ppclip AGENTS-1: hovering (or focusing) an agent's name shows its current
 + * work, in progress first, in official's popover surface.
 + */
-+export function AgentTaskHoverCard({ agent }: { agent: Pick<Agent, "id" | "companyId" | "name"> }) {
++/** ppclip module switch (Settings → ppclip): rosterExtras. */
++export function AgentTaskHoverCard(props: Parameters<typeof AgentTaskHoverCardContent>[0]) {
++  return usePpclipFeature("rosterExtras") ? <AgentTaskHoverCardContent {...props} /> : <span className="truncate">{props.agent.name}</span>;
++}
++
++function AgentTaskHoverCardContent({ agent }: { agent: Pick<Agent, "id" | "companyId" | "name"> }) {
 +  const [open, setOpen] = useState(false);
 +  return (
 +    <HoverCardPrimitive.Root open={open} onOpenChange={setOpen} openDelay={300} closeDelay={100}>
@@ -12764,16 +13650,17 @@ index 0000000000000000000000000000000000000000..8e7b820461dff7e388c129e88ba8f95e
 +}
 diff --git a/ui/src/ppclip/roster/RosterExtraColumns.tsx b/ui/src/ppclip/roster/RosterExtraColumns.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..41a2e3d80848c848a2fefdad0947ce620c196706
+index 0000000000000000000000000000000000000000..37ffb2e0a9689bb622975a3d8e3ddb3623d2de5a
 --- /dev/null
 +++ b/ui/src/ppclip/roster/RosterExtraColumns.tsx
-@@ -0,0 +1,79 @@
+@@ -0,0 +1,92 @@
 +import { useCallback, useState } from "react";
 +import { Columns3 } from "lucide-react";
 +import type { Agent } from "@paperclipai/shared";
 +import { Button } from "@/components/ui/button";
 +import { getAdapterLabel } from "@/adapters/adapter-display-registry";
 +import { DailyRunsLeft } from "@/ppclip/run-controls/DailyRunsLeft";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +export const EXTRA_COLUMNS_STORAGE_KEY = "ppclip:agents-extra-columns";
 +
@@ -12799,10 +13686,17 @@ index 0000000000000000000000000000000000000000..41a2e3d80848c848a2fefdad0947ce62
 +      return next;
 +    });
 +  }, []);
-+  return { visible, toggle };
++  // Module off (Settings → ppclip): no extra columns, and official's model column comes back.
++  const enabled = usePpclipFeature("rosterExtras");
++  return { visible: visible && enabled, toggle, enabled };
 +}
 +
-+export function ExtraColumnsToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
++/** ppclip module switch (Settings → ppclip): rosterExtras. */
++export function ExtraColumnsToggle(props: Parameters<typeof ExtraColumnsToggleContent>[0]) {
++  return usePpclipFeature("rosterExtras") ? <ExtraColumnsToggleContent {...props} /> : null;
++}
++
++function ExtraColumnsToggleContent({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
 +  const label = visible ? "Hide model and runs left columns" : "Show model and runs left columns";
 +  return (
 +    <Button
@@ -12830,7 +13724,12 @@ index 0000000000000000000000000000000000000000..41a2e3d80848c848a2fefdad0947ce62
 + * configured model over the adapter that runs it) and "Runs left" (RUN-1,
 + * rendered only while the run-controls switch is on).
 + */
-+export function RosterExtraColumns({ agent }: { agent: Agent }) {
++/** ppclip module switch (Settings → ppclip): rosterExtras. */
++export function RosterExtraColumns(props: Parameters<typeof RosterExtraColumnsContent>[0]) {
++  return usePpclipFeature("rosterExtras") ? <RosterExtraColumnsContent {...props} /> : null;
++}
++
++function RosterExtraColumnsContent({ agent }: { agent: Agent }) {
 +  const model = configuredModel(agent);
 +  const provider = getAdapterLabel(agent.adapterType);
 +  return (
@@ -13035,13 +13934,14 @@ index 0000000000000000000000000000000000000000..68a8f03cd90bb9337398b58e23c7fe0d
 +});
 diff --git a/ui/src/ppclip/run-controls/DailyRunsLeft.tsx b/ui/src/ppclip/run-controls/DailyRunsLeft.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..714a2aaf442eecc78a3cec9fb988390e2e3a3223
+index 0000000000000000000000000000000000000000..bfea3a60263cead5a19240989e615923201a7b9d
 --- /dev/null
 +++ b/ui/src/ppclip/run-controls/DailyRunsLeft.tsx
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,42 @@
 +import { cn } from "@/lib/utils";
 +import { runsLeftDisplay, runsLeftTitle, type RunsLeftTone } from "./display";
 +import { useRunControls } from "./useRunControls";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +const toneClass: Record<RunsLeftTone, string> = {
 +  muted: "text-muted-foreground",
@@ -13056,7 +13956,12 @@ index 0000000000000000000000000000000000000000..714a2aaf442eecc78a3cec9fb988390e
 + * `heartbeat.maxDailyRuns`, UTC day). Renders nothing while the company's
 + * run-controls switch is off. Every row shares one cached overview request.
 + */
-+export function DailyRunsLeft({ companyId, agentId }: { companyId: string; agentId: string }) {
++/** ppclip module switch (Settings → ppclip): runControls. */
++export function DailyRunsLeft(props: Parameters<typeof DailyRunsLeftContent>[0]) {
++  return usePpclipFeature("runControls") ? <DailyRunsLeftContent {...props} /> : null;
++}
++
++function DailyRunsLeftContent({ companyId, agentId }: { companyId: string; agentId: string }) {
 +  const overview = useRunControls(companyId);
 +  if (!overview.data?.enabled) return null;
 +  const row = overview.data.agents.find((entry) => entry.agentId === agentId);
@@ -13077,15 +13982,16 @@ index 0000000000000000000000000000000000000000..714a2aaf442eecc78a3cec9fb988390e
 +}
 diff --git a/ui/src/ppclip/run-controls/DrainAfterMenuItem.tsx b/ui/src/ppclip/run-controls/DrainAfterMenuItem.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..225427ea23588907aee082a024b27f3dfd989153
+index 0000000000000000000000000000000000000000..2fe768606285759ca6d2cdc691781449814db3ad
 --- /dev/null
 +++ b/ui/src/ppclip/run-controls/DrainAfterMenuItem.tsx
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,55 @@
 +import { useMutation } from "@tanstack/react-query";
 +import type { Agent } from "@paperclipai/shared";
 +import { CirclePause, Loader2 } from "lucide-react";
 +import { runControlsApi } from "./api";
 +import { useInvalidateRunControls, useRunControls } from "./useRunControls";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +/**
 + * ppclip RUN-2: "Drain after next run" in an agent's actions menu. When armed,
@@ -13093,7 +13999,12 @@ index 0000000000000000000000000000000000000000..225427ea23588907aee082a024b27f3d
 + * checks eligibility (idle, waiting only on another agent, no human decision
 + * pending) and explains a refusal. Hidden while run controls are off.
 + */
-+export function DrainAfterMenuItem({
++/** ppclip module switch (Settings → ppclip): runControls. */
++export function DrainAfterMenuItem(props: Parameters<typeof DrainAfterMenuItemContent>[0]) {
++  return usePpclipFeature("runControls") ? <DrainAfterMenuItemContent {...props} /> : null;
++}
++
++function DrainAfterMenuItemContent({
 +  agent,
 +  onDone,
 +  onError,
@@ -13132,21 +14043,27 @@ index 0000000000000000000000000000000000000000..225427ea23588907aee082a024b27f3d
 +}
 diff --git a/ui/src/ppclip/run-controls/RunControlsSettingsSection.tsx b/ui/src/ppclip/run-controls/RunControlsSettingsSection.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..348428fd1d4864cb1d504c6050a41ab6e988bdb4
+index 0000000000000000000000000000000000000000..4d87324ef2c2f7a7044cec74242bc6efe94d9efe
 --- /dev/null
 +++ b/ui/src/ppclip/run-controls/RunControlsSettingsSection.tsx
-@@ -0,0 +1,57 @@
+@@ -0,0 +1,63 @@
 +import { useMutation } from "@tanstack/react-query";
 +import { ToggleField } from "@/components/agent-config-primitives";
 +import { runControlsApi } from "./api";
 +import { useInvalidateRunControls, useRunControls } from "./useRunControls";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +/**
 + * ppclip: Company Settings section for the run-controls master switch. Off by
 + * default. Turning it off hides every run control and clears all agents' daily
 + * run limits, so agents run unlimited.
 + */
-+export function RunControlsSettingsSection({ companyId }: { companyId: string }) {
++/** ppclip module switch (Settings → ppclip): runControls. */
++export function RunControlsSettingsSection(props: Parameters<typeof RunControlsSettingsSectionContent>[0]) {
++  return usePpclipFeature("runControls") ? <RunControlsSettingsSectionContent {...props} /> : null;
++}
++
++function RunControlsSettingsSectionContent({ companyId }: { companyId: string }) {
 +  const overview = useRunControls(companyId);
 +  const invalidate = useInvalidateRunControls(companyId);
 +  const mutation = useMutation({
@@ -13195,10 +14112,10 @@ index 0000000000000000000000000000000000000000..348428fd1d4864cb1d504c6050a41ab6
 +}
 diff --git a/ui/src/ppclip/run-controls/TeamRunControls.tsx b/ui/src/ppclip/run-controls/TeamRunControls.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..44eff259bfd97e8d48b3c2e7860dd35aa6ce0924
+index 0000000000000000000000000000000000000000..1ddfcc0b2a5a5d908c1e67f3f2895b1bb255f9ad
 --- /dev/null
 +++ b/ui/src/ppclip/run-controls/TeamRunControls.tsx
-@@ -0,0 +1,120 @@
+@@ -0,0 +1,126 @@
 +import { useState } from "react";
 +import { useMutation } from "@tanstack/react-query";
 +import type { Agent } from "@paperclipai/shared";
@@ -13207,6 +14124,7 @@ index 0000000000000000000000000000000000000000..44eff259bfd97e8d48b3c2e7860dd35a
 +import { runControlsApi } from "./api";
 +import { drainLabel, unlimitedLabel } from "./display";
 +import { useInvalidateRunControls, useRunControls } from "./useRunControls";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +
 +type Action = "unlimited" | "drain" | "resume" | "cancel-drain-after";
 +
@@ -13215,7 +14133,12 @@ index 0000000000000000000000000000000000000000..44eff259bfd97e8d48b3c2e7860dd35a
 + * plus the armed "Drain after" notice. Renders nothing while the company's
 + * run-controls switch is off.
 + */
-+export function TeamRunControls({ companyId, agents }: { companyId: string; agents: Agent[] }) {
++/** ppclip module switch (Settings → ppclip): runControls. */
++export function TeamRunControls(props: Parameters<typeof TeamRunControlsContent>[0]) {
++  return usePpclipFeature("runControls") ? <TeamRunControlsContent {...props} /> : null;
++}
++
++function TeamRunControlsContent({ companyId, agents }: { companyId: string; agents: Agent[] }) {
 +  const overview = useRunControls(companyId);
 +  const invalidate = useInvalidateRunControls(companyId);
 +  const [notice, setNotice] = useState<string | null>(null);
@@ -14117,10 +15040,10 @@ index 0000000000000000000000000000000000000000..579dc22164bef9160db1c41d977bd26c
 +}
 diff --git a/ui/src/ppclip/task-chat-same-agent.ts b/ui/src/ppclip/task-chat-same-agent.ts
 new file mode 100644
-index 0000000000000000000000000000000000000000..4d024d686cdf6174386b7260a08be054f3eadc50
+index 0000000000000000000000000000000000000000..c882420d6b43c57f4af879d7499223b6ebe4e4d4
 --- /dev/null
 +++ b/ui/src/ppclip/task-chat-same-agent.ts
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,28 @@
 +/**
 + * ppclip CHAT-4: decide whether a settled run turn belongs to the agent that
 + * wrote a reply bubble. Official compared display names only and treated a
@@ -14131,11 +15054,17 @@ index 0000000000000000000000000000000000000000..4d024d686cdf6174386b7260a08be054
 + * Kept dependency-free so the official transcript adapter can import it without
 + * an import cycle.
 + */
++import { readPpclipFlag } from "./features/flags";
++
 +export function isSameRunAgent(
 +  turn: { agentKey?: string | null; agentName?: string | null } | null | undefined,
 +  bubble: { agent?: { id?: string | null } | null; authorName?: string | null },
 +): boolean {
 +  if (!turn) return false;
++  // Module off (Settings → ppclip → Task chat): official's name-only check.
++  if (!readPpclipFlag("taskChatRuns")) {
++    return turn.agentName == null || bubble.authorName == null || turn.agentName === bubble.authorName;
++  }
 +  const turnAgentId = turn.agentKey || null;
 +  const bubbleAgentId = bubble.agent?.id || null;
 +  if (turnAgentId && bubbleAgentId) return turnAgentId === bubbleAgentId;
@@ -15411,11 +16340,13 @@ index 0000000000000000000000000000000000000000..29f128252e3d0bd23ae7c4777e96cef1
 +});
 diff --git a/ui/src/ppclip/team/TeamPage.tsx b/ui/src/ppclip/team/TeamPage.tsx
 new file mode 100644
-index 0000000000000000000000000000000000000000..0b8df59cde7a7ddd61dc0db0564867e8e1197201
+index 0000000000000000000000000000000000000000..b7e8b368af3e8c0ab01fc932c1fc47f960c12b44
 --- /dev/null
 +++ b/ui/src/ppclip/team/TeamPage.tsx
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,81 @@
 +import { useEffect } from "react";
++import { Navigate } from "@/lib/router";
++import { usePpclipFeature } from "@/ppclip/features/store";
 +import { Network } from "lucide-react";
 +import { useCompany } from "@/context/CompanyContext";
 +import { useBreadcrumbs } from "@/context/BreadcrumbContext";
@@ -15439,7 +16370,12 @@ index 0000000000000000000000000000000000000000..0b8df59cde7a7ddd61dc0db0564867e8
 + * cards joined by reporting lines and work arrows, built only from official
 + * APIs and official UI components.
 + */
++/** ppclip TEAM-1, behind its module switch: off sends /team back to the dashboard. */
 +export function TeamPage() {
++  return usePpclipFeature("team") ? <TeamPageContent /> : <Navigate to="/dashboard" replace />;
++}
++
++function TeamPageContent() {
 +  const { selectedCompanyId } = useCompany();
 +  const { setBreadcrumbs } = useBreadcrumbs();
 +  const { openNewAgent } = useDialogActions();
