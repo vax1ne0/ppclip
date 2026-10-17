@@ -25,7 +25,7 @@ It doesn't replace Paperclip or need a separate install: you keep your own offic
   - agents stuck on "running" are repaired;
   - live lists refresh when a run finishes;
   - a deleted comment no longer counts as an agent's reply;
-  - Claude/Codex sign-in works when the server runs on Windows.
+  - Claude/Codex sign-in works when the server runs on Windows (on newer Paperclip, browser sign-in runs in a Windows terminal through `@lydell/node-pty` instead of Python's `pty`, which Windows lacks).
 - **`scripts/ppclip/start-local.mjs`**: starts an isolated local instance with its own data folder and ports.
 
 ## Supported Paperclip versions

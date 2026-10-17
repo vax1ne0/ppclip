@@ -2,16 +2,17 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "ppclipSourceCommit": "be8cbb93b1cedcabca474c5fae6165fc96886893",
-  "patchSha256": "b8c66499034858b177b9cf3b30be167fa648b9bce83901e025dce25b1a9528b3",
-  "generatedAt": "2026-10-17T04:43:57.428Z",
+  "ppclipSourceCommit": "31804cb5e6e1eafbbfd34a96161c2adaf63ba22e",
+  "patchSha256": "2b6ac9f03cd83b5a2b6f4ab929b5f4bd83fb2e067fa5b0cc0ea949f650e2f53f",
+  "generatedAt": "2026-10-17T05:15:28.995Z",
   "files": {
-    "added": 104,
-    "modified": 37,
+    "added": 106,
+    "modified": 39,
     "deleted": 0
   },
   "officialFilesModified": [
     "pnpm-lock.yaml",
+    "server/package.json",
     "server/src/app.ts",
     "server/src/index.ts",
     "server/src/services/agent-configuration.ts",
@@ -21,6 +22,7 @@
     "server/src/services/heartbeat/recovery.ts",
     "server/src/services/heartbeat/run-lifecycle.ts",
     "server/src/services/heartbeat/runtime-execution.ts",
+    "server/src/services/local-ai-browser-login.ts",
     "server/src/services/local-ai-credential-file.ts",
     "server/src/services/local-ai-login.ts",
     "ui/package.json",
@@ -87,6 +89,10 @@
       "path": "scripts/ppclip/start-local.mjs"
     },
     {
+      "status": "M",
+      "path": "server/package.json"
+    },
+    {
       "status": "A",
       "path": "server/src/__tests__/ppclip-computer-use-state.test.ts"
     },
@@ -117,6 +123,10 @@
     {
       "status": "A",
       "path": "server/src/__tests__/ppclip-stale-agent-status.test.ts"
+    },
+    {
+      "status": "A",
+      "path": "server/src/__tests__/ppclip-windows-browser-login.test.ts"
     },
     {
       "status": "A",
@@ -228,6 +238,10 @@
     },
     {
       "status": "A",
+      "path": "server/src/ppclip/windows-browser-login.ts"
+    },
+    {
+      "status": "A",
       "path": "server/src/ppclip/windows-local-login.ts"
     },
     {
@@ -257,6 +271,10 @@
     {
       "status": "M",
       "path": "server/src/services/heartbeat/runtime-execution.ts"
+    },
+    {
+      "status": "M",
+      "path": "server/src/services/local-ai-browser-login.ts"
     },
     {
       "status": "M",

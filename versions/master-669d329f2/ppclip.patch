@@ -1,8 +1,18 @@
 diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
-index ec7f50c4639714062c251304880f7e7b77d64d0d..1cbd6dcc9e117311100ac21924564abeda27df29 100644
+index ec7f50c4639714062c251304880f7e7b77d64d0d..f72460e9c27c8815c6a2a48dfa838eb763cac4f2 100644
 --- a/pnpm-lock.yaml
 +++ b/pnpm-lock.yaml
-@@ -1267,6 +1267,9 @@ importers:
+@@ -1101,6 +1101,9 @@ importers:
+       '@github/copilot-linux-x64':
+         specifier: 1.0.88
+         version: 1.0.88
++      '@lydell/node-pty':
++        specifier: 1.2.0-beta.15
++        version: 1.2.0-beta.15
+     devDependencies:
+       '@opentelemetry/context-async-hooks':
+         specifier: 2.10.0
+@@ -1267,6 +1270,9 @@ importers:
        react:
          specifier: ^19.2.8
          version: 19.2.8
@@ -12,15 +22,47 @@ index ec7f50c4639714062c251304880f7e7b77d64d0d..1cbd6dcc9e117311100ac21924564abe
        react-dom:
          specifier: ^19.2.8
          version: 19.2.8(react@19.2.8)
-@@ -7912,7 +7915,6 @@ packages:
+@@ -3182,6 +3188,39 @@ packages:
+   '@livekit/protocol@1.52.1':
+     resolution: {integrity: sha512-X8DxKlNbzk6Lh+v630+mjdFHSotdAFwIyzxSRSUql2DbTxCnlpa7JsvFGc6Na3mXiex2OFh0iiQtWwOBP0rIYA==}
  
-   opencode-ai@1.18.34:
-     resolution: {integrity: sha512-9WUS2T0t4HHDVzXvuwTHF0nvhXvZ9mQ0r+ozCvKdJu0LVoQpOzqAW4qWTC3ygNc5Oedcc7j+Oct24JYlQYnySA==}
--    cpu: [arm64, x64]
-     os: [darwin, linux, win32]
-     hasBin: true
++  '@lydell/node-pty-darwin-arm64@1.2.0-beta.15':
++    resolution: {integrity: sha512-6TSBbzdcLiNTHl1mTuzflqXrkmcC36USVGvERoDgvHk2ItEDaMaFZuAJ1CqPmwYj0DyhCS16TVS8OGK9xZnjyQ==}
++    cpu: [arm64]
++    os: [darwin]
++
++  '@lydell/node-pty-darwin-x64@1.2.0-beta.15':
++    resolution: {integrity: sha512-yDT2oqPqYMBScyuk1U9Rg5VKcrbMOD9o9jWYYamDADA3NSbUISroPChrqYRQ74Y7BQtNH4gqYAiWOZRi5uQZ0Q==}
++    cpu: [x64]
++    os: [darwin]
++
++  '@lydell/node-pty-linux-arm64@1.2.0-beta.15':
++    resolution: {integrity: sha512-wkbNF7dYAmtJv+o2+iztVlNwnUB4B0uX0wh/UD+mwMcmE2gNMnW9GChXO7fEE5XJokD0vB5idiHpGegaN+G/sg==}
++    cpu: [arm64]
++    os: [linux]
++
++  '@lydell/node-pty-linux-x64@1.2.0-beta.15':
++    resolution: {integrity: sha512-+U/5AVvHT6W+8OCYcnJgN0Qgc0ycO3TfD6aaFJHK+WHij797f8gsi5dV1HEO9l6YQmWCD+VL5gaLDhx3mxHwCA==}
++    cpu: [x64]
++    os: [linux]
++
++  '@lydell/node-pty-win32-arm64@1.2.0-beta.15':
++    resolution: {integrity: sha512-pyAk91w7wnnKrD4mrHXtIXRfmzSWV5bEzvRhurXcMCtCc2TJ424ciUskIgWMhAPP6y3KyUnqElj+U6kY3iOt0A==}
++    cpu: [arm64]
++    os: [win32]
++
++  '@lydell/node-pty-win32-x64@1.2.0-beta.15':
++    resolution: {integrity: sha512-2f8twEmDVxZ7drchAXjtevpmSPhFok0avAnzXro4t5gmz0xsPNKkoZvymwtuIS3xo7PzQqZOPQ/YzwEMb7oIzQ==}
++    cpu: [x64]
++    os: [win32]
++
++  '@lydell/node-pty@1.2.0-beta.15':
++    resolution: {integrity: sha512-Br8wBxzbxFwdWgk9uQ+rdzE0xfoxOK4QuGH54swhRwc5IxP6H9Y1/bcyazRGvNUs6XkB5qNVkezuKSRxUwZe7A==}
++
+   '@marijn/find-cluster-break@1.0.4':
+     resolution: {integrity: sha512-Wy0V7+SGUjnF9/TkiM1hKVDPj7jKXduPNboMVtHTA8dySMURWqfg/JZ9E2Sq8JgSJmkl7k7Qe9FLeMSrSraWmQ==}
  
-@@ -8229,6 +8231,12 @@ packages:
+@@ -8229,6 +8268,12 @@ packages:
      resolution: {integrity: sha512-K5zQjDllxWkf7Z5xJdV0/B0WTNqx6vxG70zJE4N0kBs4LovmEYWJzQGxC9bS9RAKu3bgM40lrd5zoLJ12MQ5BA==}
      engines: {node: '>= 0.10'}
  
@@ -33,7 +75,42 @@ index ec7f50c4639714062c251304880f7e7b77d64d0d..1cbd6dcc9e117311100ac21924564abe
    react-docgen-typescript@2.4.0:
      resolution: {integrity: sha512-ZtAp5XTO5HRzQctjPU0ybY0RRCQO19X/8fxn3w7y2VVTUbGHDKULPTL4ky3vB05euSgG5NpALhEhDPvQ56wvXg==}
      peerDependencies:
-@@ -16609,6 +16617,11 @@ snapshots:
+@@ -11283,6 +11328,34 @@ snapshots:
+     dependencies:
+       '@bufbuild/protobuf': 1.10.0
+ 
++  '@lydell/node-pty-darwin-arm64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-darwin-x64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-linux-arm64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-linux-x64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-win32-arm64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty-win32-x64@1.2.0-beta.15':
++    optional: true
++
++  '@lydell/node-pty@1.2.0-beta.15':
++    optionalDependencies:
++      '@lydell/node-pty-darwin-arm64': 1.2.0-beta.15
++      '@lydell/node-pty-darwin-x64': 1.2.0-beta.15
++      '@lydell/node-pty-linux-arm64': 1.2.0-beta.15
++      '@lydell/node-pty-linux-x64': 1.2.0-beta.15
++      '@lydell/node-pty-win32-arm64': 1.2.0-beta.15
++      '@lydell/node-pty-win32-x64': 1.2.0-beta.15
++    optional: true
++
+   '@marijn/find-cluster-break@1.0.4': {}
+ 
+   '@mdx-js/react@3.1.1(@types/react@19.2.18)(react@19.2.8)':
+@@ -16609,6 +16682,11 @@ snapshots:
        iconv-lite: 0.7.3
        unpipe: 1.0.0
  
@@ -997,6 +1074,19 @@ index 0000000000000000000000000000000000000000..a329b061ef1356c8b917da6fcee6c279
 +child.unref();
 +fs.writeFileSync(path.join(home, 'launcher.json'), JSON.stringify({pid: child.pid, url: `http://127.0.0.1:${PORT}`, home, configPath}, null, 2));
 +console.log('Started ppclip', child.pid, `http://127.0.0.1:${PORT}`, 'data:', home);
+diff --git a/server/package.json b/server/package.json
+index ab0bf9e23a287082d9d3e64565e76d0d4b845ceb..473b5e2150c20a32724f117a427654710fcf3657 100644
+--- a/server/package.json
++++ b/server/package.json
+@@ -186,6 +186,7 @@
+   "optionalDependencies": {
+     "@github/copilot-darwin-arm64": "1.0.88",
+     "@github/copilot-darwin-x64": "1.0.88",
+-    "@github/copilot-linux-x64": "1.0.88"
++    "@github/copilot-linux-x64": "1.0.88",
++    "@lydell/node-pty": "1.2.0-beta.15"
+   }
+ }
 diff --git a/server/src/__tests__/ppclip-computer-use-state.test.ts b/server/src/__tests__/ppclip-computer-use-state.test.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..177bc2614916012a6a336172bf1a0c598948ae0b
@@ -2552,6 +2642,65 @@ index 0000000000000000000000000000000000000000..939d57209a134c4f9fba90aa4f7f5b1a
 +    expect(await statusOf(recent)).toBe("running");
 +    expect(published).toHaveLength(2);
 +  });
++});
+diff --git a/server/src/__tests__/ppclip-windows-browser-login.test.ts b/server/src/__tests__/ppclip-windows-browser-login.test.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..ee55f0cd02e9f6fe4017426b7fb97c781fc96448
+--- /dev/null
++++ b/server/src/__tests__/ppclip-windows-browser-login.test.ts
+@@ -0,0 +1,53 @@
++import fs from "node:fs";
++import os from "node:os";
++import path from "node:path";
++import { describe, expect, it } from "vitest";
++import {
++  createConptyLineRestorer,
++  createWindowsLoginTerminal,
++  resolveWindowsExecutable,
++} from "../ppclip/windows-browser-login.js";
++
++describe("ppclip Windows sign-in terminal", () => {
++  it("turns ConPTY row moves back into line breaks without splitting a row", () => {
++    const restore = createConptyLineRestorer();
++    const out = restore("\x1b[1;1HBrowser didn't open? Use the url below to sign in\x1b[3;1Hhttps://claude.ai/oauth/authorize?code=true\x1b[3;45H\x1b[5;1HPaste code here if prompted >");
++    expect(out.split("\n")).toEqual([
++      "Browser didn't open? Use the url below to sign in", "", "https://claude.ai/oauth/authorize?code=true", "", "Paste code here if prompted >",
++    ]);
++    expect(restore("\x1b[2Bnext")).toBe("\n\nnext");
++  });
++
++  it("drops ConPTY's displaced hyperlink markers so the printed URL keeps its own line", () => {
++    const restore = createConptyLineRestorer();
++    const out = restore("sign in (c to copy)\x1b]8;id=1;https://claude.com/x\x1b\\\n\nhttps://claude.com/x\x1b[m\x1b]8;;\x1b\\\n");
++    expect(out).toBe("sign in (c to copy)\n\nhttps://claude.com/x\x1b[m\n");
++  });
++
++  it("finds commands on PATH with PATHEXT and keeps absolute paths", () => {
++    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ppclip-winlogin-"));
++    try {
++      fs.writeFileSync(path.join(dir, "tool.cmd"), "");
++      const env = { PATH: dir, PATHEXT: ".EXE;.CMD" };
++      expect(resolveWindowsExecutable("tool", env)).toBe(path.join(dir, "tool.cmd"));
++      expect(resolveWindowsExecutable(path.join(dir, "tool"), env)).toBe(path.join(dir, "tool.cmd"));
++      expect(resolveWindowsExecutable("missing", env)).toBeNull();
++    } finally {
++      fs.rmSync(dir, { recursive: true, force: true });
++    }
++  });
++
++  it.runIf(process.platform === "win32")("runs a command in a ConPTY, streams lines and accepts input", async () => {
++    const terminal = createWindowsLoginTerminal();
++    let output = "";
++    const script = "process.stdout.write('first\\nsecond\\n');process.stdin.once('data',d=>{process.stdout.write('got:'+String(d).trim()+'\\n');process.exit(0)})";
++    const done = terminal.start(process.execPath, ["-e", script], process.env, (chunk) => {
++      output += chunk;
++      if (output.includes("second") && !output.includes("got:")) terminal.write("abc\r");
++    });
++    const { exitCode } = await done;
++    expect(exitCode).toBe(0);
++    const lines = output.replace(/\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07/g, "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
++    expect(lines).toEqual(expect.arrayContaining(["first", "second", "got:abc"]));
++  }, 30_000);
 +});
 diff --git a/server/src/__tests__/ppclip-windows-local-login.test.ts b/server/src/__tests__/ppclip-windows-local-login.test.ts
 new file mode 100644
@@ -7195,6 +7344,120 @@ index 0000000000000000000000000000000000000000..c895d1fa73413ee8af999bc4cbfafa3b
 +  }
 +  return repaired;
 +}
+diff --git a/server/src/ppclip/windows-browser-login.ts b/server/src/ppclip/windows-browser-login.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..7e64856479c6f8061559223b82aa2e9f505eaa37
+--- /dev/null
++++ b/server/src/ppclip/windows-browser-login.ts
+@@ -0,0 +1,108 @@
++import { spawn as spawnProcess } from "node:child_process";
++import fs from "node:fs";
++import path from "node:path";
++
++/**
++ * ppclip Windows browser sign-in terminal.
++ *
++ * Official runs `claude setup-token` and `codex login --device-auth` inside a
++ * terminal made by Python's `pty` module, which only exists on macOS and Linux.
++ * On Windows this starts the same command in a ConPTY through @lydell/node-pty
++ * (prebuilt, loaded only on win32) and hands the output to official's parsers.
++ *
++ * ConPTY repaints the screen with cursor-position codes instead of newlines, and
++ * the parsers read lines, so row changes are turned back into line breaks. The
++ * terminal is very wide so a long sign-in URL never wraps.
++ *
++ * Provider output may contain secrets: it is only passed to `onData`, never logged.
++ */
++
++export type WindowsLoginTerminal = {
++  start(executable: string, args: string[], env: NodeJS.ProcessEnv, onData: (chunk: string) => void): Promise<{ exitCode: number | null }>;
++  write(input: string): void;
++  stop(): void;
++};
++
++const COLUMNS = 1000;
++const ROWS = 50;
++
++/** Finds `name` on PATH using PATHEXT, as cmd.exe would. Absolute paths are kept. */
++export function resolveWindowsExecutable(name: string, env: NodeJS.ProcessEnv): string | null {
++  const exts = (env.PATHEXT ?? ".COM;.EXE;.BAT;.CMD").split(";").filter(Boolean);
++  const candidates = (base: string) => path.extname(base) ? [base] : exts.map((ext) => base + ext.toLowerCase());
++  if (path.isAbsolute(name)) return candidates(name).find((file) => fs.existsSync(file)) ?? null;
++  const pathKey = Object.keys(env).find((key) => key.toLowerCase() === "path") ?? "PATH";
++  for (const dir of (env[pathKey] ?? "").split(path.delimiter).filter(Boolean)) {
++    const found = candidates(path.join(dir, name)).find((file) => fs.existsSync(file));
++    if (found) return found;
++  }
++  return null;
++}
++
++/**
++ * Turns ConPTY cursor-row moves into newlines so official's line parsers can read
++ * the output. It also drops OSC 8 hyperlink markers: ConPTY moves the opening
++ * marker onto the line before the printed URL, and official's cleanup would then
++ * fold the URL onto that line. The URL itself is still printed as plain text.
++ */
++export function createConptyLineRestorer() {
++  let row = 1;
++  return (chunk: string) => chunk.replace(/\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[(\d*)(?:;(\d*))?H|\x1b\[(\d*)B/g, (match, cupRow, _cupCol, down) => {
++    if (down !== undefined) {
++      row += Number(down || 1);
++      return "\n".repeat(Number(down || 1));
++    }
++    const next = Number(cupRow || 1);
++    const lines = next > row ? "\n".repeat(next - row) : next < row ? "\n" : "";
++    row = next;
++    return lines;
++  });
++}
++
++/**
++ * Ends the sign-in process tree without blocking. node-pty's kill() closes the
++ * ConPTY synchronously, and that blocks Node's event loop while the CLI's child
++ * processes still hold the terminal, so the tree is ended first and kill() is
++ * only a fallback.
++ */
++function endProcessTree(pty: { pid: number; kill(): void }, exited: () => boolean) {
++  const taskkill = spawnProcess("taskkill", ["/PID", String(pty.pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
++  taskkill.on("error", () => {});
++  setTimeout(() => {
++    if (exited()) return;
++    try { pty.kill(); } catch { /* already exited */ }
++  }, 3000).unref();
++}
++
++export function createWindowsLoginTerminal(): WindowsLoginTerminal {
++  let pty: { pid: number; write(data: string): void; kill(): void } | null = null;
++  let stopped = false;
++  return {
++    async start(executable, args, env, onData) {
++      const { spawn } = await import("@lydell/node-pty");
++      const resolved = resolveWindowsExecutable(executable, env);
++      if (!resolved) throw new Error("Sign-in command not found");
++      // .cmd/.bat shims need cmd.exe; real executables run directly.
++      const viaShell = /\.(cmd|bat)$/i.test(resolved);
++      const file = viaShell ? (env.ComSpec ?? "cmd.exe") : resolved;
++      const argv = viaShell ? ["/d", "/s", "/c", resolved, ...args] : args;
++      const restore = createConptyLineRestorer();
++      return new Promise((resolve) => {
++        const child = spawn(file, argv, {
++          name: "xterm-256color", cols: COLUMNS, rows: ROWS,
++          env: Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string")),
++        });
++        pty = child;
++        child.onData((data) => onData(restore(data)));
++        child.onExit(({ exitCode }) => { pty = null; resolve({ exitCode }); });
++        if (stopped) endProcessTree(child, () => pty === null);
++      });
++    },
++    write(input) { pty?.write(input); },
++    stop() {
++      if (stopped) return;
++      stopped = true;
++      if (pty) endProcessTree(pty, () => pty === null);
++    },
++  };
++}
 diff --git a/server/src/ppclip/windows-local-login.ts b/server/src/ppclip/windows-local-login.ts
 new file mode 100644
 index 0000000000000000000000000000000000000000..ced6899c6ef9ee2f99055664b51561ccdcff86f5
@@ -7454,6 +7717,54 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..7bb1e50370366b15e38729c976a798af
        const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
+diff --git a/server/src/services/local-ai-browser-login.ts b/server/src/services/local-ai-browser-login.ts
+index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..57f355eb9e43bd1d5039178f6b3a650f4a3dbb18 100644
+--- a/server/src/services/local-ai-browser-login.ts
++++ b/server/src/services/local-ai-browser-login.ts
+@@ -6,6 +6,7 @@ import { runSetupTokenLogin } from "@paperclipai/adapter-claude-local/server";
+ import { runDeviceLogin } from "@paperclipai/adapter-codex-local/server";
+ import { ensureCommandResolvable, resolveCommandForLogs } from "@paperclipai/adapter-utils/server-utils";
+ import { resolveCodexCommand } from "../vendor/paperclip-runner/index.js";
++import { createWindowsLoginTerminal, type WindowsLoginTerminal } from "../ppclip/windows-browser-login.js"; // ppclip: Windows sign-in
+ 
+ export type LocalBrowserLoginState = {
+   authorizationUrl?: string;
+@@ -52,6 +53,7 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+   const state: LocalBrowserLoginState = { abort: () => controller.abort() };
+   const args = provider === "anthropic" ? ["setup-token"] : ["login", "--device-auth"];
+   let child: ChildProcessWithoutNullStreams | null = null;
++  let windowsTerminal: WindowsLoginTerminal | null = null; // ppclip: Windows sign-in
+   const driver = {
+     async start(_command: string, onData: (chunk: string) => void): Promise<{ exitCode: number | null }> {
+       let executable = "claude";
+@@ -80,6 +82,14 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+         CODEX_HOME: provider === "openai" ? home : process.env.CODEX_HOME,
+         BROWSER: "true",
+       };
++      // ppclip: Windows has no Python pty module; run the CLI in a ConPTY instead.
++      if (process.platform === "win32") {
++        windowsTerminal = createWindowsLoginTerminal();
++        return windowsTerminal.start(executable, args, env, onData).catch((error) => {
++          state.error = `Browser sign-in could not start ${provider === "anthropic" ? "Claude Code (claude)" : "Codex (codex)"} in a Windows terminal. Install it on this host and make sure it is on Paperclip's PATH, then start sign-in again.`;
++          throw error;
++        });
++      }
+       return new Promise((resolve, reject) => {
+         child = spawn("python3", ["-u", "-c", PYTHON_PTY_BRIDGE, executable, ...args], { env, stdio: ["pipe", "pipe", "pipe"] });
+         child.stdout.on("data", (bytes: Buffer) => onData(bytes.toString("utf8")));
+@@ -92,9 +102,9 @@ export function startLocalBrowserLogin(provider: "anthropic" | "openai", home: s
+         child.once("close", (exitCode) => resolve({ exitCode }));
+       });
+     },
+-    write(input: string) { child?.stdin.write(input); },
+-    stop() { child?.kill("SIGTERM"); },
+-    async dispose() { child?.kill("SIGTERM"); },
++    write(input: string) { windowsTerminal?.write(input); child?.stdin.write(input); }, // ppclip: Windows sign-in
++    stop() { windowsTerminal?.stop(); child?.kill("SIGTERM"); },
++    async dispose() { windowsTerminal?.stop(); child?.kill("SIGTERM"); },
+     async readFile(file: string) { const { readLocalAiCredentialFile } = await import("./local-ai-credential-file.js"); return Buffer.from(await readLocalAiCredentialFile(file)); },
+   };
+   if (provider === "anthropic") {
 diff --git a/server/src/services/local-ai-credential-file.ts b/server/src/services/local-ai-credential-file.ts
 index 4641dde599c2129b9c3b0a4e929e0e1e7d6ab5cf..d21eaeebaefd3c75efa22874a9fa629fc7bdc1ff 100644
 --- a/server/src/services/local-ai-credential-file.ts
