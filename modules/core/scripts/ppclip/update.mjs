@@ -109,6 +109,14 @@ function stopPaperclip(launcher) {
   const pids = [...new Set([launcher?.pid, launcher?.computerSupervisorPid, ...listening])].filter((pid) => pid && pid !== process.pid && alive(pid));
   for (const pid of pids) spawnSync('taskkill', ['/PID', String(pid), '/F'], { stdio: 'ignore' });
   if (pids.length) log(`Stopped processes ${pids.join(', ')}.`);
+  // Programs Paperclip started (agent CLIs, its database) can outlive it on Windows and keep its
+  // ports open. Stop every process running from this checkout, except this updater.
+  const leftovers = spawnSync('powershell', ['-NoProfile', '-Command',
+    `$me = ${process.pid}; $app = ${JSON.stringify(app.toLowerCase())}; ` +
+    "Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $me -and (($_.CommandLine + ' ' + $_.ExecutablePath).ToLower().Contains($app)) } | " +
+    "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue; $_.ProcessId }"], { encoding: 'utf8' });
+  const stopped = (leftovers.stdout ?? '').split(/\s+/).filter(Boolean);
+  if (stopped.length) log(`Stopped leftover processes from this checkout: ${stopped.join(', ')}.`);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -116,14 +124,22 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 function run(cmd, args, opts = {}) {
   log(`$ ${[cmd, ...args].join(' ')}`);
   const out = fs.openSync(logFile, 'a');
-  const r = spawnSync(cmd, args, { cwd: app, stdio: ['ignore', out, out], windowsHide: true, ...opts });
+  // With a shell, pass one command line (passing an args array with shell: true is deprecated).
+  const r = opts.shell
+    ? spawnSync([cmd, ...args].join(' '), { cwd: app, stdio: ['ignore', out, out], windowsHide: true, ...opts })
+    : spawnSync(cmd, args, { cwd: app, stdio: ['ignore', out, out], windowsHide: true, ...opts });
   fs.closeSync(out);
   return r.status === 0;
 }
 
+/** The last lines of the update log, to show why a step failed. */
+function logTail(lines = 8) {
+  try { return fs.readFileSync(logFile, 'utf8').trimEnd().split(/\r?\n/).slice(-lines).join('\n'); } catch { return ''; }
+}
+
 /** pnpm from PATH, else the copy corepack ships with this Node (works with a portable Node folder). */
 function pnpmCommand() {
-  if (spawnSync('pnpm', ['--version'], { shell: true, stdio: 'ignore' }).status === 0) return { cmd: 'pnpm', args: [], shell: true };
+  if (spawnSync('pnpm --version', { shell: true, stdio: 'ignore' }).status === 0) return { cmd: 'pnpm', args: [], shell: true };
   const nodeDir = path.dirname(process.execPath);
   for (const candidate of [path.join(nodeDir, 'node_modules', 'corepack', 'dist', 'corepack.js'), path.join(nodeDir, '..', 'lib', 'node_modules', 'corepack', 'dist', 'corepack.js')]) {
     if (fs.existsSync(candidate)) return { cmd: process.execPath, args: [candidate, 'pnpm'], shell: false };
@@ -177,7 +193,8 @@ async function performUpdate() {
   const url = readJson(launcherFile)?.url ?? launcher?.url;
   let up = false;
   for (let i = 0; started && url && i < 180 && !(up = await healthy(url)); i++) await sleep(1000);
-  if (!up) failure ??= 'Paperclip did not come back; see server.stderr.log in the data folder.';
+  if (!started) failure ??= `Paperclip could not start:\n${logTail(6)}`;
+  else if (!up) failure ??= 'Paperclip did not come back within 3 minutes; see server.stderr.log in the data folder.';
 
   const commits = from && to && from !== to ? git(pkg, ['log', '--format=%h %s', `${from}..${to}`]).out.split('\n').filter(Boolean) : [];
   setStatus({ state: failure ? 'failed' : 'done', step: failure ? 'Failed' : 'Done', error: failure, finishedAt: new Date().toISOString(), from, to, commits });

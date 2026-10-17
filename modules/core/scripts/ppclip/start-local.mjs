@@ -55,7 +55,9 @@ if (!fs.existsSync(configPath)) fs.writeFileSync(configPath, JSON.stringify({
 for (const port of [PORT, PORT + 10000, PG_PORT]) {
   await new Promise((resolve, reject) => {
     const server = net.createServer();
-    server.once('error', () => reject(new Error(`Port ${port} is already in use`)));
+    server.once('error', () => reject(new Error(`Port ${port} is already in use. Paperclip, or something it started, is still running.${process.platform === 'win32'
+      ? `\nStop everything running from this checkout, then start again:\n  powershell -NoProfile -Command "$me=$PID; Get-CimInstance Win32_Process | Where-Object { $_.ProcessId -ne $me -and (($_.CommandLine + ' ' + $_.ExecutablePath).ToLower().Contains('${app.toLowerCase().replace(/'/g, "''")}')) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }"`
+      : '\nStop the old instance (see launcher.json in the data folder for its pid), then start again.'}`)));
     server.listen(port, '127.0.0.1', () => server.close(resolve));
   });
 }
