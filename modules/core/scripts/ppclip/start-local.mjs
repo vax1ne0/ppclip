@@ -79,7 +79,8 @@ const child = spawn(process.execPath, [path.join(app, 'server/node_modules/tsx/d
 });
 child.on('error', error => { console.error(error); process.exitCode = 1; });
 child.unref();
-fs.writeFileSync(path.join(home, 'launcher.json'), JSON.stringify({pid: child.pid, url: `http://127.0.0.1:${PORT}`, home, configPath}, null, 2));
+// args: how this instance was started, so scripts/ppclip/update.mjs can restart it the same way.
+fs.writeFileSync(path.join(home, 'launcher.json'), JSON.stringify({pid: child.pid, url: `http://127.0.0.1:${PORT}`, home, configPath, args: ['--data', home, ...process.argv.slice(2).filter((a, i, all) => a !== '--data' && all[i - 1] !== '--data')]}, null, 2));
 console.log('Started ppclip', child.pid, `http://127.0.0.1:${PORT}`, 'data:', home);
 
 if (WITH_COMPUTER) await startComputerSupervisor();

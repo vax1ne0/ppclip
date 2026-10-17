@@ -5,6 +5,7 @@ import { validate } from "../middleware/validate.js";
 import { logActivity } from "../services/activity-log.js";
 import { assertBoardOrgAccess, assertInstanceAdmin, getActorInfo } from "../routes/authz.js";
 import { PPCLIP_FEATURE_KEYS, readPpclipFeatures, writePpclipFeatures } from "./features.js";
+import { ppclipUpdateRoutes } from "./update/routes.js";
 
 const patchSchema = z
   .object(Object.fromEntries(PPCLIP_FEATURE_KEYS.map((key) => [key, z.boolean().optional()])) as Record<(typeof PPCLIP_FEATURE_KEYS)[number], z.ZodOptional<z.ZodBoolean>>)
@@ -44,6 +45,9 @@ export function ppclipFeatureRoutes(db: Db) {
     })));
     res.json(updated);
   });
+
+  // Settings → ppclip → Update (no extra hook in app.ts: mounted with the module switches).
+  router.use(ppclipUpdateRoutes(db));
 
   return router;
 }

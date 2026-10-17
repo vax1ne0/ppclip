@@ -4,7 +4,7 @@
     {
       "id": "core",
       "title": "Core",
-      "summary": "Settings → ppclip module switches, shared server route access, the local launcher, and small shared helpers.",
+      "summary": "Settings → ppclip module switches and one-click updates, shared server route access, the local launcher, and small shared helpers.",
       "paths": [
         "server/src/ppclip/features.ts",
         "server/src/ppclip/features-routes.ts",
@@ -12,7 +12,11 @@
         "server/src/__tests__/ppclip-features.test.ts",
         "ui/src/ppclip/features/",
         "ui/src/ppclip/agent-model.ts",
-        "scripts/ppclip/start-local.mjs"
+        "scripts/ppclip/start-local.mjs",
+        "scripts/ppclip/update.mjs",
+        "server/src/ppclip/update/",
+        "server/src/__tests__/ppclip-update",
+        "ui/src/ppclip/update/"
       ]
     },
     {

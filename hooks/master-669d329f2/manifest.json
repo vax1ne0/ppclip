@@ -3,7 +3,7 @@
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
   "hooksSha256": "f18405e25810b02f8f528ad33f5afba3446b86092e2ba7d5cf2e854cd8cbff77",
-  "generatedAt": "2026-10-17T18:55:40.314Z",
+  "generatedAt": "2026-10-17T19:16:33.831Z",
   "officialFilesModified": [
     "pnpm-lock.yaml",
     "server/package.json",
@@ -51,7 +51,7 @@
     "ui/vite.config.ts"
   ],
   "modules": {
-    "core": 12,
+    "core": 19,
     "team": 17,
     "live-runs": 11,
     "providers": 16,

@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { ToggleSwitch } from "@/components/ui/toggle-switch";
 import { PPCLIP_MODULES, type PpclipFeatureInfo, type PpclipFeatureKey } from "./registry";
 import { ppclipFeaturesApi, setPpclipFeatures, usePpclipFeatures } from "./store";
+import { UpdateSection } from "../update/UpdateSection";
 
 function FeatureToggleCard({ feature, checked, disabled, onChange }: {
   feature: PpclipFeatureInfo;
@@ -64,6 +65,8 @@ export function PpclipSettingsPage() {
           install, and takes effect immediately. Turning a module off brings back official Paperclip’s own behaviour; your data is kept.
         </p>
       </div>
+
+      <UpdateSection />
 
       {error ? (
         <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">

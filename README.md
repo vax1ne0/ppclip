@@ -114,7 +114,22 @@ node ppclip/install.mjs uninstall   # back to plain official Paperclip
 
 `uninstall` refuses if you edited ppclip's files after installing, and lists them. Pass `--force` to discard those edits.
 
-**To update**, pull ppclip and let it move Paperclip:
+**The easy way: one click or one command.** If you start Paperclip with `scripts/ppclip/start-local.mjs`:
+- **In the app:** go to **Settings → ppclip → Updates**, press **Check for updates**, then **Update and restart**.
+- **From a terminal:** run this from the folder that holds both checkouts:
+  ```bash
+  node paperclip/scripts/ppclip/update.mjs            # add --check to only look
+  ```
+
+Either way:
+- **Steps:** it stops Paperclip and the computer supervisor cleanly, then pulls ppclip and runs `install.mjs update`. Next it installs dependencies, using `pnpm`, or the copy that ships with Node if pnpm isn't on your PATH. Finally it starts Paperclip again with the same start-local options.
+- **Duration:** Paperclip is down for about a minute, longer when dependencies change, and the page reloads itself.
+- **Computer image:** if the computer-use image changed, it is rebuilt in the background afterwards.
+- **Progress:** it's in `ppclip-update.log` and `ppclip-update.json` in the data folder.
+- **Who can update:** only an instance admin, and the update is written to each company's activity log.
+- **When it refuses:** it won't start if the ppclip folder has local changes. A running agent's work is interrupted, and the button warns you first.
+
+**By hand**, pull ppclip and let it move Paperclip:
 
 ```bash
 git -C ppclip pull
