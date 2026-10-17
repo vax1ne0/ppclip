@@ -99,6 +99,24 @@ describe("ppclip update service", () => {
 });
 
 describe("scripts/ppclip/update.mjs", () => {
+  it("finds the processes listening on Paperclip's ports from Windows netstat output", async () => {
+    const { parseNetstatListeners } = await import("../../../scripts/ppclip/update.mjs");
+    const netstat = [
+      "Active Connections",
+      "",
+      "  Proto  Local Address          Foreign Address        State           PID",
+      "  TCP    127.0.0.1:3410         0.0.0.0:0              LISTENING       36172",
+      "  TCP    127.0.0.1:13410        0.0.0.0:0              LISTENING       36172",
+      "  TCP    127.0.0.1:55440        0.0.0.0:0              LISTENING       40100",
+      "  TCP    127.0.0.1:3410         127.0.0.1:51234        ESTABLISHED     36172",
+      "  TCP    0.0.0.0:7091           0.0.0.0:0              LISTENING       5000",
+      "  TCP    0.0.0.0:8080           0.0.0.0:0              LISTENING       999",
+      "  TCP    [::1]:55440            [::]:0                 LISTENING       40100",
+    ].join("\r\n");
+    expect(parseNetstatListeners(netstat, [3410, 13410, 55440, 7091]).sort()).toEqual([36172, 40100, 5000].sort());
+    expect(parseNetstatListeners(netstat, [9999])).toEqual([]);
+  });
+
   it("pulls ppclip, reinstalls it, installs dependencies and restarts Paperclip the same way", async () => {
     const { app, pkg, home } = layout();
     const logs = path.join(root, "logs");

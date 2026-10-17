@@ -58,7 +58,8 @@ export function checkPackage(pkg) {
 }
 
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } };
-const log = (line) => { const text = `[${new Date().toISOString()}] ${line}`; console.log(text); fs.mkdirSync(home, { recursive: true }); fs.appendFileSync(logFile, `${text}\n`); };
+// With --run (started by the server) stdout already goes to the log file, so write each line once.
+const log = (line) => { const text = `[${new Date().toISOString()}] ${line}`; if (!flag('--run')) console.log(text); fs.mkdirSync(home, { recursive: true }); fs.appendFileSync(logFile, `${text}\n`); };
 const setStatus = (patch) => { const next = { ...(readJson(statusFile) ?? {}), ...patch, updatedAt: new Date().toISOString() }; fs.writeFileSync(statusFile, JSON.stringify(next, null, 2)); return next; };
 
 function healthy(url) {
@@ -74,11 +75,40 @@ function alive(pid) {
   try { process.kill(pid, 0); return true; } catch (e) { return e.code === 'EPERM'; }
 }
 
-/** Ends a process and everything it started (start-local spawns detached process groups). */
-function killTree(pid) {
-  if (!alive(pid)) return;
-  if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(pid), '/T', '/F'], { stdio: 'ignore' });
-  else { try { process.kill(-pid, 'SIGTERM'); } catch { try { process.kill(pid, 'SIGTERM'); } catch { /* gone */ } } }
+/** PIDs listening on the given TCP ports, from `netstat -ano` output (Windows). */
+export function parseNetstatListeners(text, ports) {
+  const wanted = new Set(ports.map(String));
+  const pids = new Set();
+  for (const line of text.split(/\r?\n/)) {
+    const cols = line.trim().split(/\s+/);
+    if (cols.length < 5 || !/^TCP/i.test(cols[0]) || !/LISTEN/i.test(cols[3])) continue;
+    const port = cols[1].split(':').pop();
+    const pid = Number(cols[4]);
+    if (wanted.has(port) && pid > 0) pids.add(pid);
+  }
+  return [...pids];
+}
+
+/**
+ * Stops the old Paperclip. On Windows a process tree includes this updater
+ * (the server started it), so never kill a tree there: stop only the launcher
+ * process and whatever still listens on Paperclip's ports.
+ */
+function stopPaperclip(launcher) {
+  if (process.platform !== 'win32') {
+    for (const pid of [launcher?.pid, launcher?.computerSupervisorPid]) {
+      if (!alive(pid)) continue;
+      try { process.kill(-pid, 'SIGTERM'); } catch { try { process.kill(pid, 'SIGTERM'); } catch { /* gone */ } }
+    }
+    return;
+  }
+  const port = launcher?.url ? Number(new URL(launcher.url).port) : 3410;
+  const config = readJson(launcher?.configPath ?? '');
+  const ports = [port, port + 10000, config?.database?.embeddedPostgresPort ?? 55440, 7091];
+  const listening = parseNetstatListeners(spawnSync('netstat', ['-ano', '-p', 'tcp'], { encoding: 'utf8' }).stdout ?? '', ports);
+  const pids = [...new Set([launcher?.pid, launcher?.computerSupervisorPid, ...listening])].filter((pid) => pid && pid !== process.pid && alive(pid));
+  for (const pid of pids) spawnSync('taskkill', ['/PID', String(pid), '/F'], { stdio: 'ignore' });
+  if (pids.length) log(`Stopped processes ${pids.join(', ')}.`);
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -113,10 +143,13 @@ async function performUpdate() {
   setStatus({ state: 'running', step: 'Waiting for Paperclip to stop', startedAt: new Date().toISOString(), finishedAt: null, error: null });
   log(`Updating ppclip from ${pkg} for ${app} (data ${home})`);
 
-  // 1. Paperclip shuts itself down gracefully when the update starts from the server; give it time, then make sure.
+  // 1. Paperclip shuts itself down gracefully when the update starts from the server (its
+  //    database stops too); give it up to a minute, then stop what is left.
   for (let i = 0; i < 90 && launcher?.url && (await healthy(launcher.url)); i++) await sleep(1000);
-  if (launcher?.pid && alive(launcher.pid)) { await sleep(5000); if (alive(launcher.pid)) { log('Paperclip is still running; stopping it.'); killTree(launcher.pid); await sleep(3000); } }
-  if (launcher?.computerSupervisorPid) { killTree(launcher.computerSupervisorPid); await sleep(1000); }
+  for (let i = 0; i < 60 && alive(launcher?.pid); i++) await sleep(1000);
+  if (alive(launcher?.pid)) log('Paperclip did not stop by itself within a minute; stopping it.');
+  stopPaperclip(launcher);
+  await sleep(3000);
 
   // 2. Pull ppclip.
   setStatus({ step: 'Downloading the new ppclip' });
