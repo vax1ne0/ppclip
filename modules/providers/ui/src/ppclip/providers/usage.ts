@@ -33,7 +33,11 @@ export type AccountUsage = {
   usage: AiConnectionUsage | null;
   /** The usage request itself failed (not a provider-reported state). */
   failed: boolean;
+  /** Set when the numbers come from this computer's Claude Code sign-in (Anthropic won't share them for the connected account). */
+  usageFrom?: "claude_code_local";
 };
+
+export const CLAUDE_CODE_SOURCE_NOTE = "From Claude Code on this computer. Anthropic doesn't share usage for Claude accounts connected in Paperclip.";
 type ProviderUsageSnapshot = { accounts: AccountUsage[]; checkedAt: string };
 
 const providerUsageQueryKey = (companyId: string) => ["ppclip", "provider-usage", companyId] as const;
@@ -146,7 +150,9 @@ export function usageStatusText(entry: AccountUsage) {
   if (!usage) return "Usage not observed.";
   switch (usage.errorCode) {
     case "authentication_required": return "Sign in again to check usage.";
-    case "permission_denied": return "Usage access denied.";
+    case "permission_denied": return usage.provider === "anthropic"
+      ? "Anthropic doesn't share usage for Claude accounts connected in Paperclip. Sign in to Claude Code on this computer to see it here."
+      : "Usage access denied.";
     case "rate_limited": return "Too many checks. Try again later.";
     case "connection_unavailable": return "Reconnect to check usage.";
     case "unsupported": return "Usage unavailable.";

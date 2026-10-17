@@ -23,6 +23,7 @@ import {
   providerName,
   resetLabel,
   usageStatusText,
+  CLAUDE_CODE_SOURCE_NOTE,
   useProviderUsage,
   useConnectedAccounts,
   type AccountUsage,
@@ -80,6 +81,7 @@ function AccountRow({ entry }: { entry: AccountUsage }) {
             rightLabel={resetLabel(headline.resetsAt) ?? undefined}
           />
         ) : status ? <p className="text-xs text-muted-foreground">{status}</p> : null}
+        {entry.usageFrom === "claude_code_local" ? <p className="text-xs text-muted-foreground">{CLAUDE_CODE_SOURCE_NOTE}</p> : null}
       </div>
     </li>
   );

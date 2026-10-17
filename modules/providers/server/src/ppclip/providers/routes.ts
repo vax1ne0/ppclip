@@ -11,6 +11,7 @@ import { supportsAiConnectionUsage } from "@paperclipai/shared";
 import { aiConnectionService } from "../../services/ai-connections.js";
 import { getActorInfo } from "../../routes/authz.js";
 import { cachedUsage, usageCacheKey } from "./usage-cache.js";
+import { hostClaudeUsage } from "./host-claude-usage.js";
 
 type ProviderRoutingService = Pick<ReturnType<typeof providerRoutingService>, "status" | "savePolicy" | "release" | "reconcile">;
 
@@ -48,6 +49,13 @@ export function ppclipProviderRoutingRoutes(
     const accounts = await Promise.all(listed.filter((account) => account.status === "connected").map(async (account) => {
       const supported = account.usageProbeSupported ?? supportsAiConnectionUsage(account.provider, account.method);
       if (!supported) return { account, supported, usage: null, failed: false };
+      // Paperclip's Claude sign-in token can't read usage (Anthropic answers 403, or 429 once it
+      // tires of asking), so a Claude subscription uses this computer's Claude Code usage first
+      // and only asks the connection when that isn't available.
+      if (account.provider === "anthropic" && account.method === "subscription") {
+        const local = await cachedUsage("claude-code-on-this-computer", hostClaudeUsage);
+        if (local?.status === "ok") return { account, supported, usage: local, failed: false, usageFrom: "claude_code_local" as const };
+      }
       const usage = await cachedUsage(usageCacheKey(companyId, account), () => connections.probeUsage(companyId, userId, account.id, account.grantId));
       return { account, supported, usage, failed: usage === null };
     }));

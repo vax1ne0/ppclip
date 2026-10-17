@@ -131,6 +131,32 @@ describe("usage helpers", () => {
     expect(usageStatusText(entry({ failed: true }))).toMatch(/Couldn’t check usage/);
     expect(usageStatusText(entry({ usage: usage({ status: "unavailable", errorCode: "authentication_required", message: "raw provider text" }) }))).toBe("Sign in again to check usage.");
     expect(usageStatusText(entry({ usage: usage() }))).toBeNull();
+    // Paperclip's Claude sign-in token can't read usage: explain it instead of "access denied".
+    expect(usageStatusText(entry({ usage: usage({ status: "unavailable", errorCode: "permission_denied" }) })))
+      .toMatch(/Anthropic doesn't share usage.*Claude Code on this computer/);
+    expect(usageStatusText(entry({ usage: usage({ provider: "openai", status: "unavailable", errorCode: "permission_denied" }) })))
+      .toBe("Usage access denied.");
+  });
+
+  it("labels Claude usage that comes from this computer's Claude Code", async () => {
+    mockConnections.list.mockResolvedValue({ currentUserId: "u", canManageConnections: true, connections: [account()] });
+    mockConnections.probeUsage.mockResolvedValue(usage());
+    mockRouting.status.mockResolvedValue(routingStatus());
+    // Simulate the server's fallback marker on the usage snapshot.
+    const client = await import("@/api/client");
+    const original = client.api.get;
+    client.api.get = (async (path: string) => {
+      const snapshot = await (original as (p: string) => Promise<{ accounts: AccountUsage[] }>)(path);
+      return { ...snapshot, accounts: snapshot.accounts.map((a) => ({ ...a, usageFrom: "claude_code_local" })) };
+    }) as typeof client.api.get;
+    try {
+      await render(<ProviderSettingsSheet companyId={companyId} open onOpenChange={() => {}} />);
+      const row = document.body.querySelector("[data-testid='ppclip-provider-account']")!;
+      expect(row.textContent).toContain("42% used");
+      expect(row.textContent).toContain("From Claude Code on this computer");
+    } finally {
+      client.api.get = original;
+    }
   });
 
   it("orders mode stops like the old toolbar for two providers", () => {

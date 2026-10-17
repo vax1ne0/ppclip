@@ -12,6 +12,8 @@ import type { AiConnectionUsage } from "@paperclipai/shared";
  *     the TTL passes.
  */
 export const USAGE_TTL_MS = 5 * 60_000;
+export const TRANSIENT_RETRY_MS = 30_000;
+const STOP_ASKING = new Set(["rate_limited", "permission_denied", "authentication_required", "unsupported", "connection_unavailable"]);
 const MAX_ENTRIES = 1000;
 
 type Entry = { expires: number; value: AiConnectionUsage | null };
@@ -42,9 +44,12 @@ export async function cachedUsage(key: string, probe: () => Promise<AiConnection
       fresh.set(key, { value, expires: expiryFor(value, at) });
       return value;
     }
-    // Keep showing the last good reading; don't ask again until the TTL passes.
+    // Keep showing the last good reading. Back off for the full TTL when the
+    // provider said to stop (rate limit, no permission, sign-in needed); retry a
+    // temporary failure (provider unavailable, network) sooner.
     const kept = lastGood.get(key) ?? value;
-    fresh.set(key, { value: kept, expires: at + USAGE_TTL_MS });
+    const stop = value?.errorCode && STOP_ASKING.has(value.errorCode);
+    fresh.set(key, { value: kept, expires: at + (stop ? USAGE_TTL_MS : TRANSIENT_RETRY_MS) });
     return kept;
   })().finally(() => inFlight.delete(key));
   inFlight.set(key, run);

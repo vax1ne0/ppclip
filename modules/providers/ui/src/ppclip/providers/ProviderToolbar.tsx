@@ -12,6 +12,7 @@ import {
   providerName,
   resetLabel,
   usageStatusText,
+  CLAUDE_CODE_SOURCE_NOTE,
   useProviderUsage,
   type AccountUsage,
 } from "./usage";
@@ -36,6 +37,7 @@ function UsageDetails({ entry }: { entry: AccountUsage }) {
         </p>
       ))}
       {status ? <p>{status}</p> : null}
+      {entry.usageFrom === "claude_code_local" ? <p className="text-muted-foreground">{CLAUDE_CODE_SOURCE_NOTE}</p> : null}
     </div>
   );
 }

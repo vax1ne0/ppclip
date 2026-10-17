@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AiConnectionUsage } from "@paperclipai/shared";
-import { cachedUsage, clearUsageCacheForTests, USAGE_TTL_MS } from "../ppclip/providers/usage-cache.js";
+import { cachedUsage, clearUsageCacheForTests, TRANSIENT_RETRY_MS, USAGE_TTL_MS } from "../ppclip/providers/usage-cache.js";
 
 const reading = (status: "ok" | "error", usedPercent = 40, errorCode: string | null = null) => ({
   connectionId: "c", grantId: "g", provider: "anthropic", method: "subscription", status, errorCode,
@@ -34,6 +34,16 @@ describe("ppclip shared usage cache", () => {
     vi.advanceTimersByTime(USAGE_TTL_MS + 1);
     expect(await cachedUsage("k", probe)).toBe(good);
     expect(await cachedUsage("k", probe)).toBe(good);
+    expect(probe).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a temporary failure after a short pause instead of the full TTL", async () => {
+    const probe = vi.fn().mockResolvedValueOnce(reading("error", 0, "provider_unavailable")).mockResolvedValue(reading("ok", 30));
+    expect((await cachedUsage("k", probe))?.status).toBe("error");
+    await cachedUsage("k", probe);
+    expect(probe).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(TRANSIENT_RETRY_MS + 1);
+    expect((await cachedUsage("k", probe))?.status).toBe("ok");
     expect(probe).toHaveBeenCalledTimes(2);
   });
 

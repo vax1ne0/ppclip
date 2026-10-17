@@ -3,7 +3,7 @@
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
   "hooksSha256": "895a2c5249fd24cd92bbc8be0ba5216d9713f706a678abbfaeb0f0c2676ea621",
-  "generatedAt": "2026-10-17T08:19:27.081Z",
+  "generatedAt": "2026-10-17T16:35:50.914Z",
   "officialFilesModified": [
     "pnpm-lock.yaml",
     "server/package.json",
@@ -53,7 +53,7 @@
     "core": 12,
     "team": 17,
     "live-runs": 9,
-    "providers": 15,
+    "providers": 16,
     "run-controls": 15,
     "computer-use": 31,
     "agents": 11,
