@@ -9,7 +9,7 @@ It doesn't replace Paperclip or need a separate install: you keep your own offic
 - **Team page** (`/team`): a canvas of your agents with reporting and work lines, Edit mode, Magic sort, and group colours.
 - **Live runs** (`/dashboard/live`): one big card per agent, showing live activity, the current task and the last reply.
 - **Run controls** (off by default; Company Settings): team Unlimited / Drain / Resume, daily runs left, and "Drain after next run".
-- **Computer use** (off by default; Company Settings, then per agent): each chosen agent gets its own sandboxed Linux desktop and Chromium in Docker.
+- **Computer use** (off by default; agent → Configuration → Computer use, or Company Settings): each chosen agent gets its own sandboxed Linux desktop and Chromium in Docker.
   - You watch it live on its Live runs card, take control (for example to sign in), take control privately so the agent can't see the screen, and release it.
   - While you have control, the agent's computer actions are refused. Only you can release control.
   - Each agent's browser profile is kept in its own Docker volume, so logins survive restarts.
@@ -86,11 +86,13 @@ Computer use needs Docker (Docker Desktop with WSL2 on Windows, Docker Engine on
 ```bash
 node scripts/ppclip/computer-supervisor.mjs build-image   # once: builds the sandbox image (about 1 GB)
 node scripts/ppclip/computer-supervisor.mjs               # keep running next to Paperclip
+# or start Paperclip and the supervisor together:
+node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime --with-computer
 ```
 
 Then:
-1. In **Company Settings**, turn on **Computer use** (the supervisor line should say "connected"), and switch it on for each agent that should have a computer.
-2. On **Live runs**, press **Start computer** on that agent's card.
+1. Open the agent, then **Configuration**, then the **Computer use** card. Press **Turn on computer use** if asked, check the supervisor line says "connected", and switch on **Give this agent a computer**. Company Settings has the same controls for every agent.
+2. Press **Watch live** (or open **Live runs**), then **Start computer** on that agent's card. The card shows **Using its computer** while the agent works, and **Needs you** when it asks for help.
 3. Just ask the agent in plain words, for example "open example.com with your computer and tell me the page title". Claude and Codex local agents get the computer and browser tools automatically; there is no separate "web use" switch, the browser is part of the computer.
 
 See [docs/computer-use.md](docs/computer-use.md) for Windows notes, the security model and testing.

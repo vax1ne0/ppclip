@@ -3,11 +3,20 @@ import { useMutation } from "@tanstack/react-query";
 import { ToggleField } from "@/components/agent-config-primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { computerUseApi, type AgentComputer } from "./api";
+import { computerUseApi, type AgentComputer, type SupervisorHealth } from "./api";
 import { isLiveState, STATE_LABELS, useComputerUse, useInvalidateComputerUse } from "./useComputerUse";
 import { usePpclipFeature } from "@/ppclip/features/store";
 
-function AgentRow({ companyId, computer }: { companyId: string; computer: AgentComputer }) {
+/**
+ * The per-agent computer controls: give it a computer, shell, allowed sites,
+ * delete the profile. Shared by Company Settings and the agent's Configuration tab.
+ */
+export function AgentComputerControls({ companyId, computer, showName = true, as: Tag = "li" }: {
+  companyId: string;
+  computer: AgentComputer;
+  showName?: boolean;
+  as?: "li" | "div";
+}) {
   const invalidate = useInvalidateComputerUse(companyId);
   const [hosts, setHosts] = useState(computer.allowedHosts.join(", "));
   const update = useMutation({
@@ -26,11 +35,13 @@ function AgentRow({ companyId, computer }: { companyId: string; computer: AgentC
   }
 
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-border p-3" data-testid={`computer-agent-${computer.agentId}`}>
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{computer.name}</span>
-        <span className="ml-auto text-xs text-muted-foreground">{STATE_LABELS[computer.state]}</span>
-      </div>
+    <Tag className={showName ? "flex flex-col gap-2 rounded-md border border-border p-3" : "flex flex-col gap-2"} data-testid={`computer-agent-${computer.agentId}`}>
+      {showName ? (
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-foreground">{computer.name}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{STATE_LABELS[computer.state]}</span>
+        </div>
+      ) : null}
       <ToggleField
         label="Give this agent a computer"
         hint="Adds the computer tools to this agent's runs (Claude and Codex local adapters)."
@@ -70,7 +81,20 @@ function AgentRow({ companyId, computer }: { companyId: string; computer: AgentC
       {update.isError || reset.isError ? (
         <p className="text-xs text-destructive" role="alert">{(update.error ?? reset.error) instanceof Error ? (update.error ?? reset.error)!.message : "Failed"}</p>
       ) : null}
-    </li>
+    </Tag>
+  );
+}
+
+/** Whether the computer supervisor answers, and how to start it if not. */
+export function SupervisorStatus({ supervisor }: { supervisor: SupervisorHealth }) {
+  return supervisor.ok ? (
+    <p className="text-xs text-muted-foreground" role="status" data-testid="computer-supervisor-status">
+      Supervisor connected: {supervisor.provider.isolation}.
+    </p>
+  ) : (
+    <p className="text-xs text-destructive" role="status" data-testid="computer-supervisor-status">
+      {supervisor.error} Start it with: node scripts/ppclip/computer-supervisor.mjs (or start-local.mjs --with-computer).
+    </p>
   );
 }
 
@@ -112,21 +136,11 @@ function ComputerUseSettingsSectionContent({ companyId }: { companyId: string })
         {mutation.isError ? (
           <p className="text-xs text-destructive" role="alert">{mutation.error instanceof Error ? mutation.error.message : "Failed to change computer use"}</p>
         ) : null}
-        {enabled && supervisor ? (
-          supervisor.ok ? (
-            <p className="text-xs text-muted-foreground" role="status" data-testid="computer-supervisor-status">
-              Supervisor connected: {supervisor.provider.isolation}.
-            </p>
-          ) : (
-            <p className="text-xs text-destructive" role="status" data-testid="computer-supervisor-status">
-              {supervisor.error} Start it with: node scripts/ppclip/computer-supervisor.mjs
-            </p>
-          )
-        ) : null}
+        {enabled && supervisor ? <SupervisorStatus supervisor={supervisor} /> : null}
       </div>
       {enabled && overview.data ? (
         <ul className="space-y-2" aria-label="Agents with computers">
-          {overview.data.agents.map((computer) => <AgentRow key={computer.agentId} companyId={companyId} computer={computer} />)}
+          {overview.data.agents.map((computer) => <AgentComputerControls key={computer.agentId} companyId={companyId} computer={computer} />)}
         </ul>
       ) : null}
     </div>

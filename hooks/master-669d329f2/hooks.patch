@@ -1299,6 +1299,26 @@ index 446654a112ea558581354874a03f8670c05591ba..5fd3478096aa0bb8a6748947a3f9b55e
  }
  
  export interface IssueChatTranscriptEntry {
+diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..a4999d5df22bd5f4b2e9b7a20df8cda5ab59bea1 100644
+--- a/ui/src/pages/AgentDetail.tsx
++++ b/ui/src/pages/AgentDetail.tsx
+@@ -37,6 +37,7 @@ import { queryKeys } from "../lib/queryKeys";
+ import { copyTextToClipboard } from "../lib/clipboard";
+ import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
+ import { AgentConfigForm } from "../components/AgentConfigForm";
++import { AgentComputerUseCard } from "../ppclip/computer-use/AgentComputerUseCard"; // ppclip: computer use
+ import { agentDisplayAdapterType, getAdapterDisplay } from "../adapters/adapter-display-registry";
+ import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
+ import { ToggleSwitch } from "@/components/ui/toggle-switch";
+@@ -2123,6 +2124,7 @@ export function ConfigurationTab({
+         sectionTitles={{ adapter: "Adapter", configuration: "Configuration", identity: "Agent identity" }}
+         canConfigureProviderTrace={canConfigureProviderTrace}
+       /> : null}
++      {content === "runtime" && companyId ? <AgentComputerUseCard agent={agent} companyId={companyId} /> : null} {/* ppclip: computer use card */}
+ 
+ 
+       {content === "permissions" ? <TrustPresetSection
 diff --git a/ui/src/pages/Agents.test.tsx b/ui/src/pages/Agents.test.tsx
 index aad8e4ae4fbb2a81e9218c2972b7bebfe32a2b53..7e4393f26c1a25621141fa390a7eefffd765b5ba 100644
 --- a/ui/src/pages/Agents.test.tsx

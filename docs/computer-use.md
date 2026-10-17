@@ -5,7 +5,16 @@ Computer use gives a Paperclip agent its own sandboxed Linux desktop with a Chro
 - You can take control, for example to sign in, and then hand control back.
 - The browser profile is kept between sessions, so logins survive.
 
-It is **off by default**. Turning it on takes two steps. First, switch on **Computer use** in Company Settings. Second, give each chosen agent a computer from the same section.
+It is **off by default**. The quickest path:
+
+1. **Start the supervisor** once per session: `node scripts/ppclip/start-local.mjs --with-computer` starts Paperclip and the supervisor together. Or run `node scripts/ppclip/computer-supervisor.mjs` next to your own Paperclip. Build the sandbox image once first (see [Running it](#running-it)).
+2. **Turn it on for the agent:** open the agent, go to **Configuration**, then the **Computer use** card. Press **Turn on computer use** if the company switch is still off, then switch on **Give this agent a computer**. The card also shows whether the supervisor is connected, and holds the shell, allowed-sites and delete-profile controls.
+3. **Watch it:** press **Watch live** on that card, or open **Live runs**. On the agent's card, press **Start computer**.
+4. **Ask the agent in plain words,** for example "open example.com with your computer and tell me the page title". Claude Code and Codex local agents get the computer tools automatically.
+
+While the agent works, its Live runs card shows **Using its computer** next to its status. When it asks for help, the card shows **Needs you** with its reason; press **Take control**. Company Settings has the same switch and every agent's controls in one list.
+
+The computer tools reach Claude Code (`claude_local`) and Codex (`codex_local`) agents only. Other adapters show "Available for Claude Code and Codex agents only" on the card.
 
 ## How it fits together
 
@@ -111,6 +120,15 @@ node scripts/ppclip/computer-supervisor.mjs            # add --max-running 3 --m
 
 Optional: install gVisor (`runsc`) and register it with Docker. The supervisor picks it up automatically.
 
+### With the local launcher
+
+`node scripts/ppclip/start-local.mjs --data <folder> --with-computer` also starts the supervisor in the background:
+- It writes the log to `<folder>/computer-supervisor.log`, and the shared token to `<folder>/ppclip-computer-supervisor.token`.
+- It records the supervisor's process id in `<folder>/launcher.json`.
+- If Docker isn't reachable, it says so and starts Paperclip without the supervisor.
+- If port 7091 is already in use, it assumes a supervisor is running and doesn't start another.
+- It warns if the sandbox image hasn't been built yet.
+
 ### Windows (Docker Desktop with WSL2)
 
 1. Install Docker Desktop and choose the WSL2 backend. Start Docker Desktop and wait until it says it is running.
@@ -137,15 +155,15 @@ The automated tests use the in-memory fake provider and never need Docker or a m
 
 ```bash
 cd server && npx vitest run src/__tests__/ppclip-computer-use-state.test.ts src/__tests__/ppclip-computer-use-supervisor.test.ts src/__tests__/ppclip-computer-use.test.ts
-cd ui && npx vitest run src/ppclip/computer-use
+cd ui && npx vitest run src/ppclip/computer-use src/ppclip/live
 ```
 
 To try the UI without Docker, run `node scripts/ppclip/computer-supervisor.mjs --provider fake`. Start, takeover, pause and revoke all work, but there is no live picture.
 
 To test the real Docker provider:
 1. Build the image and start the supervisor as above.
-2. Start Paperclip. In Company Settings, turn on Computer use, check the supervisor line says "connected", and give one agent a computer.
-3. On the Live runs page, press **Start computer** on that agent's card. The desktop appears view-only within a minute.
+2. Start Paperclip, or use `start-local.mjs --with-computer` for steps 1 and 2 together. Open a Claude Code or Codex agent, then **Configuration**, then **Computer use**. Press **Turn on computer use**, check the supervisor line says "connected", and switch on **Give this agent a computer**.
+3. Press **Open on Live runs**. On the agent's card, press **Start computer**. The desktop appears view-only within a minute, and the agent card's button changes to **Watch live**.
 4. Press **Take control**. Click into the screen, type into the browser's address bar and open a site. Then **Release to agent**.
 5. Ask the agent (Claude or Codex local adapter) to "open example.com with your computer and tell me the page title". The card shows it working, and the Activity page shows `ppclip.computer_use.tool` rows.
 6. Ask it to sign in somewhere. It should call `computer_request_takeover`, and the card shows **Needs you**. Take control privately, sign in, release. Stop and start the computer, and the login is still there.

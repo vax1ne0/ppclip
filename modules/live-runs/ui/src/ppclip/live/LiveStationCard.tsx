@@ -20,6 +20,8 @@ import type { Station } from "./station-order";
 import { useSeen } from "./use-seen";
 import type { AgentComputer } from "../computer-use/api";
 import { ComputerPanel } from "../computer-use/ComputerPanel";
+import { ComputerStateChip } from "../computer-use/ComputerStateChip";
+import { liveAgentAnchor } from "./anchors";
 import { configuredModel } from "../agent-model";
 import { useSecondTick } from "@/hooks/useSecondTick";
 
@@ -180,11 +182,12 @@ export const LiveStationCard = memo(function LiveStationCard({
 
   return (
     <article
-      aria-label={`${agent.name}, ${activity?.label ?? PHASE_WORDS[phase]}`}
+      id={liveAgentAnchor(agent.id)}
+      aria-label={`${agent.name}, ${activity?.label ?? PHASE_WORDS[phase]}${computer?.state === "waiting_for_human" ? ", needs you at its computer" : ""}`}
       data-phase={phase}
       data-agent-id={agent.id}
       className={cn(
-        "flex min-w-0 flex-col gap-5 rounded-xl border p-6 transition-colors",
+        "flex min-w-0 scroll-mt-6 flex-col gap-5 rounded-xl border p-6 transition-colors",
         live
           ? "border-(--dashboard-run-border) bg-(--dashboard-run-background) shadow-(--shadow-extract-1)"
           : "border-border bg-card",
@@ -209,10 +212,11 @@ export const LiveStationCard = memo(function LiveStationCard({
           <p className="truncate font-mono text-xs text-muted-foreground" title={`Provider: ${provider} · Model: ${model ?? "provider default"}`}>
             {provider} · {model ?? "Provider default model"}
           </p>
-          <div className="flex">
+          <div className="flex flex-wrap items-center gap-2">
             {attentionStatus && phase !== "running" && phase !== "queued"
               ? <AttentionStatusChip status={attentionStatus} />
               : <AgentStatusBadge status={statusForBadge} />}
+            {computer ? <ComputerStateChip computer={computer} /> : null}
           </div>
         </div>
       </header>
