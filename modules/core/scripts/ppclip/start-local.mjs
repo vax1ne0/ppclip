@@ -13,6 +13,24 @@ import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
+// Paperclip needs Node 24.11+ (it uses node:sqlite). Starting with an older Node only fails later, in the background.
+{
+  const [major, minor] = process.versions.node.split('.').map(Number);
+  if (major < 24 || (major === 24 && minor < 11)) {
+    const appDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+    const parent = path.dirname(appDir);
+    const portable = fs.readdirSync(parent, { withFileTypes: true })
+      .filter((e) => e.isDirectory() && /node/i.test(e.name))
+      .flatMap((e) => [path.join(parent, e.name, 'node.exe'), path.join(parent, e.name, 'bin', 'node')]
+        .concat(fs.readdirSync(path.join(parent, e.name), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => path.join(parent, e.name, d.name, 'node.exe'))))
+      .find((file) => fs.existsSync(file));
+    console.error(`\nPaperclip needs Node.js 24.11 or newer, but this is Node.js ${process.versions.node} (${process.execPath}).`);
+    console.error(portable
+      ? `Run it with the Node next to Paperclip instead:\n  "${portable}" ${path.relative(process.cwd(), fileURLToPath(import.meta.url))} ${process.argv.slice(2).join(' ')}\n`
+      : 'Install Node.js 24.11+ (or a portable Node 24) and run this again with it.\n');
+    process.exit(1);
+  }
+}
 const arg = (name, fallback) => { const i = process.argv.indexOf(name); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback; };
 const PORT = Number(arg('--port', '3410')), PG_PORT = Number(arg('--pg-port', '55440'));
 const WITH_COMPUTER = process.argv.includes('--with-computer');
