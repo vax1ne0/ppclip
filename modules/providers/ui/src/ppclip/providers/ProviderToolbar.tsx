@@ -55,8 +55,12 @@ function UsageBar({ entry }: { entry: AccountUsage }) {
         >
           {/* The provider's own mark (Codex, Claude, Grok); AppLogo would prefer the app-catalog logo. */}
           <ProviderMark provider={entry.account.provider} routing={entry.account.routing} />
-          <span className="relative h-1.5 w-10 overflow-hidden border border-border" aria-hidden>
-            <span className={cn("absolute inset-y-0 left-0", fillClass(clamped))} style={{ width: `${clamped}%` }} />
+          {/* A compact pill: official's bordered QuotaBar box is too heavy at top-bar size. */}
+          <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-muted" aria-hidden>
+            <span
+              className={cn("absolute inset-y-0 left-0 rounded-full transition-(--tp-width-background-color) duration-150", fillClass(clamped))}
+              style={{ width: `${clamped}%` }}
+            />
           </span>
           <span className="tabular-nums">{percent == null ? "—" : `${Math.round(percent)}%`}</span>
         </Link>

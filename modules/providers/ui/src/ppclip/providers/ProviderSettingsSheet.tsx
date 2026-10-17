@@ -85,7 +85,7 @@ function AccountRow({ entry }: { entry: AccountUsage }) {
 }
 
 /** A provider some agents run on, with no connected account to sign in with. */
-function MissingAccountRow({ provider, agentCount }: { provider: string; agentCount: number }) {
+function MissingAccountRow({ provider, agentCount, onLeave }: { provider: string; agentCount: number; onLeave: () => void }) {
   const meta = AI_PROVIDERS[provider as keyof typeof AI_PROVIDERS];
   return (
     <li className="flex items-center gap-3 py-3" data-testid="ppclip-provider-missing-account">
@@ -97,13 +97,14 @@ function MissingAccountRow({ provider, agentCount }: { provider: string; agentCo
         </p>
       </div>
       <Button asChild variant="outline" size="xs">
-        <Link to={CONNECTIONS_PATH}>Connect</Link>
+        <Link to={CONNECTIONS_PATH} onClick={onLeave}>Connect</Link>
       </Button>
     </li>
   );
 }
 
-function AccountsSection({ companyId, status }: { companyId: string; status: ProviderRoutingStatus | undefined }) {
+/** onLeave closes the panel when a link here opens Connections, so it slides out over the new page. */
+function AccountsSection({ companyId, status, onLeave }: { companyId: string; status: ProviderRoutingStatus | undefined; onLeave: () => void }) {
   const usage = useProviderUsage(companyId);
   const accounts = usage.data?.accounts ?? [];
   const connected = new Set(accounts.map((entry) => entry.account.provider));
@@ -118,7 +119,7 @@ function AccountsSection({ companyId, status }: { companyId: string; status: Pro
     <Section
       title="Accounts"
       testId="ppclip-provider-accounts"
-      action={<Link to={CONNECTIONS_PATH} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">Manage connections</Link>}
+      action={<Link to={CONNECTIONS_PATH} onClick={onLeave} className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground">Manage connections</Link>}
     >
       {usage.isPending && !usage.data ? (
         <p className="text-xs text-muted-foreground" role="status">Checking your AI accounts…</p>
@@ -129,7 +130,7 @@ function AccountsSection({ companyId, status }: { companyId: string; status: Pro
       ) : (
         <ul className="divide-y divide-border">
           {accounts.map((entry) => <AccountRow key={`${entry.account.id}:${entry.account.grantId}`} entry={entry} />)}
-          {[...missing].map(([provider, count]) => <MissingAccountRow key={provider} provider={provider} agentCount={count} />)}
+          {[...missing].map(([provider, count]) => <MissingAccountRow key={provider} provider={provider} agentCount={count} onLeave={onLeave} />)}
         </ul>
       )}
     </Section>
@@ -419,7 +420,7 @@ export function ProviderSettingsSheet({ companyId, open, onOpenChange }: { compa
   const routing = useProviderRouting(companyId);
   const save = useSaveProviderRouting(companyId);
   const features = usePpclipFeatures();
-  const accounts = features.providerUsage ? <AccountsSection companyId={companyId} status={routing.data} /> : null;
+  const accounts = features.providerUsage ? <AccountsSection companyId={companyId} status={routing.data} onLeave={() => onOpenChange(false)} /> : null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full gap-0 p-0 sm:max-w-xl" data-testid="ppclip-provider-settings">

@@ -235,6 +235,17 @@ describe("ProviderSettingsSheet", () => {
     expect(missing.querySelector("a")?.getAttribute("href")).toBe("/apps");
   });
 
+  it("closes the panel when a link opens Connections", async () => {
+    mockConnections.list.mockResolvedValue({ currentUserId: "u", canManageConnections: true, connections: [account()] });
+    mockConnections.probeUsage.mockResolvedValue(usage());
+    mockRouting.status.mockResolvedValue(routingStatus());
+    const onOpenChange = vi.fn();
+    await render(<ProviderSettingsSheet companyId={companyId} open onOpenChange={onOpenChange} />);
+    const manage = [...document.body.querySelectorAll("a")].find((a) => a.textContent === "Manage connections")!;
+    await act(async () => { manage.click(); });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("hides switching controls while off, and saves only after a change", async () => {
     mockRouting.status.mockResolvedValue(routingStatus({ enabled: false }));
     mockRouting.save.mockResolvedValue(routingStatus({ revision: 4 }));
