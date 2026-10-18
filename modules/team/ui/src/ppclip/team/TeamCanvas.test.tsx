@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { createPortal } from "react-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Agent } from "@paperclipai/shared";
 import { TeamCanvas } from "./TeamCanvas";
@@ -61,6 +62,21 @@ const pointer = (element: Element, type: string, init: MouseEventInit = {}) =>
   act(async () => { element.dispatchEvent(new MouseEvent(type, { bubbles: true, button: 0, ...init })); });
 
 describe("Edit mode", () => {
+  it("does not capture pointer events from portalled settings options", async () => {
+    await act(async () => root.render(
+      <TeamCanvas companyId="fixture" agents={[agent("a", "Ada")]} links={[]}
+        renderCard={() => createPortal(<div role="option">Role</div>, document.body)} />,
+    ));
+    const viewport = container.querySelector<HTMLElement>('[data-testid="team-canvas-viewport"]')!;
+    const capture = vi.fn();
+    viewport.setPointerCapture = capture;
+    await pointer(document.querySelector('[role="option"]')!, "pointerdown", { clientX: 100, clientY: 100 });
+    expect(capture).not.toHaveBeenCalled();
+    // Empty canvas space still starts panning.
+    await pointer(viewport, "pointerdown", { clientX: 100, clientY: 100 });
+    expect(capture).toHaveBeenCalledTimes(1);
+  });
+
   it("is off by default, turns card headers into move-only handles, and saves moves across remounts", async () => {
     const team = [agent("a", "Ada")];
     await render(team);

@@ -327,6 +327,9 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
   };
 
   const onViewportPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    // React portal events bubble here too. Dropdowns outside the viewport must
+    // retain their pointer events instead of starting a canvas pan.
+    if (!event.currentTarget.contains(event.target as Node)) return;
     if (event.button !== 0 || (event.target as HTMLElement).closest("[data-team-card],[data-team-controls],button,a,[role=button]")) return;
     pan.current = { x: event.clientX, y: event.clientY, left: offset.x, top: offset.y };
     holdView();
