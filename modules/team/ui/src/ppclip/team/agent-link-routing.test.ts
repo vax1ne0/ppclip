@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { routeReportingBranches, routeAgentLink, crossesCard, type RouteBox } from './agent-link-routing';
+import { alignOpposingReportingJunctions, routeReportingBranches, routeAgentLink, crossesCard, type RouteBox } from './agent-link-routing';
 const ahmed = { x: 0, y: 0, w: 260, h: 200 };
 const cards: RouteBox[] = [ahmed, { x: 292, y: 32, w: 260, h: 200 }, { x: 584, y: 32, w: 260, h: 200 }, { x: 380, y: 320, w: 260, h: 190 }, { x: 656, y: 320, w: 260, h: 190 }, { x: 380, y: 526, w: 260, h: 190 }, { x: 656, y: 526, w: 260, h: 190 }];
 describe('agent link routing', () => {
@@ -146,6 +146,80 @@ it('uses the clear side gap in the reported six-agent layout', () => {
   for(let i=1;i<path.length;i++)for(const card of all)expect(crossesCard(path[i-1],path[i],card)).toBe(false);
 });
 
+
+describe('opposing reporting junctions', () => {
+  const left = { id: 'left', from: 'manager', to: 'a', points: [
+    { x: 0, y: 0 }, { x: 0, y: 100 }, { x: -200, y: 100 }, { x: -200, y: 200 },
+  ] };
+  const right = { id: 'right', from: 'manager', to: 'b', points: [
+    { x: 0, y: 0 }, { x: 0, y: 140 }, { x: 200, y: 140 }, { x: 200, y: 240 },
+  ] };
+  const routes = [left, right];
+  const cards = [
+    { x: -30, y: -50, w: 60, h: 50 },
+    { x: -220, y: 200, w: 40, h: 40 },
+    { x: 180, y: 240, w: 40, h: 40 },
+  ];
+  const assertClear = (result: ReturnType<typeof alignOpposingReportingJunctions>, obstacles = cards) => {
+    for (const route of routes) {
+      const path = result.get(route.id)!;
+      expect(path[0]).toEqual(route.points[0]);
+      expect(path.at(-1)).toEqual(route.points.at(-1));
+      for (let i = 1; i < path.length; i++) {
+        expect(path[i - 1].x === path[i].x || path[i - 1].y === path[i].y).toBe(true);
+        for (const card of obstacles) expect(crossesCard(path[i - 1], path[i], card)).toBe(false);
+      }
+    }
+  };
+  it('aligns left and right elbows at one junction while preserving ports and clear paths', () => {
+    const result = alignOpposingReportingJunctions(routes, cards);
+    expect(result.get('left')![1].y).toBe(120);
+    expect(result.get('right')![1].y).toBe(120);
+    assertClear(result);
+    expect(left.points[1].y).toBe(100);
+    expect(right.points[1].y).toBe(140);
+    expect(alignOpposingReportingJunctions([...routes].reverse(), cards)).toEqual(result);
+    expect(alignOpposingReportingJunctions(routes.map(route => ({ ...route, points: result.get(route.id)! })), cards)).toEqual(result);
+  });
+  it('uses another clear common height when the midpoint is blocked', () => {
+    const obstacles = [...cards, { x: -120, y: 110, w: 40, h: 20 }];
+    const result = alignOpposingReportingJunctions(routes, obstacles);
+    expect(result.get('left')![1].y).toBe(100);
+    expect(result.get('right')![1].y).toBe(100);
+    assertClear(result, obstacles);
+  });
+  it('leaves both original routes alone when no common height clears the cards', () => {
+    const obstacles = [...cards,
+      { x: -120, y: 110, w: 40, h: 50 },
+      { x: 80, y: 90, w: 40, h: 40 },
+    ];
+    const result = alignOpposingReportingJunctions(routes, obstacles);
+    expect([...result.values()]).toEqual(routes.map(route => route.points));
+    assertClear(result, obstacles);
+  });
+  it('does not change same-side branches or merge different managers and ports', () => {
+    const alternatives = [
+      { ...right, points: right.points.map(point => ({ ...point, x: -point.x })) },
+      { ...right, from: 'another-manager' },
+      { ...right, points: right.points.map(point => ({ ...point, x: point.x + 10 })) },
+    ];
+    for (const other of alternatives) {
+      expect([...alignOpposingReportingJunctions([left, other], []).values()]).toEqual([left.points, other.points]);
+    }
+  });
+  it('preserves an existing same-height branch group when joining the opposite arm', () => {
+    const extra = { ...left, id: 'extra', to: 'c', points: left.points.map(point => ({ ...point, x: point.x < 0 ? point.x - 100 : point.x })) };
+    const result = alignOpposingReportingJunctions([...routes, extra], cards);
+    expect(new Set([...result.values()].map(path => path[1].y)).size).toBe(1);
+    assertClear(result);
+  });
+  it('also aligns mirrored upward branches', () => {
+    const mirrored = routes.map(route => ({ ...route, points: route.points.map(point => ({ ...point, y: -point.y })) }));
+    const result = alignOpposingReportingJunctions(mirrored, []);
+    expect(result.get('left')![1].y).toBe(-120);
+    expect(result.get('right')![1].y).toBe(-120);
+  });
+});
 
 describe('shared reporting branches', () => {
   const parent = { x: 500, y: 0, w: 200, h: 200 };

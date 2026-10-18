@@ -61,6 +61,84 @@ export function routeReportingBranches(
   return result;
 }
 
+/** Align opposing elbows on the same reporting trunk without rerouting edges.
+ * Only monotone vertical–horizontal–vertical elbows can move, within their
+ * original height range. Existing same-height junctions move as one unit.
+ */
+export function alignOpposingReportingJunctions(
+  routes: readonly { id: string; from: string; to: string; points: RoutePoint[] }[],
+  cards: readonly RouteBox[],
+): Map<string, RoutePoint[]> {
+  type Arm = { id: string; segment: number; side: number; low: number; high: number };
+  type Junction = { trunk: string; y: number; arms: Arm[] };
+  const originals = new Map(routes.map(route => [route.id, route.points]));
+  const result = new Map(routes.map(route => [route.id, route.points.map(point => ({ ...point }))]));
+  const junctions = new Map<string, Junction>();
+  for (const { id, from, to, points } of routes) {
+    for (let i = 1; i + 2 < points.length; i++) {
+      const [before, a, b, after] = points.slice(i - 1, i + 3);
+      if (a.y !== b.y || a.x === b.x || before.x !== a.x || after.x !== b.x) continue;
+      // Keep both vertical legs and their direction, with room for arrowheads.
+      const low = Math.min(before.y, after.y) + 16;
+      const high = Math.max(before.y, after.y) - 16;
+      if (a.y < low || a.y > high) continue;
+      for (const end of ["from", "to"] as const) {
+        if (end === "from" ? i !== 1 : i !== points.length - 3) continue;
+        const anchor = end === "from" ? before : after;
+        const joint = end === "from" ? a : b;
+        const other = end === "from" ? b : a;
+        // Same agent AND same port: unrelated vertical lines never merge.
+        const trunk = `${end}:${end === "from" ? from : to}:${joint.x}:${anchor.y}`;
+        const key = `${trunk}:${joint.y}`;
+        const junction = junctions.get(key) ?? { trunk, y: joint.y, arms: [] };
+        junction.arms.push({ id, segment: i, side: Math.sign(other.x - joint.x), low, high });
+        junctions.set(key, junction);
+      }
+    }
+  }
+  const groups = [...junctions.values()];
+  const pairs = groups.flatMap((a, i) => groups.slice(i + 1).flatMap(b =>
+    a.trunk === b.trunk && a.y !== b.y && a.arms.some(left => b.arms.some(right => left.side === -right.side))
+      ? [{ a, b }] : []));
+  pairs.sort((p, q) => Math.abs(p.a.y - p.b.y) - Math.abs(q.a.y - q.b.y)
+    || p.a.trunk.localeCompare(q.a.trunk) || Math.min(p.a.y, p.b.y) - Math.min(q.a.y, q.b.y));
+  const settled = new Set<string>();
+  for (const { a, b } of pairs) {
+    const arms = [...a.arms, ...b.arms];
+    const keyOf = (arm: Arm) => `${arm.id}:${arm.segment}`;
+    if (arms.some(arm => settled.has(keyOf(arm)))) continue;
+    const low = Math.max(Math.min(a.y, b.y), ...arms.map(arm => arm.low));
+    const high = Math.min(Math.max(a.y, b.y), ...arms.map(arm => arm.high));
+    if (low > high) continue;
+    const ideal = Math.max(low, Math.min(high, (a.y * a.arms.length + b.y * b.arms.length) / arms.length));
+    const candidates = [...new Set([ideal, a.y, b.y, low, high, ...cards.flatMap(card => [card.y - 16, card.y + card.h + 16])])]
+      .filter(y => y >= low && y <= high)
+      .sort((x, y) => Math.abs(x - ideal) - Math.abs(y - ideal) || x - y);
+    for (const y of candidates) {
+      const updates = arms.map(arm => {
+        const path = result.get(arm.id)!.map((point, i) =>
+          i === arm.segment || i === arm.segment + 1 ? { ...point, y } : point);
+        return { arm, path };
+      });
+      if (updates.some(({ arm, path }) => path.slice(1).some((point, i) => {
+        const original = originals.get(arm.id)!;
+        const dy = original[i + 1].y - original[i].y;
+        // A route may participate at both ends. Recheck the complete path so
+        // aligning a second junction cannot reverse or pinch an earlier leg.
+        return (dy !== 0 && ((point.y - path[i].y) * dy <= 0
+          || Math.abs(point.y - path[i].y) < Math.min(16, Math.abs(dy))))
+          || cards.some(card => crossesCard(path[i], point, card));
+      }))) continue;
+      for (const { arm, path } of updates) {
+        result.set(arm.id, path);
+        settled.add(keyOf(arm));
+      }
+      break;
+    }
+  }
+  return result;
+}
+
 // Whole groups are obstacles. Only exposed card sides may connect through their own group's padding.
 export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[], options: {
   side?: 'above' | 'below';

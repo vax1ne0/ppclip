@@ -8,6 +8,8 @@ Team cards center Chat in their action row. When computer use is enabled, Chat a
 
 Reporting lines favor entering a lower child from above (and an upper child from below) when comparing saved connection sides. A clear, single-elbow route wins over a slightly shorter side-entry dogleg. The preference is bounded: obstacles and substantially shorter routes can override it. Shared sibling branches and work-arrow routing retain their existing behavior.
 
+After routing, opposing reporting elbows at the same agent port prefer one horizontal height. This local adjustment preserves endpoints, existing same-height junctions, and vertical directions; it stays between the two original heights and checks all visible cards. If no clear common height exists, both original paths remain. Same-side branches, unrelated trunks and work arrows keep their original routes.
+
 **Settings → ppclip switch:** Pages → Team page
 
 Files here sit at the same paths they get inside Paperclip (`ui/src/ppclip/team/`). Edits to official files that wire this module in live in `hooks/<version>/hooks.patch`, marked `// ppclip:`.

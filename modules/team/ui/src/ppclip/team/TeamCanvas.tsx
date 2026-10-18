@@ -4,7 +4,7 @@ import type { Agent } from "@paperclipai/shared";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { routeAgentLink, routeReportingBranches, type RoutePoint } from "./agent-link-routing";
+import { alignOpposingReportingJunctions, routeAgentLink, routeReportingBranches, type RoutePoint } from "./agent-link-routing";
 import type { AgentLink } from "./agent-links";
 import { roleGroupOf, TEAM_ROLE_GROUPS, teamGroupColor } from "./role-groups";
 import {
@@ -208,9 +208,9 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
     const occupied: RoutePoint[][] = [];
     const shown = relationships.filter((edge) => edge.kind === "report" ? settings.reporting : settings.work);
     const branches = routeReportingBranches(shown.filter((edge) => edge.kind === "report"), boxes);
-    return new Map(shown.map((edge) => {
+    const routed = shown.map((edge) => {
       const from = boxes.get(edge.from), to = boxes.get(edge.to);
-      if (!from || !to) return [edge.id, { ...edge, d: "", hidden: true }];
+      if (!from || !to) return { ...edge, points: [], hidden: true };
       const reciprocal = relationships.some((other) => other.from === edge.to && other.to === edge.from);
       const points = branches.get(edge.id) ?? routeAgentLink(from, to, cards, {
         occupied: edge.kind === "report" ? [] : occupied,
@@ -219,8 +219,13 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
         side: reciprocal ? (edge.from < edge.to ? "above" : "below") : undefined,
       });
       occupied.push(points);
-      return [edge.id, { ...edge, d: points.map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`).join(" "), hidden: false }];
-    }));
+      return { ...edge, points, hidden: false };
+    });
+    const aligned = alignOpposingReportingJunctions(routed.filter(edge => edge.kind === "report"), cards);
+    return new Map(routed.map(({ points, ...edge }) => [edge.id, {
+      ...edge,
+      d: (aligned.get(edge.id) ?? points).map((point, index) => `${index ? "L" : "M"} ${point.x} ${point.y}`).join(" "),
+    }]));
   }, [boxes, relationships, settings.reporting, settings.work, edgePorts]);
 
   const annotated = relationships.map((edge) => {
