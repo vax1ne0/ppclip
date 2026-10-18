@@ -1,4 +1,4 @@
-import { useRef, type PointerEvent } from "react";
+import { useEffect, useRef, type PointerEvent } from "react";
 import type { AgentAppearance } from "@paperclipai/shared";
 
 export type MascotGradient = NonNullable<AgentAppearance["gradient"]>;
@@ -32,17 +32,28 @@ export function gradientFromPointer(mode: "move" | "rotate", x: number, y: numbe
 export function MascotGradientGuide({ value, onChange, mode: guideMode = "rotate" }: { value: MascotGradient; onChange: (value: MascotGradient) => void; mode?: "center" | "rotate" }) {
   const svg = useRef<SVGSVGElement>(null);
   const mode = useRef<"move" | "rotate" | null>(null);
+  const frame = useRef<number | null>(null), pending = useRef<MascotGradient | null>(null);
+  const change = useRef(onChange); change.current = onChange;
+  useEffect(() => () => { if (frame.current !== null) cancelAnimationFrame(frame.current); }, []);
+  function flush() {
+    if (frame.current !== null) cancelAnimationFrame(frame.current);
+    frame.current = null;
+    if (pending.current) { const next = pending.current; pending.current = null; change.current(next); }
+  }
+  function finish() { flush(); mode.current = null; }
   const cx = inset + bodySpan * value.x / 100, cy = inset + bodySpan * value.y / 100;
   const radians = value.angle * Math.PI / 180, dx = Math.cos(radians) * 28, dy = Math.sin(radians) * 28;
   function update(event: PointerEvent<SVGSVGElement>) {
     if (!mode.current || !svg.current) return;
     const rect = svg.current.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    onChange(gradientFromPointer(mode.current, (event.clientX - rect.left) / rect.width * 100, (event.clientY - rect.top) / rect.height * 100, value));
+    pending.current = gradientFromPointer(mode.current, (event.clientX - rect.left) / rect.width * 100, (event.clientY - rect.top) / rect.height * 100, value);
+    // Pointer hardware can deliver many events per display frame. Render only the latest one.
+    if (frame.current === null) frame.current = requestAnimationFrame(flush);
   }
   const handle = "pointer-events-auto cursor-grab active:cursor-grabbing";
   return <svg ref={svg} viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 size-full touch-none overflow-visible select-none"
-    onPointerMove={update} onPointerUp={() => { mode.current = null; }} onPointerCancel={() => { mode.current = null; }} onLostPointerCapture={() => { mode.current = null; }}
+    onPointerMove={update} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={finish}
     onPointerDown={event => {
       mode.current = guideMode === "center" ? "move" : "rotate";
       event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId);

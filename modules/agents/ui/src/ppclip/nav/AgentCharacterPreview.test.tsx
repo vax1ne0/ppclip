@@ -16,8 +16,9 @@ afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); });
 it("keeps header tracking and the dedicated editor canvas live through color and gradient changes", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => Object.assign(new EventTarget(), { matches: false }));
+  const observers: Array<(entries: { isIntersecting: boolean }[]) => void> = [];
   vi.stubGlobal("IntersectionObserver", class {
-    constructor(private callback: (entries: { isIntersecting: boolean }[]) => void) {}
+    constructor(private callback: (entries: { isIntersecting: boolean }[]) => void) { observers.push(callback); }
     observe() { this.callback([{ isIntersecting: true }]); }
     disconnect() {}
   });
@@ -25,7 +26,7 @@ it("keeps header tracking and the dedicated editor canvas live through color and
   const host = document.createElement("div"), root = createRoot(host);
   const trackingRegion = { current: document.createElement("div") };
   const appearance = appearanceForPalette("arctic-blue");
-  const header = <AgentCharacter appearance={appearance} trackingScope="page" label="Header" />;
+  const header = <AgentCharacter appearance={appearance} trackingScope="page" retainOnHide label="Header" />;
   const preview = () => host.querySelector('[aria-label="Preview"]')!;
   try {
     await import("@paperclipai/shared/cliplab/definition");
@@ -53,6 +54,13 @@ it("keeps header tracking and the dedicated editor canvas live through color and
       expect(preview().querySelector("img")).toBeNull();
     }
     expect(player.pause).toHaveBeenCalled();
+    expect(player.setStill).toHaveBeenCalledTimes(3);
+    expect(player.pause).toHaveBeenCalledOnce();
+    for (const isIntersecting of [false, true]) {
+      await act(async () => { for (const observe of observers) observe([{ isIntersecting }]); });
+    }
+    expect(player.create).toHaveBeenCalledTimes(2);
+    expect(player.destroy).not.toHaveBeenCalled();
   } finally { await act(async () => root.unmount()); }
   expect(player.destroy).toHaveBeenCalledTimes(2);
 }, 15000);

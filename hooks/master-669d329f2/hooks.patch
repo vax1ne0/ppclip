@@ -1866,10 +1866,10 @@ index d45525d26e5899afe673aa4ff52ddc1b6cf67b11..284c702dd8121387c2138f27874facc8
  export function characterStateForAgent(status: string): CharacterState {
    if (status === "running") return "working";
 diff --git a/packages/shared/src/cliplab/PROVENANCE.md b/packages/shared/src/cliplab/PROVENANCE.md
-index 66a7b9b123dd60482c86ca1bc1393f9e5907a7fb..f2eea927744b5a46627fc3a19d9a116e624a8d15 100644
+index 66a7b9b123dd60482c86ca1bc1393f9e5907a7fb..54596282ca50f1e9311fdb87a4a1b1dc2b349c6f 100644
 --- a/packages/shared/src/cliplab/PROVENANCE.md
 +++ b/packages/shared/src/cliplab/PROVENANCE.md
-@@ -13,6 +13,10 @@ studio and media encoders are not included. Keep this version immutable after
+@@ -13,6 +13,12 @@ studio and media encoders are not included. Keep this version immutable after
  release; new artwork or rasterization changes require a new character version.
  
  Palette source: https://cliptoon-color-library.vercel.app/
@@ -1880,6 +1880,8 @@ index 66a7b9b123dd60482c86ca1bc1393f9e5907a7fb..f2eea927744b5a46627fc3a19d9a116e
  scripts/sync-agent-palette-tokens.mjs --check.
 +
 +ppclip editors can retain a dedicated portrait-framed canvas and pause it in the existing front-facing rest sample. Definition updates redraw synchronously while paused, so center and angle dragging does not load intermediate SVG images. The page header keeps page-scoped input while the editor uses region-scoped input; offscreen and reduced-motion scheduling remain suspended.
++
++Live performance: runtime canvases use native device pixel ratio capped at 2; face textures scale to display size (256–1024). Paused input is detached, repeated playback/pose setters are no-ops, and leaving the editor clears its rotation override. Static snapshot geometry and rendering are unchanged.
 diff --git a/packages/shared/src/cliplab/definition.ts b/packages/shared/src/cliplab/definition.ts
 index 0c6f0789c694c3996601b70660e98c8720197eec..5a78cf949451912a3248124e9995a1bd2c56733d 100644
 --- a/packages/shared/src/cliplab/definition.ts
@@ -1919,7 +1921,7 @@ index 8dd02d7ada5be6e5da9118e1a12803356208a8bc..899745fc2baaca2d2ef83ab183a58433
    motion: number; speed: number; blink: boolean; blinkInterval: number; followCursor: boolean; followRotation: boolean
  }
 diff --git a/packages/shared/src/cliplab/renderer.ts b/packages/shared/src/cliplab/renderer.ts
-index 47a1154009e4071740204962615af43078b14862..11d51a87ce732852998bd0496eac447cbc4ee437 100644
+index 47a1154009e4071740204962615af43078b14862..44cbc63240342020ac068b5055e76ac7bac56dd4 100644
 --- a/packages/shared/src/cliplab/renderer.ts
 +++ b/packages/shared/src/cliplab/renderer.ts
 @@ -75,9 +75,10 @@ const fragmentShader = `
@@ -1934,7 +1936,19 @@ index 47a1154009e4071740204962615af43078b14862..11d51a87ce732852998bd0496eac447c
      vec3 color = mix(colorA, mix(colorB, colorA, t), gradientOn);
      // The light fill uses an inset copy of the silhouette, with one crisp shade step.
      float shade = mix(0.82, 1.0, insetFill);
-@@ -329,7 +330,7 @@ export class CharacterRenderer {
+@@ -320,16 +321,17 @@ export class CharacterRenderer {
+     this.gl = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, preserveDrawingBuffer: true, powerPreference: 'low-power' })
+     this.gl.outputColorSpace = THREE.SRGBColorSpace
+     this.gl.setPixelRatio(options.pixelRatio ?? Math.min(Math.max(window.devicePixelRatio || 1, 1) * 2, 4))
+-    this.faceCanvas.width = this.faceCanvas.height = 1024
++    const faceSize = Math.min(1024, Math.max(256, (options.displaySize ?? 256) * 2))
++    this.faceCanvas.width = this.faceCanvas.height = faceSize
+     this.faceCtx = this.faceCanvas.getContext('2d')!
+-    this.faceCtx.scale(2, 2)
++    this.faceCtx.scale(faceSize / 512, faceSize / 512)
+     this.faceTexture = new THREE.CanvasTexture(this.faceCanvas); this.faceTexture.colorSpace = THREE.SRGBColorSpace
+     this.faceTexture.generateMipmaps = true; this.faceTexture.minFilter = THREE.LinearMipmapLinearFilter
+     this.propCanvas.width = this.propCanvas.height = 512; this.propCtx = this.propCanvas.getContext('2d')!; this.propCtx.scale(2, 2)
      this.propTexture = new THREE.CanvasTexture(this.propCanvas); this.propTexture.colorSpace = THREE.SRGBColorSpace
      }
      const material = new THREE.ShaderMaterial({
@@ -1943,7 +1957,7 @@ index 47a1154009e4071740204962615af43078b14862..11d51a87ce732852998bd0496eac447c
      })
      this.body = new THREE.Mesh(geometryFor('capsule'), material)
      const fillMaterial = material.clone(); fillMaterial.depthTest = false; fillMaterial.depthWrite = false; fillMaterial.uniforms.insetFill!.value = 1
-@@ -365,6 +366,7 @@ export class CharacterRenderer {
+@@ -365,6 +367,7 @@ export class CharacterRenderer {
      ;(u.colorA!.value as THREE.Color).set(character.color); (u.colorB!.value as THREE.Color).set(character.color2)
      u.gradientOn!.value = character.gradient ? 1 : (sample.gradientMix ?? (sample.gradientRotation !== undefined ? 1 : 0)); u.toonOn!.value = character.toon ? 1 : 0
      u.angle!.value = (character.gradientAngle + (sample.gradientRotation ?? 0)) * Math.PI / 180; u.bodyHeight!.value = height
@@ -1951,7 +1965,7 @@ index 47a1154009e4071740204962615af43078b14862..11d51a87ce732852998bd0496eac447c
      const rotation = characterRotation(this.options.reducedMotion ? { ...character, followRotation: false } : character, pose, this.options.rotation, this.options.cursor)
      this.root.rotation.set(rotation.x * Math.PI / 180, rotation.y * Math.PI / 180, rotation.z * Math.PI / 180, 'YXZ')
      this.root.position.y = character.lockPosition ? 0 : sample.bob * .025 * height
-@@ -384,6 +386,7 @@ export class CharacterRenderer {
+@@ -384,6 +387,7 @@ export class CharacterRenderer {
      const fu = this.lightFill.material.uniforms
      for (const name of ['colorA', 'colorB']) (fu[name]!.value as THREE.Color).copy(u[name]!.value as THREE.Color)
      for (const name of ['gradientOn', 'toonOn', 'angle', 'bodyHeight']) fu[name]!.value = u[name]!.value
@@ -1960,7 +1974,7 @@ index 47a1154009e4071740204962615af43078b14862..11d51a87ce732852998bd0496eac447c
      const zoom = displaySize <= 128 ? 1 : this.options.zoom ?? 1
      const aspect = this.options.width / this.options.height
 diff --git a/packages/shared/src/cliplab/runtime.ts b/packages/shared/src/cliplab/runtime.ts
-index a197f0f0eb28d7b06e1b956fa2feb1e396a35a8d..4df5b1baab8bf7e18d025ddbc895e2646b03bfb9 100644
+index a197f0f0eb28d7b06e1b956fa2feb1e396a35a8d..30456fad48d1036b2f62567e95e9db871af91a43 100644
 --- a/packages/shared/src/cliplab/runtime.ts
 +++ b/packages/shared/src/cliplab/runtime.ts
 @@ -3,9 +3,10 @@
@@ -1980,7 +1994,7 @@ index a197f0f0eb28d7b06e1b956fa2feb1e396a35a8d..4df5b1baab8bf7e18d025ddbc895e264
    canvas.style.cssText = 'display:block;width:100%;height:100%;touch-action:pan-y;'
    canvas.setAttribute('aria-hidden', 'true')
 -  const renderer = new CharacterRenderer(canvas, { width: target.clientWidth || 256, height: target.clientHeight || 256, displaySize: options.displaySize, framing: 'character' })
-+  const renderer = new CharacterRenderer(canvas, { width: target.clientWidth || 256, height: target.clientHeight || 256, displaySize: options.displaySize, framing: options.framing ?? 'character' })
++  const renderer = new CharacterRenderer(canvas, { width: target.clientWidth || 256, height: target.clientHeight || 256, displaySize: options.displaySize, framing: options.framing ?? 'character', pixelRatio: Math.min(window.devicePixelRatio || 1, 2) })
    target.appendChild(canvas)
    let animation = options.animation ?? 'idle', elapsed = 0, last = 0, raf = 0
    let visible = false, destroyed = false, playing = true, tracking = false
@@ -1991,10 +2005,19 @@ index a197f0f0eb28d7b06e1b956fa2feb1e396a35a8d..4df5b1baab8bf7e18d025ddbc895e264
    const coarse = window.matchMedia('(pointer: coarse)')
    const canRun = () => !destroyed && visible && !document.hidden && !reduced.matches
 -  const render = () => renderer.render({ ...definition.character, followCursor: options.followCursor !== false, followRotation: options.followRotation !== false }, sampleDefinition(definition, animation, elapsed), { cursor: gaze, reducedMotion: reduced.matches }, gaze)
-+  const render = () => renderer.render({ ...definition.character, ...(still ? { trueFront: true, lockPosition: true } : {}), followCursor: !still && options.followCursor !== false, followRotation: !still && options.followRotation !== false }, still ? characterStill(definition, 'rest') : sampleDefinition(definition, animation, elapsed), { cursor: gaze, reducedMotion: reduced.matches, ...(still ? { rotation: { x: 0, y: 0, z: 0 } } : {}) }, still ? centeredGaze() : gaze)
++  const render = () => renderer.render({ ...definition.character, ...(still ? { trueFront: true, lockPosition: true } : {}), followCursor: !still && options.followCursor !== false, followRotation: !still && options.followRotation !== false }, still ? characterStill(definition, 'rest') : sampleDefinition(definition, animation, elapsed), { cursor: gaze, reducedMotion: reduced.matches, rotation: still ? { x: 0, y: 0, z: 0 } : undefined }, still ? centeredGaze() : gaze)
    const pointer = (event: PointerEvent) => { if (event.pointerType !== 'touch') goal = pointerGaze(event, target.getBoundingClientRect()) }
    const leave = () => { goal = centeredGaze() }
    function track(enabled: boolean) {
+@@ -33,7 +35,7 @@ export function createCharacter(target: HTMLElement, definition: Definition, opt
+   }
+   function sync() {
+     cancelAnimationFrame(raf); raf = 0
+-    track(canRun() && !coarse.matches && (options.followCursor !== false || options.followRotation !== false))
++    track(canRun() && playing && !still && !coarse.matches && (options.followCursor !== false || options.followRotation !== false))
+     if (canRun() && playing) { last = performance.now(); raf = requestAnimationFrame(frame) }
+   }
+   function frame(now: number) {
 @@ -67,7 +69,7 @@ export function createCharacter(target: HTMLElement, definition: Definition, opt
        try { renderer.resize(target.clientWidth || 256, target.clientHeight || 256, options.displaySize); if (visible) renderSafely() }
        catch { playing = false; sync(); options.onError?.() }
@@ -2004,15 +2027,20 @@ index a197f0f0eb28d7b06e1b956fa2feb1e396a35a8d..4df5b1baab8bf7e18d025ddbc895e264
      resize.observe(target); intersection.observe(target)
      document.addEventListener('visibilitychange', sync); reduced.addEventListener('change', sync); coarse.addEventListener('change', sync)
      canvas.addEventListener('webglcontextlost', contextLost)
-@@ -77,6 +79,8 @@ export function createCharacter(target: HTMLElement, definition: Definition, opt
+@@ -77,9 +79,11 @@ export function createCharacter(target: HTMLElement, definition: Definition, opt
    return {
      setAnimation(id: string) { if (animation === id) return; animation = id; elapsed = 0; renderSafely() },
      setDefinition(value: Definition) { definition = value; renderSafely() },
 +    /** Front-facing editor pose; definition changes still render synchronously while paused. */
-+    setStill(value: boolean) { still = value; renderSafely() },
++    setStill(value: boolean) { if (still === value) return; still = value; renderSafely() },
      seek(seconds: number) { elapsed = Math.max(0, seconds); renderSafely() },
-     pause() { playing = false; sync() },
-     play() { playing = true; sync() },
+-    pause() { playing = false; sync() },
+-    play() { playing = true; sync() },
++    pause() { if (!playing) return; playing = false; sync() },
++    play() { if (playing) return; playing = true; sync() },
+     destroy,
+ 
+   }
 diff --git a/packages/shared/src/cliplab/svg-snapshot.ts b/packages/shared/src/cliplab/svg-snapshot.ts
 index f1ef8e5d8e4d69db0d1cdcf80ba9b54a7ad3d0c7..6d15534a9c56db683a6d988c71a96278de6e6d0b 100644
 --- a/packages/shared/src/cliplab/svg-snapshot.ts
@@ -2365,37 +2393,43 @@ index 0866c2bf4906605f4672007ce353f378d6367b4e..a0dd93f66b5e619175497953b92844b2
    );
  }
 diff --git a/ui/src/components/AgentCharacter.tsx b/ui/src/components/AgentCharacter.tsx
-index 7b2673332200f11b83cdfc77f95818134dffa318..d1bde687ee235b52008dd7d8e2756545a52aa192 100644
+index 7b2673332200f11b83cdfc77f95818134dffa318..9f1b0614a5a40c12949f14f41c2be5240d22b08c 100644
 --- a/ui/src/components/AgentCharacter.tsx
 +++ b/ui/src/components/AgentCharacter.tsx
-@@ -9,18 +9,24 @@ type Player = ReturnType<typeof createCharacter>;
+@@ -9,55 +9,70 @@ type Player = ReturnType<typeof createCharacter>;
  export interface AgentCharacterProps extends Omit<AgentAvatarProps, "pose"> {
    state?: CharacterState;
    motion?: "auto" | "still";
 +  /** Editors retain their own canvas, including a paused rest pose, for live adjustments. */
 +  rendering?: "shared" | "dedicated";
++  retainOnHide?: boolean;
    trackingRegion?: RefObject<HTMLElement | null>;
    trackingScope?: "region" | "page";
    followCursor?: boolean;
    followRotation?: boolean;
  }
 -export function AgentCharacter({ agent, appearance, size = 256, state = "idle", muted = false, motion = "auto", trackingRegion, trackingScope = "region", followCursor = true, followRotation = true, className, label, name }: AgentCharacterProps) {
-+export function AgentCharacter({ agent, appearance, size = 256, state = "idle", muted = false, motion = "auto", rendering = "shared", trackingRegion, trackingScope = "region", followCursor = true, followRotation = true, className, label, name }: AgentCharacterProps) {
++export function AgentCharacter({ agent, appearance, size = 256, state = "idle", muted = false, motion = "auto", rendering = "shared", retainOnHide = false, trackingRegion, trackingScope = "region", followCursor = true, followRotation = true, className, label, name }: AgentCharacterProps) {
    const identity = useMemo(() => resolveAgentAppearance(appearance ?? agent?.appearance, agent?.id), [appearance, agent?.appearance, agent?.id]);
    const root = useRef<HTMLSpanElement>(null), host = useRef<HTMLSpanElement>(null), player = useRef<Player | null>(null);
 +  const libraryRef = useRef<typeof import("@paperclipai/shared/cliplab/definition") | null>(null);
 +  const latest = useRef({ identity, muted, state }); latest.current = { identity, muted, state };
    const slotId = useRef(Symbol("agent-character"));
    const owner = useSyncExternalStore(characterSlot.subscribe, characterSlot.getSnapshot, () => null);
-   const [visible, setVisible] = useState(false), [reduced, setReduced] = useState(true), [failed, setFailed] = useState(false), [ready, setReady] = useState(false);
+-  const [visible, setVisible] = useState(false), [reduced, setReduced] = useState(true), [failed, setFailed] = useState(false), [ready, setReady] = useState(false);
 -  const active = !identity.customAvatarAssetId && visible && !reduced && !failed && motion === "auto" && state !== "rest";
++  const [visible, setVisible] = useState(false), [seen, setSeen] = useState(false), [reduced, setReduced] = useState(true), [failed, setFailed] = useState(false), [ready, setReady] = useState(false);
 +  const dedicated = rendering === "dedicated";
-+  const active = !identity.customAvatarAssetId && visible && !failed && (dedicated || (!reduced && motion === "auto" && state !== "rest"));
++  // The runtime suspends offscreen work; retain admitted editor/header contexts across scrolling.
++  const active = !identity.customAvatarAssetId && (visible || (seen && (dedicated || retainOnHide))) && !failed && (dedicated || (!reduced && motion === "auto" && state !== "rest"));
 +  const paused = reduced || motion === "still" || state === "rest";
    useEffect(() => {
      if (typeof matchMedia !== "function" || typeof IntersectionObserver !== "function") return;
      const media = matchMedia("(prefers-reduced-motion: reduce)");
-@@ -30,34 +36,37 @@ export function AgentCharacter({ agent, appearance, size = 256, state = "idle",
+     const change = () => setReduced(media.matches); change(); media.addEventListener("change", change);
+-    const observer = new IntersectionObserver(entries => setVisible(entries[0]?.isIntersecting ?? false));
++    const observer = new IntersectionObserver(entries => { const shown = entries[0]?.isIntersecting ?? false; setVisible(shown); if (shown) setSeen(true); });
+     if (root.current) observer.observe(root.current);
      return () => { observer.disconnect(); media.removeEventListener("change", change); };
    }, []);
    useEffect(() => {
@@ -2436,11 +2470,15 @@ index 7b2673332200f11b83cdfc77f95818134dffa318..d1bde687ee235b52008dd7d8e2756545
 -  }, [identity, muted, state, ready]);
 +    if (!player.current || !libraryRef.current) return;
 +    const library = libraryRef.current;
-+    player.current.setStill(paused);
 +    player.current.setDefinition(library.characterDefinition(identity, muted));
++  }, [identity, muted, ready]);
++  useEffect(() => {
++    if (!player.current || !libraryRef.current) return;
++    const library = libraryRef.current;
++    player.current.setStill(paused);
 +    player.current.setAnimation(library.animationId(paused ? "rest" : state));
 +    if (paused) player.current.pause(); else player.current.play();
-+  }, [identity, muted, state, paused, ready]);
++  }, [state, paused, ready]);
    return <span ref={root} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}
      className={cn("relative inline-block shrink-0", avatarSizeClasses[size], className)}>
 -    <AgentAvatar agent={agent} appearance={identity} size={size < 256 ? 256 : size} name={name} pose={state} muted={muted} className={cn("size-full", ready && !identity.customAvatarAssetId && "invisible")} />
@@ -2449,10 +2487,10 @@ index 7b2673332200f11b83cdfc77f95818134dffa318..d1bde687ee235b52008dd7d8e2756545
    </span>;
  }
 diff --git a/ui/src/components/AgentCharacterRuntime.test.ts b/ui/src/components/AgentCharacterRuntime.test.ts
-index f240df5cb15d7a6d869847f12edf835cc6b84aa5..1a1b27888e5dedd956129d06d5ad44e393b5730c 100644
+index f240df5cb15d7a6d869847f12edf835cc6b84aa5..b63dca9e183676da1582be634314894cd1722dc1 100644
 --- a/ui/src/components/AgentCharacterRuntime.test.ts
 +++ b/ui/src/components/AgentCharacterRuntime.test.ts
-@@ -83,3 +83,18 @@ it("can follow the whole page while measuring gaze from the character and cleani
+@@ -83,3 +83,24 @@ it("can follow the whole page while measuring gaze from the character and cleani
    player.destroy();
    expect(remove.mock.calls.some(([event]) => event === "pointermove")).toBe(true);
  });
@@ -2470,6 +2508,12 @@ index f240df5cb15d7a6d869847f12edf835cc6b84aa5..1a1b27888e5dedd956129d06d5ad44e3
 +    expect(frames.size).toBe(0);
 +  }
 +  player.setStill(false); player.play(); expect(frames.size).toBe(1);
++  expect(renderer.render.mock.calls.at(-1)?.[0]).toMatchObject({ followCursor: true, followRotation: true });
++  expect(renderer.render.mock.calls.at(-1)?.[2].rotation).toBeUndefined();
++  const before = renderer.render.mock.calls.length;
++  player.setStill(false); player.play();
++  expect(renderer.render.mock.calls.length).toBe(before);
++  expect(frames.size).toBe(1);
 +});
 diff --git a/ui/src/components/AgentContextualSidebar.tsx b/ui/src/components/AgentContextualSidebar.tsx
 index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70fa65a3067 100644
@@ -2901,7 +2945,7 @@ index ae0ea03d21cc8a9213b8730d8aede9cf3eb62a16..fe27d5f3d14537428d5528c22e5aa3d2
      </TooltipPrimitive.Portal>
    )
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
-index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..e6ada6c58af3f953c580fdf6d76f50ef238cea9a 100644
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..4f066f8d07697984e8d8dadd7f7d33bfae2cfba9 100644
 --- a/ui/src/pages/AgentDetail.tsx
 +++ b/ui/src/pages/AgentDetail.tsx
 @@ -7,6 +7,9 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
@@ -2930,8 +2974,12 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..e6ada6c58af3f953c580fdf6d76f50ef
    { value: "instructions", label: "Instructions" },
    { value: "skills", label: "Skills" },
    { value: "configuration", label: "Configuration" },
-@@ -1260,7 +1265,7 @@ export function AgentDetail() {
-             <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status)} size={96} trackingScope="page" />
+@@ -1257,10 +1262,10 @@ export function AgentDetail() {
+       <header className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-6">
+         <div className="flex min-w-0 items-center gap-4">
+           <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
+-            <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status)} size={96} trackingScope="page" />
++            <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status)} size={96} trackingScope="page" retainOnHide />
            </div>
            <div className="min-w-0 space-y-1">
 -            <div className="flex items-center gap-2"><h1 className="truncate text-2xl font-semibold tracking-tight">{agent.name}</h1><PrimaryAgentIndicator agentId={agent.id} companyId={agent.companyId} /></div>
