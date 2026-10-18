@@ -39,17 +39,19 @@ Watch an agent's desktop, take control, pause it, or stop it. The connected desk
 ![Connected agent desktop with the simplified Live screen header, control status, and expiry time](docs/images/computer.jpg)
 
 <details>
-<summary><strong>Module settings and updates</strong></summary>
+<summary><strong>Module settings</strong></summary>
 
 Each module explains what changes when it is disabled. This example has Approved models turned off; its default is on.
 
 ![Independent switches for usage bars, provider switching, Approved models, and run controls](docs/images/modules.jpg)
 
+</details>
+
+### Update settings
+
 The update section shows version status, checks, and expandable diagnostics. Local edits remain visible when they block installation.
 
-![Compact update status with Check for updates, a local-edits notice, and expandable version details](docs/images/updates.jpg)
-
-</details>
+![Updates section with Up to date status, Check for updates, and expanded version details in the current settings layout](docs/images/updates.jpg)
 
 ## Compatibility
 
