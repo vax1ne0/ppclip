@@ -42,6 +42,12 @@ it("edits arbitrary colors, swaps them and saves the custom gradient", async () 
   expect(mocks.update).toHaveBeenCalledWith(identity.id, { appearance }, identity.companyId);
   expect(host.textContent).toContain("Appearance saved.");
 });
+it("opens the same saturation and hue picker used by team role groups", async () => {
+  await render(); await click("Top color picker");
+  expect(document.querySelector('.react-colorful')).not.toBeNull();
+  expect(document.querySelectorAll('[role="slider"]').length).toBeGreaterThanOrEqual(2);
+  expect(mocks.update).not.toHaveBeenCalled();
+});
 it("blocks incomplete hex colors and restores saved colors on discard", async () => {
   await render(); await color("a", "#12");
   expect(host.querySelector('#mascot-color-a')?.getAttribute("aria-invalid")).toBe("true");

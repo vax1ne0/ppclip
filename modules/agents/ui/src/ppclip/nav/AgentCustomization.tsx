@@ -8,6 +8,7 @@ import { AgentCharacter } from "@/components/AgentCharacter";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { MascotColorField } from "./MascotColorField";
 
 type Identity = Pick<Agent, "id" | "name" | "companyId" | "appearance">;
 const label = (value: string) => value.split("-").map(word => word[0].toUpperCase() + word.slice(1)).join(" ");
@@ -67,7 +68,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
       <h2 id="agent-customization-title" className="text-xl font-semibold">Customization</h2>
       <p className="max-w-prose text-sm text-muted-foreground">Give {agent.name} a look of their own. Your saved colors follow them across chats, the sidebar and the team canvas.</p>
     </header>
-    <div className="grid items-start gap-8 lg:grid-cols-[minmax(240px,300px)_1fr]">
+    <div className="grid items-start gap-8 lg:grid-cols-2">
       <div className="space-y-5 lg:sticky lg:top-6">
         <div className="flex min-h-72 items-center justify-center rounded-xl border border-border bg-muted/20" aria-label="Mascot preview">
           <AgentCharacter appearance={draft} name={agent.name} size={256} state={pose} trackingScope="region" label={`${agent.name} mascot preview`} />
@@ -82,19 +83,11 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
       </div>
       <fieldset className="min-w-0 space-y-5" disabled={save.isPending}>
         <legend className="text-sm font-medium">Body colors</legend>
-        <p className="text-sm text-muted-foreground">Make your own gradient with any two colors. Use the same color twice for a solid look.</p>
+        <p className="text-sm text-muted-foreground">Pick two colors for a gradient, or match them for a solid look. The preview follows as you drag.</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {(["a", "b"] as const).map((key, index) => {
             const name = index === 0 ? "Top color" : "Bottom color";
-            const invalid = !/^#[0-9a-fA-F]{6}$/.test(colorInputs[key]);
-            return <div key={key} className="space-y-2">
-              <label htmlFor={`mascot-color-${key}`} className="text-sm font-medium">{name}</label>
-              <div className="flex items-center gap-2">
-                <input type="color" aria-label={`${name} picker`} value={resolveAgentColors(draft)[key]} onChange={event => changeColor(key, event.target.value)} className="h-10 w-12 cursor-pointer rounded-md border border-input bg-background p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-                <input id={`mascot-color-${key}`} value={colorInputs[key]} onChange={event => changeColor(key, event.target.value)} spellCheck={false} maxLength={7} aria-invalid={invalid} aria-describedby={invalid ? `mascot-color-${key}-error` : undefined} className="h-10 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
-              </div>
-              {invalid && <p id={`mascot-color-${key}-error`} className="text-xs text-destructive">Enter a six-digit hex color, such as #8bd4ff.</p>}
-            </div>;
+            return <MascotColorField key={key} id={`mascot-color-${key}`} label={name} value={colorInputs[key]} previewColor={resolveAgentColors(draft)[key]} onChange={value => changeColor(key, value)} />;
           })}
         </div>
         <Button type="button" variant="outline" disabled={invalidColors} onClick={() => {

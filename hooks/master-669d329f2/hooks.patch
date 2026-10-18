@@ -2153,6 +2153,158 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
+diff --git a/ui/src/components/AgentAvatar.test.tsx b/ui/src/components/AgentAvatar.test.tsx
+index c4d5f9ac731eb8008a5655ca1d237ced338669d0..02e1ebcd4fe71ab1b56c8d4254efa365c9a3d3f9 100644
+--- a/ui/src/components/AgentAvatar.test.tsx
++++ b/ui/src/components/AgentAvatar.test.tsx
+@@ -1,12 +1,51 @@
+ // @vitest-environment jsdom
+ import { act } from "react";
+ import { createRoot } from "react-dom/client";
+-import { expect, it } from "vitest";
++import { expect, it, vi } from "vitest";
+ import { appearanceForPalette } from "@paperclipai/shared";
+ import { AgentAvatar } from "./AgentAvatar";
+ import { AgentCharacter } from "./AgentCharacter";
+ 
+ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
++it("renders custom color portraits locally and updates them without PNG requests", async () => {
++  const container = document.createElement("div"), root = createRoot(container);
++  const appearance = { ...appearanceForPalette("deep-tide"), customColors: { a: "#12ab34", b: "#5678cd" } };
++  try {
++    // Finish the real renderer's cold module load before React's async act scope.
++    // Loading/retry presentation is exercised independently below.
++    await import("@paperclipai/shared/cliplab/static");
++    await act(async () => root.render(<AgentAvatar appearance={appearance} name="Fathy" size={64} />));
++    expect(container.querySelector("img")?.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
++    const first = container.querySelector("img")!.getAttribute("src");
++    await act(async () => container.querySelector("img")!.dispatchEvent(new Event("load")));
++    await act(async () => root.render(<AgentAvatar appearance={{ ...appearance, customColors: { a: "#aabbcc", b: "#112233" } }} name="Fathy" size={64} />));
++    const images = [...container.querySelectorAll("img")];
++    expect(images.every(image => image.src.startsWith("data:image/svg+xml"))).toBe(true);
++    expect(images.at(-1)?.getAttribute("src")).not.toBe(first);
++    expect(container.querySelector('[aria-label="Loading mascot"]')).not.toBeNull();
++    expect(container.textContent).not.toContain("FA");
++  } finally { await act(async () => root.unmount()); }
++});
++
++it("shows loading, retains a loaded portrait during replacement and retries failed images without initials", async () => {
++  const container = document.createElement("div"), root = createRoot(container);
++  vi.useFakeTimers();
++  try {
++    await act(async () => root.render(<AgentAvatar appearance={appearanceForPalette("arctic-blue")} name="Fathy" />));
++    expect(container.querySelector('[aria-label="Loading mascot"]')).not.toBeNull();
++    await act(async () => container.querySelector("img")!.dispatchEvent(new Event("load")));
++    expect(container.querySelector('[role="status"]')).toBeNull();
++    await act(async () => root.render(<AgentAvatar appearance={appearanceForPalette("deep-tide")} name="Fathy" />));
++    expect(container.querySelectorAll("img")).toHaveLength(2);
++    await act(async () => container.querySelectorAll("img")[1]!.dispatchEvent(new Event("error")));
++    expect(container.querySelector('[aria-label="Retrying mascot"]')).not.toBeNull();
++    expect(container.textContent).not.toContain("FA");
++    await act(async () => vi.advanceTimersByTime(1000));
++    expect(container.querySelectorAll("img")).toHaveLength(2);
++    await act(async () => container.querySelectorAll("img")[1]!.dispatchEvent(new Event("load")));
++    expect(container.querySelector('[role="status"]')).toBeNull();
++  } finally { await act(async () => root.unmount()); vi.useRealTimers(); }
++});
+ it("shows the uploaded image in small and animated-character surfaces, then returns to the palette on reset", async () => {
+   const base = appearanceForPalette("deep-tide");
+   const appearance = { ...base, customAvatarAssetId: "22222222-2222-4222-8222-222222222222" };
+diff --git a/ui/src/components/AgentAvatar.tsx b/ui/src/components/AgentAvatar.tsx
+index 0866c2bf4906605f4672007ce353f378d6367b4e..7f0f607d0981e5a6ed9ea99a68a95072b9b43a9c 100644
+--- a/ui/src/components/AgentAvatar.tsx
++++ b/ui/src/components/AgentAvatar.tsx
+@@ -1,8 +1,9 @@
+ import { agentAvatarUrl } from "@/lib/agent-avatar-url";
+-import { useState } from "react";
++import { useEffect, useState } from "react";
++import { ImageOff, LoaderCircle } from "lucide-react";
+ import { resolveAgentAppearance, type AgentAppearance, type AgentAvatarSize, type CharacterState } from "@paperclipai/shared";
+ import { cn } from "@/lib/utils";
+-import { deriveInitials } from "./Identity";
++import { useMascotPortrait } from "@/ppclip/nav/useMascotPortrait"; // ppclip: local color previews
+ 
+ export type AvatarAgent = { id?: string; name?: string; appearance?: AgentAppearance | null; avatarUrl?: string | null };
+ export const avatarSizeClasses: Record<AgentAvatarSize, string> = {
+@@ -21,14 +22,27 @@ export interface AgentAvatarProps {
+ }
+ export function AgentAvatar({ agent, appearance, size = 24, name, label, pose = "rest", muted = false, className }: AgentAvatarProps) {
+   const identity = resolveAgentAppearance(appearance ?? agent?.appearance, agent?.id);
+-  const src = agentAvatarUrl(identity, size, 1, pose, muted);
++  const portrait = useMascotPortrait(identity, size, pose, muted, agentAvatarUrl(identity, size, 1, pose, muted));
++  const src = portrait.src;
++  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+   const [failedUrl, setFailedUrl] = useState<string | null>(null);
++  const [attempt, setAttempt] = useState(0);
++  const failed = portrait.failed || (src !== null && failedUrl === src);
++  const loading = !failed && (!src || loadedSrc !== src);
++  useEffect(() => { setAttempt(0); setFailedUrl(null); }, [portrait.key]);
++  useEffect(() => {
++    if (!failed || attempt >= 2) return;
++    const timer = setTimeout(() => { setFailedUrl(null); setAttempt(value => value + 1); portrait.retry(); }, 1000 * 2 ** attempt);
++    return () => clearTimeout(timer);
++  }, [failed, attempt, portrait.retry]);
+   return (
+     <span data-slot="agent-avatar" className={cn("relative inline-flex shrink-0 items-center justify-center align-middle", avatarSizeClasses[size], className)}
+       role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
+-      {failedUrl === src ? <span className="text-xs text-muted-foreground">{deriveInitials(name ?? agent?.name ?? "Agent")}</span> :
+-        <img src={src} srcSet={identity.customAvatarAssetId ? undefined : `${agentAvatarUrl(identity, size, 2, pose, muted)} 2x`} alt="" width={size} height={size}
+-          decoding="async" loading="lazy" className="size-full object-contain" onError={() => setFailedUrl(src)} />}
++      {loadedSrc && loadedSrc !== src && <img src={loadedSrc} alt="" width={size} height={size} className="absolute inset-0 size-full object-contain" />}
++      {src && !failed && <img key={`${src}:${attempt}`} src={src} srcSet={portrait.local || identity.customAvatarAssetId ? undefined : `${agentAvatarUrl(identity, size, 2, pose, muted)} 2x`} alt="" width={size} height={size}
++        decoding="async" loading="lazy" className={cn("size-full object-contain", loadedSrc !== src && "opacity-0")} onLoad={() => { setLoadedSrc(src); setFailedUrl(null); }} onError={() => setFailedUrl(src)} />}
++      {(loading || (failed && attempt < 2)) && <span role="status" aria-label={failed ? "Retrying mascot" : "Loading mascot"} className="absolute inset-0 flex items-center justify-center text-muted-foreground"><LoaderCircle aria-hidden="true" className={cn("animate-spin motion-reduce:animate-none", size >= 96 ? "size-8" : "size-4")} /></span>}
++      {failed && attempt >= 2 && <span title="Mascot unavailable" className="absolute inset-0 flex items-center justify-center text-muted-foreground"><ImageOff aria-hidden="true" className={size >= 96 ? "size-8" : "size-4"} /></span>}
+     </span>
+   );
+ }
+diff --git a/ui/src/components/AgentCharacter.tsx b/ui/src/components/AgentCharacter.tsx
+index 7b2673332200f11b83cdfc77f95818134dffa318..a1067c99f5989211b787daebed2732e836eed683 100644
+--- a/ui/src/components/AgentCharacter.tsx
++++ b/ui/src/components/AgentCharacter.tsx
+@@ -17,6 +17,8 @@ export interface AgentCharacterProps extends Omit<AgentAvatarProps, "pose"> {
+ export function AgentCharacter({ agent, appearance, size = 256, state = "idle", muted = false, motion = "auto", trackingRegion, trackingScope = "region", followCursor = true, followRotation = true, className, label, name }: AgentCharacterProps) {
+   const identity = useMemo(() => resolveAgentAppearance(appearance ?? agent?.appearance, agent?.id), [appearance, agent?.appearance, agent?.id]);
+   const root = useRef<HTMLSpanElement>(null), host = useRef<HTMLSpanElement>(null), player = useRef<Player | null>(null);
++  const libraryRef = useRef<typeof import("@paperclipai/shared/cliplab/definition") | null>(null);
++  const latest = useRef({ identity, muted, state }); latest.current = { identity, muted, state };
+   const slotId = useRef(Symbol("agent-character"));
+   const owner = useSyncExternalStore(characterSlot.subscribe, characterSlot.getSnapshot, () => null);
+   const [visible, setVisible] = useState(false), [reduced, setReduced] = useState(true), [failed, setFailed] = useState(false), [ready, setReady] = useState(false);
+@@ -40,8 +42,10 @@ export function AgentCharacter({ agent, appearance, size = 256, state = "idle",
+     setReady(false);
+     void Promise.all([import("@paperclipai/shared/cliplab/runtime"), import("@paperclipai/shared/cliplab/definition")]).then(([runtime, library]) => {
+       if (disposed || !host.current) return;
+-      player.current = runtime.createCharacter(host.current, library.characterDefinition(identity, muted), {
+-        animation: library.animationId(state), trackingRegion: trackingRegion?.current ?? root.current ?? undefined,
++      libraryRef.current = library;
++      const current = latest.current;
++      player.current = runtime.createCharacter(host.current, library.characterDefinition(current.identity, current.muted), {
++        animation: library.animationId(current.state), trackingRegion: trackingRegion?.current ?? root.current ?? undefined,
+         followCursor, followRotation, trackingScope, displaySize: size, onError: () => setFailed(true),
+       });
+       setReady(true);
+@@ -49,15 +53,14 @@ export function AgentCharacter({ agent, appearance, size = 256, state = "idle",
+     return () => { disposed = true; player.current?.destroy(); player.current = null; setReady(false); };
+   }, [active, owner, trackingRegion, trackingScope, size, followCursor, followRotation]);
+   useEffect(() => {
+-    if (!player.current) return;
+-    void import("@paperclipai/shared/cliplab/definition").then(library => {
+-      player.current?.setDefinition(library.characterDefinition(identity, muted));
+-      player.current?.setAnimation(library.animationId(state));
+-    });
++    if (!player.current || !libraryRef.current) return;
++    const library = libraryRef.current;
++    player.current.setDefinition(library.characterDefinition(identity, muted));
++    player.current.setAnimation(library.animationId(state));
+   }, [identity, muted, state, ready]);
+   return <span ref={root} role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true}
+     className={cn("relative inline-block shrink-0", avatarSizeClasses[size], className)}>
+-    <AgentAvatar agent={agent} appearance={identity} size={size < 256 ? 256 : size} name={name} pose={state} muted={muted} className={cn("size-full", ready && !identity.customAvatarAssetId && "invisible")} />
++    {!(ready && !identity.customAvatarAssetId) && <AgentAvatar agent={agent} appearance={identity} size={size < 256 ? 256 : size} name={name} pose={state} muted={muted} className="size-full" />}
+     <span ref={host} className="absolute inset-0" />
+   </span>;
+ }
 diff --git a/ui/src/components/AgentContextualSidebar.tsx b/ui/src/components/AgentContextualSidebar.tsx
 index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70fa65a3067 100644
 --- a/ui/src/components/AgentContextualSidebar.tsx

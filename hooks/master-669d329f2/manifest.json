@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "ce286094279c45a627c58ed634ee50aa27db4f7ca44b300700b5e6fd224a2334",
-  "generatedAt": "2026-10-18T03:44:57.209Z",
+  "hooksSha256": "237cd8d1715b977f414c390bcaef244229c995c5cc98cdd572245b258a549677",
+  "generatedAt": "2026-10-18T03:55:39.916Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
@@ -34,6 +34,9 @@
     "ui/src/App.tsx",
     "ui/src/components/ActiveAgentsPanel.tsx",
     "ui/src/components/AgentActionButtons.tsx",
+    "ui/src/components/AgentAvatar.test.tsx",
+    "ui/src/components/AgentAvatar.tsx",
+    "ui/src/components/AgentCharacter.tsx",
     "ui/src/components/AgentConfigForm.render.test.tsx",
     "ui/src/components/AgentConfigForm.tsx",
     "ui/src/components/AgentContextualSidebar.tsx",
@@ -85,7 +88,7 @@
     "providers": 20,
     "run-controls": 15,
     "computer-use": 43,
-    "agents": 16,
+    "agents": 19,
     "task-chat": 3,
     "fixes": 8
   }
