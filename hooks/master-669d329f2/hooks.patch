@@ -1838,30 +1838,6 @@ index 29f1b57f2a3758a719858f2a640d01551df0a5a0..01d273298a2212af02e16bade00abf13
                searchPlaceholder="Search models..."
                emptyMessage="No models found."
                onChange={updateAssigneeOverrideModel}
-diff --git a/ui/src/components/new-agent/NewAgentSetup.tsx b/ui/src/components/new-agent/NewAgentSetup.tsx
-index 0fb59e9aaaa69aedba6fcf44dac254b543396458..d0e8ea7fb8798c10f6df76cbab678460d1acbbb3 100644
---- a/ui/src/components/new-agent/NewAgentSetup.tsx
-+++ b/ui/src/components/new-agent/NewAgentSetup.tsx
-@@ -421,6 +421,8 @@ function Setup({
-     return config;
-   }
-   function preparedConfig(nextConnection = connection) {
-+    // ppclip: never leave a model picker on an implicit CLI/provider default.
-+    if (showModel && !usingKimiApi && !model.trim()) throw new Error("Choose an explicit model before continuing.");
-     if (isDot && !allowUnmeteredProvider) throw new Error("Acknowledge external provider billing before creating your Dot agent.");
-     if (multiProvider && (!model.trim() || !model.includes("/")))
-       throw new Error("Choose or enter a model in provider/model format.");
-@@ -930,8 +932,8 @@ function Setup({
-                                 }}
-                                 open={modelOpen}
-                                 onOpenChange={setModelOpen}
--                                allowDefault={!multiProvider}
--                                required={multiProvider}
-+                                allowDefault={false}
-+                                required
-                                 creatable
-                                 groupByProvider={multiProvider && !connectionModels}
-                                 preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(brandType)}
 diff --git a/ui/src/components/AgentConfigForm.render.test.tsx b/ui/src/components/AgentConfigForm.render.test.tsx
 index 0363a08af95fe7b6ffb112fe8be835a8cc54c50b..628ce136ae541ba31b02d3c67ea9c26c52ac1522 100644
 --- a/ui/src/components/AgentConfigForm.render.test.tsx
@@ -2051,3 +2027,118 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
+diff --git a/ui/src/components/new-agent/NewAgentSetup.tsx b/ui/src/components/new-agent/NewAgentSetup.tsx
+index 0fb59e9aaaa69aedba6fcf44dac254b543396458..563f188de279d7bc9f66b3811e514cd94fb04772 100644
+--- a/ui/src/components/new-agent/NewAgentSetup.tsx
++++ b/ui/src/components/new-agent/NewAgentSetup.tsx
+@@ -421,6 +421,8 @@ function Setup({
+     return config;
+   }
+   function preparedConfig(nextConnection = connection) {
++    // ppclip: never leave a model picker on an implicit CLI/provider default.
++    if (showModel && !usingKimiApi && !model.trim()) throw new Error("Choose an explicit model before continuing.");
+     if (isDot && !allowUnmeteredProvider) throw new Error("Acknowledge external provider billing before creating your Dot agent.");
+     if (multiProvider && (!model.trim() || !model.includes("/")))
+       throw new Error("Choose or enter a model in provider/model format.");
+@@ -669,6 +671,39 @@ function Setup({
+     general.error ??
+     agents.error ??
+     caps.error;
++  // ppclip: connection probes require a model too; keep one picker and one
++  // change handler available on both the connection and runtime steps.
++  const modelPicker = showModel && !usingKimiApi ? (
++    <ModelDropdown
++      presentation={brandType === "codex_local" ? "searchable" : "native"}
++      models={connectionModels?.models ?? models.data ?? []}
++      loadingModels={connectionModels?.isLoading ?? models.isLoading}
++      onRefreshModels={connectionModels?.refreshModels}
++      refreshingModels={connectionModels?.refreshing}
++      value={model}
++      onChange={(value) => {
++        setModel(connectionModels?.resolveModel(value) ?? value);
++        if (effort && !setupEfforts(adapterType, value).includes(effort)) setEffort("");
++        const nextProvider = value.split("/")[0];
++        if (multiProvider && PROVIDER_ENV_KEYS[nextProvider] && nextProvider !== provider) {
++          setProvider(nextProvider);
++          setApiKey("");
++          setProviderBinding(null);
++        }
++        resetTest();
++      }}
++      open={modelOpen}
++      onOpenChange={setModelOpen}
++      allowDefault={false}
++      required
++      creatable
++      groupByProvider={multiProvider && !connectionModels}
++      preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(brandType)}
++    />
++  ) : null;
++  const modelLoadError = (connectionModels ? connectionModels.error : models.error)
++    ? <p role="alert" className="text-sm text-destructive">Could not load models. Retry or enter a model ID manually.</p>
++    : null;
+   return (
+     <MotionConfig reducedMotion="user">
+       <div className="mx-auto flex max-w-5xl flex-col gap-8 py-6">
+@@ -761,6 +796,10 @@ function Setup({
+                         center
+                       />
+                     </div>
++                    {modelPicker && <div className="mb-6 space-y-2" data-testid="ppclip-connect-model-picker">
++                      {modelPicker}
++                      {modelLoadError}
++                    </div>}
+                     {ready ? <AgentProviderConnection
+                       key={environmentId ?? "local"}
+                       companyId={companyId}
+@@ -895,48 +934,11 @@ function Setup({
+                           <AiConnectionField companyId={companyId} agentName={name} adapterType={brandType} model={model} environmentId={environmentId ?? undefined} value={aiBinding}
+                             onChange={binding => { binding.mode !== "router" && setRuntimeAiBinding(binding); resetTest(); }} />
+                         )}
+-                        {(connectionModels ? connectionModels.error : models.error) && <p role="alert" className="text-sm text-destructive">Could not load models. Retry or enter a model ID manually.</p>}
++                        {modelLoadError}
+                         {((showModel && !usingKimiApi) ||
+                           efforts.length > 0) && (
+                           <div className="grid items-start gap-5 sm:grid-cols-2">
+-                            {showModel && !usingKimiApi && (
+-                              <ModelDropdown
+-                                presentation={brandType === "codex_local" ? "searchable" : "native"}
+-                                models={connectionModels?.models ?? models.data ?? []}
+-                                loadingModels={connectionModels?.isLoading ?? models.isLoading}
+-                                onRefreshModels={connectionModels?.refreshModels}
+-                                refreshingModels={connectionModels?.refreshing}
+-                                value={model}
+-                                onChange={(value) => {
+-                                  setModel(connectionModels?.resolveModel(value) ?? value);
+-                                  if (
+-                                    effort &&
+-                                    !setupEfforts(adapterType, value).includes(
+-                                      effort,
+-                                    )
+-                                  )
+-                                    setEffort("");
+-                                  const nextProvider = value.split("/")[0];
+-                                  if (
+-                                    multiProvider &&
+-                                    PROVIDER_ENV_KEYS[nextProvider] &&
+-                                    nextProvider !== provider
+-                                  ) {
+-                                    setProvider(nextProvider);
+-                                    setApiKey("");
+-                                    setProviderBinding(null);
+-                                  }
+-                                  resetTest();
+-                                }}
+-                                open={modelOpen}
+-                                onOpenChange={setModelOpen}
+-                                allowDefault={!multiProvider}
+-                                required={multiProvider}
+-                                creatable
+-                                groupByProvider={multiProvider && !connectionModels}
+-                                preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(brandType)}
+-                              />
+-                            )}
++                            {modelPicker}
+                             {efforts.length > 0 && (
+                               <Field label="Thinking effort">
+                                 {brandType === "codex_local" ? <SelectPopover aria-label="Thinking effort" value={effort}

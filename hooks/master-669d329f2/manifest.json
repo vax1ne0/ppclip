@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "145ba61655b5dfb73327aed9f26e7b7b155bcbbea10e44f3d26f88a2e1345b86",
-  "generatedAt": "2026-10-18T01:32:44.960Z",
+  "hooksSha256": "92bd564098649216c072c79f0de04c20f8b5392637457d8d40cc2e40945d7e2e",
+  "generatedAt": "2026-10-18T02:10:20.529Z",
   "officialFilesModified": [
     "packages/shared/src/feature-catalog.ts",
     "packages/shared/src/validators/instance.ts",
@@ -74,7 +74,7 @@
     "providers": 20,
     "run-controls": 15,
     "computer-use": 43,
-    "agents": 13,
+    "agents": 14,
     "task-chat": 3,
     "fixes": 8
   }
