@@ -1382,68 +1382,6 @@ index a500d2e863d45f7f3c0b674176cf9f96889e6506..0a82f6e6291e6c882760879f965ae168
            </span>
          </Link>)}
        </nav> : !agents.length && (historyLoading || historyError) ? null : <div className="flex flex-col items-start gap-2 px-2 py-6">
-diff --git a/ui/src/components/AgentConfigForm.tsx b/ui/src/components/AgentConfigForm.tsx
-index b595d2e6fabac8832f98c075e75ee24e033d1d7f..d781e1cfe1533e74faea9cb906fd4bed64568af5 100644
---- a/ui/src/components/AgentConfigForm.tsx
-+++ b/ui/src/components/AgentConfigForm.tsx
-@@ -36,7 +36,6 @@ import {
-   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
-   DEFAULT_CODEX_LOCAL_MODEL,
- } from "@paperclipai/adapter-codex-local";
--import { DEFAULT_CLAUDE_LOCAL_MODEL } from "@paperclipai/adapter-claude-local";
- import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
- import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
- import { DEFAULT_KIMI_LOCAL_MODEL } from "@paperclipai/adapter-kimi-local";
-@@ -561,6 +560,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
-     setEnvironmentEditorKey(key => key + 1);
-   }, []);
- 
-+  const [modelSelectionError, setModelSelectionError] = useState<string | null>(null);
-   const handleSave = useCallback(async () => {
-     if (isCreate) return;
-     const flushedEnv = flushEnvironmentDraft();
-@@ -574,7 +574,20 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
-         }
-       : overlay;
-     if (!isOverlayDirty(nextOverlay)) return;
--    await props.onSave(buildAgentUpdatePatch(props.agent, nextOverlay));
-+    const patch = buildAgentUpdatePatch(props.agent, nextOverlay);
-+    const nextType = String(patch.adapterType ?? props.agent.adapterType);
-+    const nextConfig = (patch.adapterConfig ?? props.agent.adapterConfig ?? {}) as Record<string, unknown>;
-+    const nextCaps = getCapabilities(agentHarnessType(nextType, nextConfig));
-+    // ppclip: preserve legacy agents, but never save a newly cleared model or harness change without one.
-+    if ((nextOverlay.adapterType !== undefined || Object.hasOwn(nextOverlay.adapterConfig, "model"))
-+      && (nextCaps.supportsInstructionsBundle || nextCaps.supportsSkills || nextCaps.supportsLocalAgentJwt)
-+      && !["openai_dot", "grok_bot"].includes(String(nextConfig.provider))
-+      && !(typeof nextConfig.model === "string" && nextConfig.model.trim())) {
-+      setModelSelectionError("Choose an explicit model before saving.");
-+      return;
-+    }
-+    setModelSelectionError(null);
-+    await props.onSave(patch);
-   }, [isCreate, isDirty, overlay, props]);
- 
-   useEffect(() => {
-@@ -1767,6 +1780,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
- 
-           {renderAdapterFields("adapter")}
-           {isLocal && (<>
-+              {modelSelectionError && <p role="alert" className="text-sm text-destructive">{modelSelectionError}</p>}
-               <ModelDropdown
-                 models={models}
-                 loadingModels={connectionModels?.isLoading ?? fetchingModels}
-@@ -1791,9 +1805,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
-                 }}
-                 open={modelOpen}
-                 onOpenChange={setModelOpen}
--                defaultLabel={adapterType === "claude_local" ? `Default (${DEFAULT_CLAUDE_LOCAL_MODEL})` : undefined}
--                allowDefault={adapterType !== "opencode_local" && adapterType !== "pi_local" && adapterType !== "paperclip_runner"}
--                required={adapterType === "opencode_local" || adapterType === "pi_local"}
-+                allowDefault={false} // ppclip: require an explicit model selection
-+                required
-                 groupByProvider={!connectionModels && (adapterType === "opencode_local" || adapterType === "pi_local")}
-                 preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(adapterType)}
-                 creatable
 diff --git a/ui/src/components/ConfigureBuiltInAgentModal.tsx b/ui/src/components/ConfigureBuiltInAgentModal.tsx
 index 8e6e63176bbfbc1967296e40be644cc95265d6b4..6377767649e3d5e6247d32d7a14423f102491534 100644
 --- a/ui/src/components/ConfigureBuiltInAgentModal.tsx
@@ -1604,66 +1542,6 @@ index 29f1b57f2a3758a719858f2a640d01551df0a5a0..01d273298a2212af02e16bade00abf13
                searchPlaceholder="Search models..."
                emptyMessage="No models found."
                onChange={updateAssigneeOverrideModel}
-diff --git a/ui/src/components/AgentConfigForm.render.test.tsx b/ui/src/components/AgentConfigForm.render.test.tsx
-index 0363a08af95fe7b6ffb112fe8be835a8cc54c50b..628ce136ae541ba31b02d3c67ea9c26c52ac1522 100644
---- a/ui/src/components/AgentConfigForm.render.test.tsx
-+++ b/ui/src/components/AgentConfigForm.render.test.tsx
-@@ -1058,14 +1058,15 @@ describe("AgentConfigForm environment selector", () => {
-     });
-   });
- 
--  it("names the Claude default for new and existing agents without pinning it", async () => {
-+  it("requires an explicit model for new and existing Claude agents without silently pinning one", async () => {
-     const environments = [makeEnvironment({ id: "local-1", name: "Local", driver: "local" })];
-     const existing = await renderForm(environments, { adapterType: "claude_local", adapterConfig: {} });
-     roots.push(existing.root);
-     const created = await renderCreateForm(environments, { adapterType: "claude_local", model: "" });
-     roots.push(created.root);
--    expect(existing.container.textContent).toContain("Default (claude-opus-5)");
--    expect(created.container.textContent).toContain("Default (claude-opus-5)");
-+    expect(existing.container.textContent).toContain("Select model (required)");
-+    expect(created.container.textContent).toContain("Select model (required)");
-+    expect(existing.container.textContent).not.toContain("Default (claude-opus-5)");
-     expect(existing.onSave).not.toHaveBeenCalled();
-   });
- 
-@@ -1187,7 +1188,7 @@ describe("AgentConfigForm environment selector", () => {
-     expect(result.container.textContent).toContain("Hermes Gateway fields");
-   });
- 
--  it("tests a Codex agent after clearing the primary model to the adapter default", async () => {
-+  it("keeps the explicit Codex model and offers no adapter-default choice", async () => {
-     const result = await renderForm([
-       makeEnvironment({ id: "local-1", name: "Local", driver: "local" }),
-     ], {
-@@ -1210,10 +1211,10 @@ describe("AgentConfigForm environment selector", () => {
-     const defaultButton = Array.from(document.body.querySelectorAll("button")).find(
-       (button) => button.textContent?.trim() === "Default",
-     );
--    expect(defaultButton).toBeTruthy();
-+    expect(defaultButton).toBeUndefined();
- 
-     await act(async () => {
--      defaultButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-+      modelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-     });
-     await flushReact();
- 
-@@ -1229,12 +1230,12 @@ describe("AgentConfigForm environment selector", () => {
- 
-     expect(mockAgentsApi.testEnvironment).toHaveBeenCalledTimes(1);
-     expect(mockAgentsApi.testEnvironment.mock.calls[0]?.[2]).toMatchObject({
--      adapterConfig: {},
-+      adapterConfig: { model: "gpt-5.4" },
-     });
-     const adapterConfig = (mockAgentsApi.testEnvironment.mock.calls[0]?.[2] as {
-       adapterConfig: Record<string, unknown>;
-     }).adapterConfig;
--    expect(adapterConfig).not.toHaveProperty("model");
-+    expect(adapterConfig.model).toBe("gpt-5.4");
-     expect(result.container.textContent).not.toContain("Cannot read properties of undefined");
-   });
- 
 diff --git a/packages/shared/src/agent-appearance.test.ts b/packages/shared/src/agent-appearance.test.ts
 index 95cb8b22a18bd68932d618bb97ddde24d0f8ee23..f5197e97dc31f419eb9ed3501b8c50a106147071 100644
 --- a/packages/shared/src/agent-appearance.test.ts
@@ -2548,6 +2426,231 @@ index f240df5cb15d7a6d869847f12edf835cc6b84aa5..b63dca9e183676da1582be634314894c
 +  expect(renderer.render.mock.calls.length).toBe(before);
 +  expect(frames.size).toBe(1);
 +});
+diff --git a/ui/src/components/AgentConfigForm.render.test.tsx b/ui/src/components/AgentConfigForm.render.test.tsx
+index 0363a08af95fe7b6ffb112fe8be835a8cc54c50b..525659c07c21a113de80bcf0c0c4c917dd39abe2 100644
+--- a/ui/src/components/AgentConfigForm.render.test.tsx
++++ b/ui/src/components/AgentConfigForm.render.test.tsx
+@@ -673,6 +673,32 @@ describe("AgentConfigForm environment selector", () => {
+     }
+   });
+ 
++  it("edits the organizational role and clears saved changes without waiting for new agent props", async () => {
++    const result = await renderForm([], { role: "general" }); roots.push(result.root);
++    result.onSave.mockResolvedValueOnce(makeAgent({ role: "designer" }));
++    const role = result.container.querySelector<HTMLSelectElement>('select[aria-label="Role"]')!;
++    await act(async () => { role.value = "designer"; role.dispatchEvent(new Event("change", { bubbles: true })); });
++    await flushReact();
++    expect(result.onSave).not.toHaveBeenCalled();
++    await clickByText(result.container, "Save"); await flushReact();
++    expect(result.onSave).toHaveBeenCalledWith({ role: "designer" });
++    expect(result.container.textContent).not.toContain("Unsaved changes");
++  });
++
++  it("preserves a newer edit made while a manual save is pending", async () => {
++    const result = await renderForm([], { role: "general" }); roots.push(result.root);
++    let finish!: (agent: Agent) => void;
++    result.onSave.mockImplementationOnce(() => new Promise<Agent>(resolve => { finish = resolve; }));
++    const name = result.container.querySelector<HTMLInputElement>('[placeholder="Agent name"]')!;
++    await act(async () => setInputValue(name, "Submitted")); await flushReact();
++    await clickByText(result.container, "Save");
++    await act(async () => setInputValue(name, "Newer edit")); await flushReact();
++    await act(async () => finish(makeAgent({ name: "Submitted" }))); await flushReact();
++    expect(name.value).toBe("Newer edit");
++    await clickByText(result.container, "Save");
++    expect(result.onSave).toHaveBeenLastCalledWith({ name: "Newer edit" });
++  });
++
+   it.each(["codex_local", "paperclip_runner"])("keeps a saved %s runner during unrelated edits", async adapterType => {
+     const adapterConfig = { model: "gpt-5.6-sol", ...(adapterType === "paperclip_runner" ? { provider: "codex", reasoningEffort: "high" } : { modelReasoningEffort: "high" }) };
+     const result = await renderForm([], { adapterType, adapterConfig }, { showAdapterTypeField: true });
+@@ -1058,14 +1084,15 @@ describe("AgentConfigForm environment selector", () => {
+     });
+   });
+ 
+-  it("names the Claude default for new and existing agents without pinning it", async () => {
++  it("requires an explicit model for new and existing Claude agents without silently pinning one", async () => {
+     const environments = [makeEnvironment({ id: "local-1", name: "Local", driver: "local" })];
+     const existing = await renderForm(environments, { adapterType: "claude_local", adapterConfig: {} });
+     roots.push(existing.root);
+     const created = await renderCreateForm(environments, { adapterType: "claude_local", model: "" });
+     roots.push(created.root);
+-    expect(existing.container.textContent).toContain("Default (claude-opus-5)");
+-    expect(created.container.textContent).toContain("Default (claude-opus-5)");
++    expect(existing.container.textContent).toContain("Select model (required)");
++    expect(created.container.textContent).toContain("Select model (required)");
++    expect(existing.container.textContent).not.toContain("Default (claude-opus-5)");
+     expect(existing.onSave).not.toHaveBeenCalled();
+   });
+ 
+@@ -1187,7 +1214,7 @@ describe("AgentConfigForm environment selector", () => {
+     expect(result.container.textContent).toContain("Hermes Gateway fields");
+   });
+ 
+-  it("tests a Codex agent after clearing the primary model to the adapter default", async () => {
++  it("keeps the explicit Codex model and offers no adapter-default choice", async () => {
+     const result = await renderForm([
+       makeEnvironment({ id: "local-1", name: "Local", driver: "local" }),
+     ], {
+@@ -1210,10 +1237,10 @@ describe("AgentConfigForm environment selector", () => {
+     const defaultButton = Array.from(document.body.querySelectorAll("button")).find(
+       (button) => button.textContent?.trim() === "Default",
+     );
+-    expect(defaultButton).toBeTruthy();
++    expect(defaultButton).toBeUndefined();
+ 
+     await act(async () => {
+-      defaultButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
++      modelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+     });
+     await flushReact();
+ 
+@@ -1229,12 +1256,12 @@ describe("AgentConfigForm environment selector", () => {
+ 
+     expect(mockAgentsApi.testEnvironment).toHaveBeenCalledTimes(1);
+     expect(mockAgentsApi.testEnvironment.mock.calls[0]?.[2]).toMatchObject({
+-      adapterConfig: {},
++      adapterConfig: { model: "gpt-5.4" },
+     });
+     const adapterConfig = (mockAgentsApi.testEnvironment.mock.calls[0]?.[2] as {
+       adapterConfig: Record<string, unknown>;
+     }).adapterConfig;
+-    expect(adapterConfig).not.toHaveProperty("model");
++    expect(adapterConfig.model).toBe("gpt-5.4");
+     expect(result.container.textContent).not.toContain("Cannot read properties of undefined");
+   });
+ 
+diff --git a/ui/src/components/AgentConfigForm.tsx b/ui/src/components/AgentConfigForm.tsx
+index b595d2e6fabac8832f98c075e75ee24e033d1d7f..86b7bbdfcb0fb67c84767c01fe9368a26be786e3 100644
+--- a/ui/src/components/AgentConfigForm.tsx
++++ b/ui/src/components/AgentConfigForm.tsx
+@@ -24,7 +24,7 @@ import type {
+   EnvSecretRefBinding,
+   Environment,
+ } from "@paperclipai/shared";
+-import { AGENT_DEFAULT_MAX_CONCURRENT_RUNS, supportedEnvironmentDriversForAdapter, isValidBrowserCode, ADAPTER_AUTH_MISSING_CHECK_CODE } from "@paperclipai/shared";
++import { AGENT_ROLES, AGENT_ROLE_LABELS, AGENT_DEFAULT_MAX_CONCURRENT_RUNS, supportedEnvironmentDriversForAdapter, isValidBrowserCode, ADAPTER_AUTH_MISSING_CHECK_CODE } from "@paperclipai/shared";
+ import type { AdapterModel } from "../api/agents";
+ import { agentsApi } from "../api/agents";
+ import { ApiError } from "../api/client";
+@@ -36,7 +36,6 @@ import {
+   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+   DEFAULT_CODEX_LOCAL_MODEL,
+ } from "@paperclipai/adapter-codex-local";
+-import { DEFAULT_CLAUDE_LOCAL_MODEL } from "@paperclipai/adapter-claude-local";
+ import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
+ import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
+ import { DEFAULT_KIMI_LOCAL_MODEL } from "@paperclipai/adapter-kimi-local";
+@@ -478,8 +477,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+   // The overlay snapshot a background account-binding save persisted. The form
+   // stays editable while that save is in flight, so the agent refresh that
+   // follows it must not wipe edits made during the save. The refresh subtracts
+-  // only what the save persisted; a user-initiated Save leaves the snapshot
+-  // null and keeps the full wipe. An UNRELATED refresh can land while the save
++  // only what the save persisted. Manual saves subtract their local snapshot
++  // when the confirmed response arrives. An unrelated refresh can land while the save
+   // is still in flight — that refresh does not carry the persisted binding
+   // yet, so it must neither consume the snapshot nor subtract it: subtracting
+   // would drop the binding entry from the overlay while `props.agent` also
+@@ -489,19 +488,23 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+   // settlement consumes the snapshot and subtracts it.
+   const backgroundSaveOverlayRef = useRef<AgentConfigOverlay | null>(null);
+   const backgroundSaveInFlightRef = useRef(false);
++  const manualSaveInFlightRef = useRef(false);
+ 
+-  // Clear overlay when agent data refreshes (after save)
++  // Only a completed save may consume submitted fields. Polls must keep drafts.
+   useEffect(() => {
+     if (!isCreate) {
+       if (
+         agentRef.current !== null &&
+         props.agent !== agentRef.current &&
+-        !backgroundSaveInFlightRef.current
++        !backgroundSaveInFlightRef.current && !manualSaveInFlightRef.current
+       ) {
+         const persisted = backgroundSaveOverlayRef.current;
++        const changedAgent = agentRef.current.id !== props.agent.id;
+         backgroundSaveOverlayRef.current = null;
+         setOverlay((prev) =>
+-          persisted ? subtractPersistedOverlay(prev, persisted) : { ...emptyOverlay },
++          changedAgent
++            ? { ...emptyOverlay }
++            : persisted ? subtractPersistedOverlay(prev, persisted) : prev,
+         );
+       }
+       agentRef.current = props.agent;
+@@ -561,6 +564,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+     setEnvironmentEditorKey(key => key + 1);
+   }, []);
+ 
++  const [modelSelectionError, setModelSelectionError] = useState<string | null>(null);
+   const handleSave = useCallback(async () => {
+     if (isCreate) return;
+     const flushedEnv = flushEnvironmentDraft();
+@@ -574,7 +578,30 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+         }
+       : overlay;
+     if (!isOverlayDirty(nextOverlay)) return;
+-    await props.onSave(buildAgentUpdatePatch(props.agent, nextOverlay));
++    const patch = buildAgentUpdatePatch(props.agent, nextOverlay);
++    const nextType = String(patch.adapterType ?? props.agent.adapterType);
++    const nextConfig = (patch.adapterConfig ?? props.agent.adapterConfig ?? {}) as Record<string, unknown>;
++    const nextCaps = getCapabilities(agentHarnessType(nextType, nextConfig));
++    // ppclip: preserve legacy agents, but never save a newly cleared model or harness change without one.
++    if ((nextOverlay.adapterType !== undefined || Object.hasOwn(nextOverlay.adapterConfig, "model"))
++      && (nextCaps.supportsInstructionsBundle || nextCaps.supportsSkills || nextCaps.supportsLocalAgentJwt)
++      && !["openai_dot", "grok_bot"].includes(String(nextConfig.provider))
++      && !(typeof nextConfig.model === "string" && nextConfig.model.trim())) {
++      setModelSelectionError("Choose an explicit model before saving.");
++      return;
++    }
++    setModelSelectionError(null);
++    manualSaveInFlightRef.current = true;
++    try {
++      const saved = await props.onSave(patch);
++      // A successful no-op save may return structurally identical query data.
++      // Clear submitted fields directly, preserving newer edits and failed drafts.
++      if (saved && typeof saved === "object" && "id" in saved && saved.id === props.agent.id) {
++        setOverlay(previous => subtractPersistedOverlay(previous, nextOverlay));
++      }
++    } finally {
++      manualSaveInFlightRef.current = false;
++    }
+   }, [isCreate, isDirty, overlay, props]);
+ 
+   useEffect(() => {
+@@ -1497,6 +1524,12 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+                 placeholder="Agent name"
+               />
+             </Field>
++            <Field label="Role" hint="The agent’s organizational role and Team role group. Title is a separate display label.">
++              <NativeSelect aria-label="Role" value={eff("identity", "role", props.agent.role)} onChange={event => mark("identity", "role", event.target.value)}>
++                {!AGENT_ROLES.some(role => role === eff("identity", "role", props.agent.role)) && <option value={props.agent.role}>{props.agent.role}</option>}
++                {AGENT_ROLES.map(role => <option key={role} value={role}>{AGENT_ROLE_LABELS[role]}</option>)}
++              </NativeSelect>
++            </Field>
+             <Field label="Title" hint={help.title}>
+               <DraftInput
+                 value={eff("identity", "title", props.agent.title ?? "")}
+@@ -1767,6 +1800,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+ 
+           {renderAdapterFields("adapter")}
+           {isLocal && (<>
++              {modelSelectionError && <p role="alert" className="text-sm text-destructive">{modelSelectionError}</p>}
+               <ModelDropdown
+                 models={models}
+                 loadingModels={connectionModels?.isLoading ?? fetchingModels}
+@@ -1791,9 +1825,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+                 }}
+                 open={modelOpen}
+                 onOpenChange={setModelOpen}
+-                defaultLabel={adapterType === "claude_local" ? `Default (${DEFAULT_CLAUDE_LOCAL_MODEL})` : undefined}
+-                allowDefault={adapterType !== "opencode_local" && adapterType !== "pi_local" && adapterType !== "paperclip_runner"}
+-                required={adapterType === "opencode_local" || adapterType === "pi_local"}
++                allowDefault={false} // ppclip: require an explicit model selection
++                required
+                 groupByProvider={!connectionModels && (adapterType === "opencode_local" || adapterType === "pi_local")}
+                 preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(adapterType)}
+                 creatable
 diff --git a/ui/src/components/AgentContextualSidebar.tsx b/ui/src/components/AgentContextualSidebar.tsx
 index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70fa65a3067 100644
 --- a/ui/src/components/AgentContextualSidebar.tsx
@@ -3405,20 +3508,21 @@ index ae0ea03d21cc8a9213b8730d8aede9cf3eb62a16..fe27d5f3d14537428d5528c22e5aa3d2
      </TooltipPrimitive.Portal>
    )
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
-index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9d969cddd 100644
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b7ed2545e 100644
 --- a/ui/src/pages/AgentDetail.tsx
 +++ b/ui/src/pages/AgentDetail.tsx
-@@ -7,6 +7,9 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
+@@ -7,6 +7,10 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
  import type { AgentInstructionCandidate, AgentInstructionsBundle } from "@paperclipai/shared";
  import { InstructionHistory } from "../components/InstructionHistory";
  import { AgentCharacter } from "../components/AgentCharacter";
 +import { AgentCustomization } from "@/ppclip/nav/AgentCustomization"; // ppclip: mascot customization
 +import { PageActionBar } from "@/ppclip/nav/PageActionBar";
 +import { AgentComputerBadge } from "@/ppclip/computer-use/AgentComputerBadge";
++import { publishSavedAgent } from "@/ppclip/nav/saved-agent-state";
  import { characterStateForAgent } from "@paperclipai/shared";
  import { mergeRunLogChunks, readChunkSeq } from "../lib/run-log-chunks";
  import { getPageVisibility, usePageVisibility } from "../lib/page-visibility";
-@@ -37,6 +40,7 @@ import { queryKeys } from "../lib/queryKeys";
+@@ -37,6 +41,7 @@ import { queryKeys } from "../lib/queryKeys";
  import { copyTextToClipboard } from "../lib/clipboard";
  import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
  import { AgentConfigForm } from "../components/AgentConfigForm";
@@ -3426,7 +3530,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9
  import { agentDisplayAdapterType, getAdapterDisplay } from "../adapters/adapter-display-registry";
  import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
  import { ToggleSwitch } from "@/components/ui/toggle-switch";
-@@ -306,6 +310,7 @@ export const AGENT_DETAIL_TABS = AGENT_DETAIL_NAVIGATION.flatMap((section) => se
+@@ -306,6 +311,7 @@ export const AGENT_DETAIL_TABS = AGENT_DETAIL_NAVIGATION.flatMap((section) => se
  
  const LEGACY_AGENT_DETAIL_TABS = [
    { value: "dashboard", label: "Dashboard" },
@@ -3434,7 +3538,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9
    { value: "instructions", label: "Instructions" },
    { value: "skills", label: "Skills" },
    { value: "configuration", label: "Configuration" },
-@@ -1257,10 +1262,10 @@ export function AgentDetail() {
+@@ -1257,10 +1263,10 @@ export function AgentDetail() {
        <header className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-6">
          <div className="flex min-w-0 items-center gap-4">
            <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
@@ -3447,7 +3551,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9
              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                {agent.adapterType === "claude_local" || agent.adapterType === "codex_local"
                  ? <img src={`/brands/${agent.adapterType === "claude_local" ? "claude" : "codex"}-color.svg`} className="size-4" alt="" />
-@@ -1395,7 +1400,7 @@ export function AgentDetail() {
+@@ -1395,7 +1401,7 @@ export function AgentDetail() {
          </div>
        )}
  
@@ -3456,7 +3560,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9
  
        {/* View content */}
        {activeView === "overview" && (
-@@ -1411,6 +1416,8 @@ export function AgentDetail() {
+@@ -1411,6 +1417,8 @@ export function AgentDetail() {
          />
        )}
  
@@ -3465,7 +3569,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9
        {activeView === "instructions" && (
          <div><PromptsTab
            agent={agent}
-@@ -1510,13 +1517,13 @@ export function AgentDetail() {
+@@ -1510,13 +1518,13 @@ export function AgentDetail() {
          />
        )}
  
@@ -3481,7 +3585,51 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9
  
      </div>
    );
-@@ -2123,6 +2130,7 @@ export function ConfigurationTab({
+@@ -2011,8 +2019,6 @@ export function ConfigurationTab({
+   const navigate = useNavigate();
+   const { tab: urlTab } = useParams<{ tab?: string }>();
+   const { pushToast } = useToastActions();
+-  const [awaitingRefreshAfterSave, setAwaitingRefreshAfterSave] = useState(false);
+-  const lastAgentRef = useRef(agent);
+ 
+   const catalogProvider = agent.adapterType === "paperclip_runner" ? String(agent.adapterConfig.provider ?? "codex") : undefined;
+   const { data: adapterModels } = useQuery({
+@@ -2042,10 +2048,8 @@ export function ConfigurationTab({
+ 
+   const updateAgent = useMutation({
+     mutationFn: (data: Record<string, unknown>) => agentsApi.update(agent.id, data, companyId),
+-    onMutate: () => {
+-      setAwaitingRefreshAfterSave(true);
+-    },
+     onSuccess: (updated) => {
++      publishSavedAgent(queryClient, updated);
+       queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
+       queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(agent.id) });
+       queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(agent.companyId) });
+@@ -2055,7 +2059,6 @@ export function ConfigurationTab({
+       pushToast({ title: "Agent saved", tone: "success" });
+     },
+     onError: (err) => {
+-      setAwaitingRefreshAfterSave(false);
+       const message =
+         err instanceof ApiError
+           ? err.message
+@@ -2066,13 +2069,7 @@ export function ConfigurationTab({
+     },
+   });
+ 
+-  useEffect(() => {
+-    if (awaitingRefreshAfterSave && agent !== lastAgentRef.current) {
+-      setAwaitingRefreshAfterSave(false);
+-    }
+-    lastAgentRef.current = agent;
+-  }, [agent, awaitingRefreshAfterSave]);
+-  const isConfigSaving = content !== "permissions" && (updateAgent.isPending || awaitingRefreshAfterSave);
++  const isConfigSaving = content !== "permissions" && updateAgent.isPending;
+ 
+   useEffect(() => {
+     onSavingChange(isConfigSaving);
+@@ -2123,6 +2120,7 @@ export function ConfigurationTab({
          sectionTitles={{ adapter: "Adapter", configuration: "Configuration", identity: "Agent identity" }}
          canConfigureProviderTrace={canConfigureProviderTrace}
        /> : null}

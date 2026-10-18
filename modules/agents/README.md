@@ -16,6 +16,10 @@ Body-color swatches open the same `react-colorful` saturation/hue picker used by
 
 Agent edit forms use the layout’s action dock outside the scrolling content. Customization, instructions and configuration share this dock so page padding cannot leave visible content below the save bar.
 
+**Harness / Runtime → Agent identity → Role** edits the organizational role used by Team role groups. Title remains a separate display label. Existing legacy roles stay selectable until replaced.
+
+Configuration saves publish the server-confirmed agent to matching company list and detail caches immediately, including the destination cache for a renamed agent. The saving/navigation lock ends with the update request; revision and roster refreshes run in the background. The form clears only submitted fields, preserving edits made during a pending save and keeping failed drafts available for retry. Unrelated lifecycle refreshes do not discard drafts.
+
 Agent chat sidebar rows also show the configured model with a provider mark. An unset model is labeled “Model not set”; the full model and harness are available on hover. This follows the Agents page extras switch. Agent model pickers require an explicit choice and do not offer a default-model option.
 
 New-agent setup shows the same model picker on both **Connect** and **Configure**, preserving the selection between steps. Choose the model before testing a saved subscription, API key or new sign-in. If model discovery fails, an explicit model ID can be entered manually.
