@@ -15,7 +15,7 @@ You keep the official repository. ppclip adds its own modules and marked integra
 | Area | What ppclip adds |
 |---|---|
 | **Team canvas** | Reporting and work relationships, editable layouts, Magic sort, and group colours. |
-| **Agent chat** | Chat enabled by default, configured model labels in the sidebar, clearer follow-up runs, and activity scoped to the right task. |
+| **Agent chat** | Chat enabled by default, configured model labels, tabs ordered by your last sent message without jumping when opened, clearer follow-up runs, and activity scoped to the right task. |
 | **Live runs** | One card per agent with live activity, the current task, and the last reply. |
 | **Computer use** | A Linux desktop and Chromium per agent, live view, human takeover, private control, and persistent browser profiles. |
 | **Providers** | Account usage bars, subscription usage, model tiers, and optional switching between providers. |

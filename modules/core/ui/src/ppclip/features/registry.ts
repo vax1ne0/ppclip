@@ -110,8 +110,8 @@ export const PPCLIP_MODULES: PpclipModuleGroup[] = [
       {
         key: "urgencyOrder",
         title: "Urgent agents first",
-        description: "The sidebar's agent lists put agents that are waiting for you or blocked at the top, keeping your chosen order within each group.",
-        footnote: "Off: the sidebar uses official Paperclip's order only.",
+        description: "In the main sidebar, show running agents first, then waiting or blocked agents, keeping your chosen order within each group.",
+        footnote: "Off: the main sidebar uses Paperclip's order. Chat tabs always follow your last sent message.",
       },
       {
         key: "attention",

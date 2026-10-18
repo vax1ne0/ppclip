@@ -525,31 +525,30 @@ index b3aaf50a2d77efeac06ca909217323b0cbf331da..be65ad4184340a9218ce3e4812542e79
        {runs.length === 0 ? (
          <div className="rounded-xl border border-border p-4">
 diff --git a/ui/src/components/AgentConversationsSidebar.tsx b/ui/src/components/AgentConversationsSidebar.tsx
-index bb173be4a17299dbe7aa8ba76e56a69258ad608e..d8b7ab8a0784fb73d518c39d0dc0771d244477bc 100644
+index bb173be4a17299dbe7aa8ba76e56a69258ad608e..b86f06e362189e87959f2c220c3985fbcf711e7f 100644
 --- a/ui/src/components/AgentConversationsSidebar.tsx
 +++ b/ui/src/components/AgentConversationsSidebar.tsx
-@@ -7,6 +7,7 @@ import { useQueries } from "@tanstack/react-query";
- import { agentsApi } from "@/api/agents";
- import { queryKeys } from "@/lib/queryKeys";
- import { resourceMembershipState, useResourceMemberships } from "@/hooks/useResourceMemberships";
-+import { useAgentUrgencyOrder } from "@/ppclip/attention/useAgentAttention"; // ppclip: NAV-1
- 
- /** Account- and company-scoped data for the secondary chat navigation. */
- export function AgentConversationsSidebar() {
-@@ -14,6 +15,7 @@ export function AgentConversationsSidebar() {
-   const openChat = useOpenAgentChat(companyId, userId);
-   const navigate = useNavigate();
-   const memberships = useResourceMemberships(companyId);
-+  const orderByUrgency = useAgentUrgencyOrder(companyId); // ppclip: NAV-1 urgency first, official order within each group
-   const { isMobile, setSidebarOpen } = useSidebar();
-   const { pathname } = useLocation();
-   const activeRef = pathname.split("/chats/")[1]?.split("/")[0];
-@@ -43,7 +45,7 @@ export function AgentConversationsSidebar() {
+@@ -31,9 +31,8 @@ export function AgentConversationsSidebar() {
+     const agent = chat.conversationAgentId ? byId.get(chat.conversationAgentId) : undefined;
+     return agent ? [agent] : [];
+   });
+-  if (active && !conversations.some(agent => agent.id === active.id)) conversations.unshift(active);
+   // Everyone you can chat with is listed, not only agents you've already
+-  // talked to: conversations first by recent activity, then the rest of the
++  // talked to: conversations first by the owner's last sent prompt, then the rest of the
+   // roster alphabetically. Same eligibility rule as the Agents nav section —
+   // terminated agents and agents you've left are omitted.
+   const listedIds = new Set(conversations.map(agent => agent.id));
+@@ -43,7 +42,11 @@ export function AgentConversationsSidebar() {
      .sort((left, right) => left.name.localeCompare(right.name, undefined, { sensitivity: "base" }));
    const previews = Object.fromEntries((chats.data ?? []).filter(chat => chat.conversationState === "active")
      .map(chat => [chat.conversationAgentId!, "Working…"]));
 -  return <AgentConversationSidebar key={`${companyId}:${userId}`} agents={[...conversations, ...teammates]} availableAgents={roster}
-+  return <AgentConversationSidebar key={`${companyId}:${userId}`} agents={orderByUrgency([...conversations, ...teammates]) /* ppclip: NAV-1 */} availableAgents={roster}
++  const sentAt = new Map((chats.data ?? []).map(chat => [chat.conversationAgentId, Date.parse(chat.conversationLastSentAt ?? "") || 0]));
++  const ordered = [...conversations, ...teammates].sort((a, b) =>
++    (sentAt.get(b.id) ?? 0) - (sentAt.get(a.id) ?? 0)
++    || a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.id.localeCompare(b.id));
++  return <AgentConversationSidebar key={`${companyId}:${userId}`} agents={ordered} availableAgents={roster}
      existingChatAgentIds={conversations.map(agent => agent.id)}
      activeId={active?.id} previews={previews}
      loading={agents.isPending || chats.isPending || session.isPending}
@@ -1051,7 +1050,7 @@ index 446654a112ea558581354874a03f8670c05591ba..5fd3478096aa0bb8a6748947a3f9b55e
  
  export interface IssueChatTranscriptEntry {
 diff --git a/ui/src/pages/AgentChat.tsx b/ui/src/pages/AgentChat.tsx
-index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..6d78372046e4e3e1750b006c814fb230f42c374a 100644
+index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..2478b018368aabb865cb08ac877912cbccf238c9 100644
 --- a/ui/src/pages/AgentChat.tsx
 +++ b/ui/src/pages/AgentChat.tsx
 @@ -10,6 +10,7 @@ import { queryKeys } from "@/lib/queryKeys";
@@ -1062,7 +1061,18 @@ index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..6d78372046e4e3e1750b006c814fb230
  import { isUuidLike, type Issue } from "@paperclipai/shared";
  
  export function AgentChat() {
-@@ -93,9 +94,14 @@ export function AgentChat() {
+@@ -62,6 +63,10 @@ export function AgentChat() {
+       const issue = await promise;
+       client.setQueryData(queryKeys.issues.detail(issue.id), issue);
+       client.setQueryData(chatKey, issue);
++      // Register first-send chats before the message is posted, so live comment
++      // events can invalidate their list entry even while its initial fetch runs.
++      client.setQueryData<Issue[]>(queryKeys.agentChats.list(selectedCompanyId, userId), previous =>
++        previous?.some(item => item.id === issue.id) ? previous : [...(previous ?? []), { ...issue, conversationLastSentAt: null }]);
+       void client.invalidateQueries({ queryKey: queryKeys.agentChats.list(selectedCompanyId, userId) });
+       return issue;
+     } catch (error) {
+@@ -93,9 +98,14 @@ export function AgentChat() {
        <p className="text-sm text-muted-foreground">Loading conversation…</p>
      );
    return (
@@ -3838,3 +3848,169 @@ index bb5fbbe04ecb1d8881cb2524b94de1c784f6d030..981e863bdfe9eea2eaa331c249848795
          <p role="alert" className="text-sm text-destructive">
            You have no default account for this provider. Connect an account or choose another connection.
          </p>
+diff --git a/packages/shared/src/types/issue.ts b/packages/shared/src/types/issue.ts
+index 4d187a833bf064a2a715af86149157769ea60f04..2fe2ba6e71a42f1d119da8435e3ddd286df7f207 100644
+--- a/packages/shared/src/types/issue.ts
++++ b/packages/shared/src/types/issue.ts
+@@ -836,6 +836,8 @@ export interface Issue {
+   titleNeedsGeneration?: boolean;
+   conversationAgentId?: string | null;
+   conversationUserId?: string | null;
++  /** Chat-list projection: latest prompt sent by the conversation owner. */
++  conversationLastSentAt?: string | null;
+   /** Server-owned Slack lifecycle projection; not writable through task updates. */
+   externalConversationState?: "active" | "waiting" | null;
+   conversationState?: "active" | "waiting" | null;
+diff --git a/server/src/__tests__/agent-conversations.test.ts b/server/src/__tests__/agent-conversations.test.ts
+index 6354e0eb481dd35ed9b0ef89dba08c4f166634de..d8071da55d38a60da5b4daa984008abc6bb4a44e 100644
+--- a/server/src/__tests__/agent-conversations.test.ts
++++ b/server/src/__tests__/agent-conversations.test.ts
+@@ -66,6 +66,29 @@ const support = await getEmbeddedPostgresTestSupport();
+     let db: ReturnType<typeof createDb>;
+     let companyId: string;
+     let agentId: string;
++    it("orders chats only by the owner's sent prompts, including after reopening and run updates", async () => {
++      const owner = randomUUID();
++      const otherAgent = randomUUID();
++      await db.insert(agents).values({ id: otherAgent, companyId, name: "Recency", role: "engineer", status: "idle", adapterType: "process" });
++      const svc = issueService(db);
++      const first = await svc.create(companyId, { title: "Older prompt", conversationAgentId: agentId, conversationUserId: owner, assigneeAgentId: agentId, status: "in_review", conversationState: "waiting" });
++      const second = await svc.create(companyId, { title: "Newer prompt", conversationAgentId: otherAgent, conversationUserId: owner, assigneeAgentId: otherAgent, status: "in_review", conversationState: "waiting" });
++      expect((await svc.listConversations(companyId, owner)).every(chat => chat.conversationLastSentAt === null)).toBe(true);
++      await db.insert(issueComments).values([
++        { companyId, issueId: first.id, authorUserId: owner, body: "First", createdAt: new Date("2026-09-01T00:00:00Z") },
++        { companyId, issueId: second.id, authorUserId: owner, body: "Second", createdAt: new Date("2026-09-02T00:00:00Z") },
++        { companyId, issueId: first.id, authorAgentId: agentId, body: "Late reply", createdAt: new Date("2026-09-03T00:00:00Z") },
++        { companyId, issueId: first.id, authorUserId: "someone-else", body: "Not the owner", createdAt: new Date("2026-09-04T00:00:00Z") },
++      ]);
++      await svc.getConversation(companyId, agentId, owner);
++      await db.update(issues).set({ updatedAt: new Date(), conversationState: "active" }).where(eq(issues.id, first.id));
++      expect((await svc.listConversations(companyId, owner)).map(chat => chat.id)).toEqual([second.id, first.id]);
++      await db.insert(issueComments).values({ companyId, issueId: first.id, authorUserId: owner, body: "Latest prompt", createdAt: new Date("2026-09-05T00:00:00Z") });
++      const ordered = await svc.listConversations(companyId, owner);
++      expect(ordered.map(chat => chat.id)).toEqual([first.id, second.id]);
++      expect(new Date(ordered[0]!.conversationLastSentAt!).toISOString()).toBe("2026-09-05T00:00:00.000Z");
++      expect(await svc.listConversations(companyId, "someone-else")).toEqual([]);
++    });
+     beforeAll(async () => {
+       database = await startEmbeddedPostgresTestDatabase(
+         "paperclip-agent-conversations-",
+diff --git a/server/src/services/issues.ts b/server/src/services/issues.ts
+index aaae404ac66dca93634a3e5dd3cedf207484b22e..453e2f0085766c8a0e1a68446d4940b2f9b28730 100644
+--- a/server/src/services/issues.ts
++++ b/server/src/services/issues.ts
+@@ -9854,9 +9854,21 @@ export function issueService(db: Db) {
+       });
+     },
+ 
+-    listConversations: async (companyId: string, userId: string) => db.select().from(issues).where(and(
++    // The existing company/author/issue/created-at index serves one latest-message
++    // lookup per chat. Opening, replies, and run/status updates must not bump it.
++    listConversations: async (companyId: string, userId: string) => db.select({
++      ...getTableColumns(issues),
++      // Keep outer references explicitly qualified: Drizzle's single-table
++      // projection strips qualifiers from interpolated Column objects.
++      conversationLastSentAt: sql<string | null>`(select c.created_at
++        from ${issueComments} c where c.company_id = ${issues}.company_id
++        and c.issue_id = ${issues}.id
++        and c.author_user_id = ${issues}.conversation_user_id
++        and c.author_agent_id is null
++        order by c.created_at desc limit 1)`.as("conversation_last_sent_at"),
++    }).from(issues).where(and(
+       eq(issues.companyId, companyId), eq(issues.conversationUserId, userId), isNotNull(issues.conversationAgentId),
+-    )).orderBy(desc(issues.updatedAt), asc(issues.id)),
++    )).orderBy(sql`conversation_last_sent_at desc nulls last`, asc(issues.id)),
+ 
+     getConversation: async (companyId: string, agentId: string, userId: string) => db.select().from(issues).where(and(
+       eq(issues.companyId, companyId), eq(issues.conversationAgentId, agentId), eq(issues.conversationUserId, userId),
+diff --git a/ui/src/components/AgentConversationsSidebar.test.tsx b/ui/src/components/AgentConversationsSidebar.test.tsx
+index b45eeceda8430e1b5719d212f17b6b6a372ceebb..2b14b2139ef3464d6d4d952e03c063c357be5ecc 100644
+--- a/ui/src/components/AgentConversationsSidebar.test.tsx
++++ b/ui/src/components/AgentConversationsSidebar.test.tsx
+@@ -6,12 +6,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
+ import type { Agent } from "@paperclipai/shared";
+ import { AgentConversationsSidebar } from "./AgentConversationsSidebar";
+ import { queryKeys } from "@/lib/queryKeys";
+-const state = vi.hoisted(() => ({ companyId: "company-a", navigate: vi.fn(), closeSidebar: vi.fn(), ensure: vi.fn(), getAgent: vi.fn() }));
++const state = vi.hoisted(() => ({ companyId: "company-a", pathname: "/A/chats/alice", navigate: vi.fn(), closeSidebar: vi.fn(), ensure: vi.fn(), getAgent: vi.fn() }));
+ vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ selectedCompanyId: state.companyId }) }));
+ vi.mock("@/context/SidebarContext", () => ({ useSidebar: () => ({ isMobile: true, setSidebarOpen: state.closeSidebar }) }));
+ vi.mock("@/hooks/useAgentChatEnabled", () => ({ useAgentChatEnabled: () => ({ enabled: true, loaded: true }) }));
+ vi.mock("@/lib/router", () => ({
+-  useLocation: () => ({ pathname: "/A/chats/alice" }), useNavigate: () => state.navigate,
++  useLocation: () => ({ pathname: state.pathname }), useNavigate: () => state.navigate,
+   Link: ({ to, children, ...props }: { to: string; children: ReactNode }) => <a href={to} {...props}>{children}</a>,
+ }));
+ vi.mock("@/api/agents", () => ({ agentsApi: { list: vi.fn(), get: state.getAgent } }));
+@@ -26,7 +26,7 @@ let root: Root;
+ let container: HTMLDivElement;
+ let client: QueryClient;
+ const roster = ["alice", "bob"].map(id => ({ id, companyId: "company-a", name: id, urlKey: id, role: "general", title: "Teammate", status: "idle" } as Agent));
+-const chat = (id: string) => ({ id: `chat-${id}`, companyId: "company-a", conversationAgentId: id, conversationUserId: "user-a", updatedAt: id === "bob" ? "2026-09-02T00:00:00Z" : "2026-09-01T00:00:00Z" });
++const chat = (id: string) => ({ id: `chat-${id}`, companyId: "company-a", conversationAgentId: id, conversationUserId: "user-a", conversationLastSentAt: id === "bob" ? "2026-09-02T00:00:00Z" : "2026-09-01T00:00:00Z", updatedAt: "2026-09-03T00:00:00Z" });
+ async function render() {
+   await act(async () => { root.render(<QueryClientProvider client={client}><AgentConversationsSidebar /></QueryClientProvider>); });
+ }
+@@ -38,6 +38,7 @@ beforeEach(() => {
+   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+   vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
+   state.companyId = "company-a";
++  state.pathname = "/A/chats/alice";
+   state.navigate.mockReset(); state.closeSidebar.mockReset(); state.ensure.mockReset(); state.getAgent.mockReset();
+   state.ensure.mockImplementation(async (_company, id) => chat(id));
+   memberships.agentMemberships = {};
+@@ -143,7 +144,7 @@ it("keeps healthy chats usable while a historical lookup fails and retries", asy
+   expect(container.querySelector('a[href="/chats/alice"]')).not.toBeNull();
+ });
+ 
+-it("lists every eligible agent: open chat, then conversations by recency, then the rest alphabetically", async () => {
++it("lists every eligible agent by last sent prompt, with unused agents alphabetical and no active-chat pin", async () => {
+   const more = [
+     { ...roster[0], id: "zed", name: "Zed", urlKey: "zed" },
+     { ...roster[0], id: "carol", name: "carol", urlKey: "carol" },
+@@ -157,6 +158,28 @@ it("lists every eligible agent: open chat, then conversations by recency, then t
+   await vi.waitFor(async () => {
+     await act(async () => {});
+     expect([...container.querySelectorAll('nav[aria-label="Agent conversations"] a')].map(link => link.getAttribute("href")))
+-      .toEqual(["/chats/alice", "/chats/bob", "/chats/carol", "/chats/zed"]); // the open chat (alice) is pinned first
++      .toEqual(["/chats/bob", "/chats/alice", "/chats/carol", "/chats/zed"]);
+   });
+ });
++
++it("keeps clicked and newly opened chats in place until a prompt is sent, ignoring run updates", async () => {
++  const links = () => [...container.querySelectorAll('nav[aria-label="Agent conversations"] a')].map(link => link.getAttribute("href"));
++  client.setQueryData(queryKeys.agentChats.list("company-a", "user-a"), [chat("bob")]);
++  await render();
++  expect(links()).toEqual(["/chats/bob", "/chats/alice"]);
++  await act(async () => container.querySelector<HTMLAnchorElement>('a[href="/chats/alice"]')!.click());
++  state.pathname = "/A/chats/alice";
++  await render();
++  expect(links()).toEqual(["/chats/bob", "/chats/alice"]);
++  // Ensuring a chat may happen on upload/open, before any message is sent.
++  state.ensure.mockResolvedValue({ ...chat("alice"), conversationLastSentAt: undefined });
++  await addChat(); await choose("alice"); await render();
++  expect(links()).toEqual(["/chats/bob", "/chats/alice"]);
++  await act(async () => {
++    client.setQueryData(queryKeys.agents.list("company-a"), [{ ...roster[0], status: "running" }, roster[1]]);
++    client.setQueryData(queryKeys.agentChats.list("company-a", "user-a"), [chat("bob"), { ...chat("alice"), conversationLastSentAt: null, updatedAt: "2026-10-01T00:00:00Z" }]);
++  });
++  expect(links()).toEqual(["/chats/bob", "/chats/alice"]);
++  await act(async () => client.setQueryData(queryKeys.agentChats.list("company-a", "user-a"), [chat("bob"), { ...chat("alice"), conversationLastSentAt: "2026-10-02T00:00:00Z" }]));
++  expect(links()).toEqual(["/chats/alice", "/chats/bob"]);
++});
+diff --git a/ui/src/hooks/useAgentChatNavigation.ts b/ui/src/hooks/useAgentChatNavigation.ts
+index 85c63e50d88e315155a1f4b33fd03a1435aaa452..a52f91b2339038349a6e366139726a1a8589311b 100644
+--- a/ui/src/hooks/useAgentChatNavigation.ts
++++ b/ui/src/hooks/useAgentChatNavigation.ts
+@@ -45,8 +45,9 @@ export function useOpenAgentChat(companyId: string | null, userId: string | null
+     client.setQueryData(queryKeys.agentChats.detail(companyId, userId, agent.id), chat);
+     client.setQueryData(queryKeys.issues.detail(chat.id), chat);
+     client.setQueryData<Issue[]>(queryKeys.agentChats.list(companyId, userId), previous =>
+-      [chat, ...(previous ?? []).filter(item => item.id !== chat.id)]
+-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() || b.id.localeCompare(a.id)));
++      previous?.some(item => item.id === chat.id)
++        ? previous.map(item => item.id === chat.id ? { ...chat, conversationLastSentAt: item.conversationLastSentAt } : item)
++        : [...(previous ?? []), { ...chat, conversationLastSentAt: null }]);
+     if (!current.mounted || scope.current !== current || signal?.aborted) return;
+     navigate(`/chats/${encodeURIComponent(agentRouteRef(agent))}`);
+     if (isMobile) setSidebarOpen(false);
