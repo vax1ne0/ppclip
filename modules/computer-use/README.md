@@ -4,6 +4,8 @@ Enabled agents have a small monitor badge next to their names in the sidebar, te
 
 A sandboxed Linux desktop and Chromium per agent in Docker, with live view, takeover and agent tools over MCP.
 
+The Live screen page keeps a centered stopped-desktop placeholder with one explicit Start action and inline pending/error feedback. Starting computers show a waiting state until the stream is ready; stopped computers never request a viewer ticket.
+
 The live viewer uses the app's theme, a compact connection-status dot, and a keyboard-accessible Ctrl+Alt+Del button. The button is enabled only for a connected control stream.
 
 Paused computers show a placeholder rather than opening a stream. Resume or Take control waits for the desktop to become ready before reconnecting; pausing invalidates existing live-view tickets.

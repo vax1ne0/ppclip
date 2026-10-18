@@ -188,6 +188,19 @@ describe("ComputerPanel", () => {
     expect(mockApi.viewer).not.toHaveBeenCalled();
     expect(Array.from(container.querySelectorAll("button")).map((b) => b.textContent)).toEqual(["Start computer"]);
   });
+  it("keeps a stopped page in its screen frame, starts only on demand and shows pending feedback", async () => {
+    let finish!: () => void;
+    mockApi.act.mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    await render(<ComputerPanel companyId={companyId} computer={computer({ state: "stopped" })} agentName="Robin" liveView variant="page" />);
+    expect(container.textContent).toContain("Computer is stopped");
+    expect(mockApi.viewer).not.toHaveBeenCalled();
+    expect(mockApi.act).not.toHaveBeenCalled();
+    await act(async () => button("Start computer")!.click());
+    expect(mockApi.act).toHaveBeenCalledWith(companyId, "agent-1", "start");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(button("Starting…")?.disabled).toBe(true);
+    await act(async () => finish());
+  });
 
   it("never offers the agent-only or invalid transitions", () => {
     expect(availableActions({ state: "revoked" })).toEqual(["restore"]);

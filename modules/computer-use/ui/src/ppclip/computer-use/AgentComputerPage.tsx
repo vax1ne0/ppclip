@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Monitor } from "lucide-react";
 import { agentsApi } from "@/api/agents";
 import { Button } from "@/components/ui/button";
 import { useBreadcrumbs } from "@/context/BreadcrumbContext";
@@ -51,12 +50,14 @@ export function AgentComputerPage() {
   const ready = overview.data?.enabled && computer?.enabled;
   return (
     <div className="flex flex-col gap-4" data-testid="agent-computer-page">
-      <div className="flex flex-wrap items-center gap-3">
-        <Monitor className="size-5 text-muted-foreground" aria-hidden />
-        <h2 className="text-xl font-semibold">{agent.data.name}'s computer</h2>
-        <div className="ml-auto flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-semibold tracking-tight">Live screen</h2>
+          <p className="text-sm text-muted-foreground">View and control {agent.data.name}’s computer.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild size="sm" variant="outline">
-            <Link to={liveAgentHref(agent.data.id)}>All agents on Live runs</Link>
+            <Link to={liveAgentHref(agent.data.id)}>Live runs</Link>
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link to={`${agentUrl(agent.data)}/runtime`}>Computer settings</Link>

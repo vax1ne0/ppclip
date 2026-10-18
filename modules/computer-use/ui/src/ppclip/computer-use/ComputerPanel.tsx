@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Expand, Hand, LockKeyhole, Maximize2, Monitor, Pause, Play, Power, RefreshCw, ShieldOff, Undo2 } from "lucide-react";
+import { Expand, Hand, LoaderCircle, LockKeyhole, Maximize2, Monitor, Pause, Play, Power, RefreshCw, ShieldOff, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router";
@@ -190,6 +190,26 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
   }
 
   const live = isLiveState(computer.state);
+  if (variant === "page" && (computer.state === "stopped" || computer.state === "off")) return (
+    <section ref={ref} aria-label={`${agentName}'s computer`} data-testid="computer-panel" data-variant={variant}
+      className="overflow-hidden rounded-xl border border-border bg-background">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Monitor className="size-4" aria-hidden />Desktop</span>
+        <Badge variant="outline" data-testid="computer-state">{STATE_LABELS[computer.state]}</Badge>
+      </div>
+      <div className="flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center sm:min-h-96">
+        <Monitor aria-hidden strokeWidth={1.25} className="mb-5 size-10 text-muted-foreground" />
+        <h3 className="text-lg font-semibold tracking-tight">Computer is stopped</h3>
+        <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">Start {agentName}’s computer to open the desktop and browser here.</p>
+        <Button type="button" className="mt-6" disabled={mutation.isPending} onClick={() => run("start")}>
+          {mutation.isPending ? <LoaderCircle aria-hidden className="motion-safe:animate-spin" /> : <Power aria-hidden />}
+          {mutation.isPending ? "Starting…" : "Start computer"}
+        </Button>
+        <p role="status" className="mt-3 text-xs text-muted-foreground">{mutation.isPending ? "Preparing the desktop. The live screen will open when it’s ready." : "The screen appears here once the computer is running."}</p>
+        {error ? <p className="mt-4 max-w-md text-sm text-destructive" role="alert">{error}</p> : null}
+      </div>
+    </section>
+  );
   return (
     <section
       ref={ref}
@@ -221,7 +241,13 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
           Control returns to paused at {new Date(computer.lease.expiresAt).toLocaleTimeString()} unless you release it sooner.
         </p>
       ) : null}
-      {computer.state === "paused" ? (
+      {variant === "page" && computer.state === "starting" ? (
+        <div className="flex min-h-80 flex-col items-center justify-center gap-3 rounded-xl border border-border px-6 py-12 text-center sm:min-h-96" role="status">
+          <LoaderCircle aria-hidden className="size-6 text-muted-foreground motion-safe:animate-spin" />
+          <h3 className="text-lg font-semibold">Starting computer…</h3>
+          <p className="max-w-sm text-sm text-muted-foreground">The live screen will appear when the desktop is ready.</p>
+        </div>
+      ) : computer.state === "paused" ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-8 text-center" role="status">
           <Pause className="size-5 text-muted-foreground" aria-hidden />
           <p className="text-sm font-medium">Computer paused</p>

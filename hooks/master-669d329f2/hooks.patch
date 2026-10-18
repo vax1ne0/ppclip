@@ -727,60 +727,6 @@ index 7e1a18f211aeda717863243b3c886c3d40adef2a..8070d1359262934e24190a6e7fdb3581
            </span>
            {titleAccessory}
          </div>
-diff --git a/ui/src/components/Sidebar.production.tsx b/ui/src/components/Sidebar.production.tsx
-index 423c102ccdaff3c1e0c2cd7c09433f5cc0a7baf8..c2464b5229d61360eb205eb20b9e81745e9a509f 100644
---- a/ui/src/components/Sidebar.production.tsx
-+++ b/ui/src/components/Sidebar.production.tsx
-@@ -20,11 +20,13 @@ import {
-   MessagesSquare,
-   GanttChartSquare,
-   LayoutGrid,
-+  UsersRound, // ppclip: NAV-1
- } from "lucide-react";
- import { useState } from "react";
- import { useQuery } from "@tanstack/react-query";
- import { SidebarSection } from "./SidebarSection";
- import { SidebarNavItem } from "./SidebarNavItem.production";
-+import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
- import { SidebarAgents } from "./SidebarAgents.production";
- import { SidebarProjects } from "./SidebarProjects";
- import { SidebarStarredProjects } from "./SidebarStarredProjects.production";
-@@ -162,6 +164,8 @@ export function Sidebar() {
-             badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
-             alert={inboxBadge.failedRuns > 0}
-           />
-+          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
-+          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
-           {showDecisions ? (
-             <SidebarNavItem
-               to="/decisions"
-diff --git a/ui/src/components/Sidebar.tsx b/ui/src/components/Sidebar.tsx
-index c558bf4e96aaf1bff6d359ce1913cbe19d62eff5..26146be1207988740b67de89c409c253f5a93172 100644
---- a/ui/src/components/Sidebar.tsx
-+++ b/ui/src/components/Sidebar.tsx
-@@ -22,11 +22,13 @@ import {
-   GanttChartSquare,
-   LayoutGrid,
-   Users,
-+  UsersRound, // ppclip: NAV-1
- } from "lucide-react";
- import { useState, type ReactNode } from "react";
- import { useQuery } from "@tanstack/react-query";
- import { SidebarSection } from "./SidebarSection";
- import { SidebarNavItem } from "./SidebarNavItem";
-+import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
- import { SidebarAgents } from "./SidebarAgents";
- import { SidebarProjects } from "./SidebarProjects";
- import { SidebarStarredProjects } from "./SidebarStarredProjects";
-@@ -186,6 +188,8 @@ export function Sidebar({ children }: { children?: ReactNode }) {
-               alert={inboxBadge.failedRuns > 0}
-             />
-           ) : null}
-+          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
-+          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
-           {agentChatEnabled && !chatRail ? <SidebarNavItem to="/chats" label="Chat" icon={MessageCircle} /> : null}
-           {showDecisions ? (
-             <SidebarNavItem
 diff --git a/ui/src/components/SidebarAgents.test.tsx b/ui/src/components/SidebarAgents.test.tsx
 index 3ce2523f1a759b7120b1d39008c6b3ed8b574c78..17791077242c4e8cdeb9ef121fc4b56d742a4d31 100644
 --- a/ui/src/components/SidebarAgents.test.tsx
@@ -2648,6 +2594,433 @@ index 385941d6ca16c41fbd11f6b4694965ce9db33f69..51eaf079ba6d726121c1d12214ead607
 +    </ChatSetupSidebarProvider></ComputerBadgesProvider></PageActionBarProvider>
    );
  }
+diff --git a/ui/src/components/Sidebar.production.tsx b/ui/src/components/Sidebar.production.tsx
+index 423c102ccdaff3c1e0c2cd7c09433f5cc0a7baf8..259b0e765470403c056af4c0fca41acc5cda1800 100644
+--- a/ui/src/components/Sidebar.production.tsx
++++ b/ui/src/components/Sidebar.production.tsx
+@@ -20,11 +20,13 @@ import {
+   MessagesSquare,
+   GanttChartSquare,
+   LayoutGrid,
++  UsersRound, // ppclip: NAV-1
+ } from "lucide-react";
+ import { useState } from "react";
+ import { useQuery } from "@tanstack/react-query";
+ import { SidebarSection } from "./SidebarSection";
+ import { SidebarNavItem } from "./SidebarNavItem.production";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { SidebarAgents } from "./SidebarAgents.production";
+ import { SidebarProjects } from "./SidebarProjects";
+ import { SidebarStarredProjects } from "./SidebarStarredProjects.production";
+@@ -46,9 +48,8 @@ import { SidebarCompanyMenu } from "./SidebarCompanyMenu.production";
+ 
+ export function Sidebar() {
+   const { openNewIssue } = useDialogActions();
+-  // Every labeled section is collapsible (session-scoped, default open) —
+-  // one policy across static nav groups and the data-driven sections.
+-  const [workOpen, setWorkOpen] = useState(true);
++  // ppclip: Work starts collapsed; the agent list remains the primary workspace.
++  const [workOpen, setWorkOpen] = useState(false);
+   const [companyOpen, setCompanyOpen] = useState(true);
+   const { selectedCompanyId, selectedCompany } = useCompany();
+   const { collapsed, peeking } = useSidebar();
+@@ -112,6 +113,54 @@ export function Sidebar() {
+     companyPrefix: selectedCompany?.issuePrefix ?? null,
+   };
+ 
++  const workSection = (
++        <SidebarSection label="Work" collapsible={{ open: workOpen, onOpenChange: setWorkOpen }}>
++          <SidebarNavItem to="/issues" label="Tasks" icon={CircleDot} />
++          {showCases ? (
++            <SidebarNavItem to="/cases" label="Cases" icon={Layers} textBadge="beta" />
++          ) : null}
++          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
++          {showPipelines ? (
++            <SidebarNavItem to="/pipelines" label="Pipelines" icon={GitBranch} />
++          ) : null}
++          {showGoalsLink ? (
++            <SidebarNavItem to="/goals" label="Goals" icon={Target} />
++          ) : goalsLinkPending ? (
++            <div
++              data-testid="sidebar-goals-placeholder"
++              className="h-8 pointer-coarse:h-7"
++              aria-hidden="true"
++            />
++          ) : null}
++          <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
++          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
++          {showWorkspacesLink ? (
++            <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
++          ) : null}
++          {streamlined ? (
++            <>
++              <SidebarNavItem to="/projects" label="Projects" icon={FolderOpen} />
++              <SidebarStarredProjects />
++            </>
++          ) : null}
++          <PluginSlotOutlet
++            errorBehavior="hidden"
++            slotTypes={["sidebar"]}
++            context={pluginContext}
++            className="flex flex-col gap-0.5"
++            itemClassName="text-(length:--text-compact) font-medium"
++            missingBehavior="placeholder"
++          />
++          <PluginLauncherOutlet
++            errorBehavior="hidden"
++            placementZones={["sidebar"]}
++            context={pluginContext}
++            className="flex flex-col gap-0.5"
++            itemClassName="text-(length:--text-compact) font-medium"
++          />
++        </SidebarSection>
++  );
++
+   return (
+     <aside className="w-full h-full min-h-0 border-r border-border bg-background flex flex-col">
+       {/* Top bar: company name, aligned with top sections and borderless.
+@@ -162,6 +211,8 @@ export function Sidebar() {
+             badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
+             alert={inboxBadge.failedRuns > 0}
+           />
++          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
++          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
+           {showDecisions ? (
+             <SidebarNavItem
+               to="/decisions"
+@@ -179,51 +230,7 @@ export function Sidebar() {
+           ) : null}
+         </div>
+ 
+-        <SidebarSection label="Work" collapsible={{ open: workOpen, onOpenChange: setWorkOpen }}>
+-          <SidebarNavItem to="/issues" label="Tasks" icon={CircleDot} />
+-          {showCases ? (
+-            <SidebarNavItem to="/cases" label="Cases" icon={Layers} textBadge="beta" />
+-          ) : null}
+-          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
+-          {showPipelines ? (
+-            <SidebarNavItem to="/pipelines" label="Pipelines" icon={GitBranch} />
+-          ) : null}
+-          {showGoalsLink ? (
+-            <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+-          ) : goalsLinkPending ? (
+-            <div
+-              data-testid="sidebar-goals-placeholder"
+-              className="h-8 pointer-coarse:h-7"
+-              aria-hidden="true"
+-            />
+-          ) : null}
+-          <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
+-          <SidebarNavItem to="/skills" label="Skills" icon={Boxes} />
+-          {showWorkspacesLink ? (
+-            <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
+-          ) : null}
+-          {streamlined ? (
+-            <>
+-              <SidebarNavItem to="/projects" label="Projects" icon={FolderOpen} />
+-              <SidebarStarredProjects />
+-            </>
+-          ) : null}
+-          <PluginSlotOutlet
+-            errorBehavior="hidden"
+-            slotTypes={["sidebar"]}
+-            context={pluginContext}
+-            className="flex flex-col gap-0.5"
+-            itemClassName="text-(length:--text-compact) font-medium"
+-            missingBehavior="placeholder"
+-          />
+-          <PluginLauncherOutlet
+-            errorBehavior="hidden"
+-            placementZones={["sidebar"]}
+-            context={pluginContext}
+-            className="flex flex-col gap-0.5"
+-            itemClassName="text-(length:--text-compact) font-medium"
+-          />
+-        </SidebarSection>
++
+ 
+         {/* Classic mode restores the per-project collapsible below Work. */}
+         {streamlined ? null : <SidebarProjects />}
+diff --git a/ui/src/components/Sidebar.test.tsx b/ui/src/components/Sidebar.test.tsx
+index f0b61ef584a3fb8dcdf8e0a267454871d610c8c5..aad95fc92611c767807f0fe0c80a5895ed1d7d88 100644
+--- a/ui/src/components/Sidebar.test.tsx
++++ b/ui/src/components/Sidebar.test.tsx
+@@ -134,7 +134,7 @@ async function flushReact() {
+ describe("Sidebar", () => {
+   let container: HTMLDivElement;
+ 
+-  async function renderSidebar() {
++  async function renderSidebar(expandWork = true) {
+     const root = createRoot(container);
+     const queryClient = new QueryClient({
+       defaultOptions: { queries: { retry: false } },
+@@ -150,7 +150,10 @@ describe("Sidebar", () => {
+       );
+     });
+     await flushReact();
+-
++    if (expandWork) {
++      const toggle = container.querySelector<HTMLButtonElement>('button[aria-label="Expand Work"]');
++      if (toggle) { flushSync(() => toggle.click()); await flushReact(); }
++    }
+     return root;
+   }
+ 
+@@ -371,16 +374,17 @@ describe("Sidebar", () => {
+   });
+ 
+   describe("with Agent Chat on (PAP-670)", () => {
+-    it("leads the Work group with a single Chat row and keeps agent names out of the primary nav", async () => {
++    it("puts Chats directly below Team outside the Work group", async () => {
+       mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableAgentChat: true });
+       const root = await renderSidebar();
+ 
+       const chatLink = [...container.querySelectorAll("a")].find((anchor) => anchor.getAttribute("href") === "/chats");
+       expect(chatLink?.textContent).toContain("Chat");
+ 
+-      const workSection = chatLink?.closest("div")?.parentElement?.parentElement;
+-      const workText = workSection?.textContent ?? "";
+-      expect(workText.indexOf("Chat")).toBeLessThan(workText.indexOf("Tasks"));
++      expect(chatLink?.closest('[class*="group/sidebar-section"]')).toBeNull();
++      const links = [...container.querySelectorAll("nav a")];
++      const team = links.findIndex(link => link.getAttribute("href") === "/team");
++      expect(links[team + 1]).toBe(chatLink);
+ 
+       flushSync(() => {
+         root.unmount();
+@@ -504,6 +508,17 @@ describe("Sidebar", () => {
+     });
+   });
+ 
++  it("starts Work collapsed below the agent list", async () => {
++    mockInstanceSettingsApi.getExperimental.mockResolvedValue({ enableAgentChat: true });
++    const root = await renderSidebar(false);
++    const toggle = container.querySelector('button[aria-label="Expand Work"]');
++    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
++    const agents = container.querySelector('[data-testid="sidebar-agents"]')!;
++    expect(agents.compareDocumentPosition(toggle! ) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
++    expect(container.querySelector('a[href="/chats"]')).not.toBeNull();
++    flushSync(() => root.unmount());
++  });
++
+   it("groups and orders the streamlined Work and Org navigation", async () => {
+     mockInstanceSettingsApi.getExperimental.mockResolvedValue({
+       enableIsolatedWorkspaces: false,
+@@ -519,7 +534,7 @@ describe("Sidebar", () => {
+ 
+     expect(labels(workSection)).toEqual(["Tasks", "Projects", "Routines", "Artifacts"]);
+     expect(labels(orgSection)).toEqual(["Agents", "Skills", "Connectors", "Audit"]);
+-    expect(sections.indexOf(workSection!)).toBeLessThan(sections.indexOf(orgSection!));
++    expect(sections.indexOf(workSection!)).toBeGreaterThan(sections.indexOf(orgSection!));
+     expect(
+       workSection?.querySelector('a[href="/issues"] svg')?.classList.contains("lucide-circle-check"),
+     ).toBe(true);
+diff --git a/ui/src/components/Sidebar.tsx b/ui/src/components/Sidebar.tsx
+index c558bf4e96aaf1bff6d359ce1913cbe19d62eff5..e8481ab2926787496e8576b004f541bdd9ab9dac 100644
+--- a/ui/src/components/Sidebar.tsx
++++ b/ui/src/components/Sidebar.tsx
+@@ -22,11 +22,13 @@ import {
+   GanttChartSquare,
+   LayoutGrid,
+   Users,
++  UsersRound, // ppclip: NAV-1
+ } from "lucide-react";
+ import { useState, type ReactNode } from "react";
+ import { useQuery } from "@tanstack/react-query";
+ import { SidebarSection } from "./SidebarSection";
+ import { SidebarNavItem } from "./SidebarNavItem";
++import { PpclipOn } from "@/ppclip/features/PpclipOn"; // ppclip: module switches
+ import { SidebarAgents } from "./SidebarAgents";
+ import { SidebarProjects } from "./SidebarProjects";
+ import { SidebarStarredProjects } from "./SidebarStarredProjects";
+@@ -53,9 +55,8 @@ import { primarySidebarStyles } from "./primary-sidebar-styles";
+ export function Sidebar({ children }: { children?: ReactNode }) {
+   const { openNewIssue } = useDialogActions();
+   const { enabled: agentChatEnabled } = useAgentChatEnabled();
+-  // Every labeled section is collapsible (session-scoped, default open) —
+-  // one policy across static nav groups and the data-driven sections.
+-  const [workOpen, setWorkOpen] = useState(true);
++  // ppclip: Work starts collapsed; the agent list remains the primary workspace.
++  const [workOpen, setWorkOpen] = useState(false);
+   const [organizationOpen, setOrganizationOpen] = useState(true);
+   const { selectedCompanyId, selectedCompany } = useCompany();
+   const { collapsed, peeking } = useSidebar();
+@@ -90,7 +91,7 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+     (liveRuns ?? []).flatMap((run) => run.issueId ? [run.issueId] : []),
+   );
+   // PAP-670 splits the nav reorganization across two experimental flags.
+-  // Agent Chat: Chat leads Work as one row with its own agent rail (the
++  // Agent Chat: Chats lives below Team with its own agent rail (the
+   // streamlined shell only — the legacy shell keeps per-agent rows), and
+   // Workspaces leaves to make room. Combined Inbox + Task List: Inbox becomes
+   // views inside Tasks, so its row goes and its badge rides on Tasks.
+@@ -125,6 +126,67 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+     companyPrefix: selectedCompany?.issuePrefix ?? null,
+   };
+ 
++  const workSection = (
++        <SidebarSection label="Work" collapsible={{ open: workOpen, onOpenChange: setWorkOpen }}>
++          {/* Combined Inbox + Task List: Inbox is a view inside Tasks, so the
++              unread/failed-run badge rides on Tasks. */}
++          {combinedInboxTasks ? (
++            <SidebarNavItem
++              to="/issues"
++              label="Tasks"
++              icon={CircleCheck}
++              badge={inboxBadge.inbox}
++              badgeLabel="unread"
++              badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
++              alert={inboxBadge.failedRuns > 0}
++            />
++          ) : (
++            <SidebarNavItem to="/issues" label="Tasks" icon={CircleCheck} />
++          )}
++          {streamlinedUiEnabled ? (
++            <>
++              <SidebarNavItem to="/projects" label="Projects" icon={FolderOpen} />
++              <SidebarStarredProjects />
++            </>
++          ) : null}
++          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
++          <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
++          {showCases ? (
++            <SidebarNavItem to="/cases" label="Cases" icon={Layers} textBadge="beta" />
++          ) : null}
++          {showPipelines ? (
++            <SidebarNavItem to="/pipelines" label="Pipelines" icon={GitBranch} />
++          ) : null}
++          {showGoalsLink ? (
++            <SidebarNavItem to="/goals" label="Goals" icon={Target} />
++          ) : goalsLinkPending ? (
++            <div
++              data-testid="sidebar-goals-placeholder"
++              className="h-8 pointer-coarse:h-7"
++              aria-hidden="true"
++            />
++          ) : null}
++          {showWorkspacesLink ? (
++            <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
++          ) : null}
++          <PluginSlotOutlet
++            errorBehavior="hidden"
++            slotTypes={["sidebar"]}
++            context={pluginContext}
++            className="flex flex-col gap-0.5"
++            itemClassName="text-(length:--text-compact) font-medium"
++            missingBehavior="placeholder"
++          />
++          <PluginLauncherOutlet
++            errorBehavior="hidden"
++            placementZones={["sidebar"]}
++            context={pluginContext}
++            className="flex flex-col gap-0.5"
++            itemClassName="text-(length:--text-compact) font-medium"
++          />
++        </SidebarSection>
++  );
++
+   return (
+     <aside
+       className={cn(
+@@ -186,7 +248,9 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+               alert={inboxBadge.failedRuns > 0}
+             />
+           ) : null}
+-          {agentChatEnabled && !chatRail ? <SidebarNavItem to="/chats" label="Chat" icon={MessageCircle} /> : null}
++          {/* ppclip: NAV-1 Team page link, directly under Inbox */}
++          <PpclipOn feature="team"><SidebarNavItem to="/team" label="Team" icon={UsersRound} /></PpclipOn>
++          {agentChatEnabled ? <SidebarNavItem to="/chats" label="Chats" icon={MessageCircle} /> : null}
+           {showDecisions ? (
+             <SidebarNavItem
+               to="/decisions"
+@@ -204,70 +268,7 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+           ) : null}
+         </div>
+ 
+-        <SidebarSection label="Work" collapsible={{ open: workOpen, onOpenChange: setWorkOpen }}>
+-          {/* Agent Chat: Chat leads the Work group as a single row — the
+-              agents you talk to live in the Chat surface's own secondary rail
+-              (ChatContextualSidebar), not in the primary nav. */}
+-          {chatRail ? (
+-            <SidebarNavItem to="/chats" label="Chat" icon={MessageCircle} />
+-          ) : null}
+-          {/* Combined Inbox + Task List: Inbox is a view inside Tasks, so the
+-              unread/failed-run badge rides on Tasks. */}
+-          {combinedInboxTasks ? (
+-            <SidebarNavItem
+-              to="/issues"
+-              label="Tasks"
+-              icon={CircleCheck}
+-              badge={inboxBadge.inbox}
+-              badgeLabel="unread"
+-              badgeTone={inboxBadge.failedRuns > 0 ? "danger" : "default"}
+-              alert={inboxBadge.failedRuns > 0}
+-            />
+-          ) : (
+-            <SidebarNavItem to="/issues" label="Tasks" icon={CircleCheck} />
+-          )}
+-          {streamlinedUiEnabled ? (
+-            <>
+-              <SidebarNavItem to="/projects" label="Projects" icon={FolderOpen} />
+-              <SidebarStarredProjects />
+-            </>
+-          ) : null}
+-          <SidebarNavItem to="/routines" label="Routines" icon={Repeat} />
+-          <SidebarNavItem to="/artifacts" label="Artifacts" icon={Package} />
+-          {showCases ? (
+-            <SidebarNavItem to="/cases" label="Cases" icon={Layers} textBadge="beta" />
+-          ) : null}
+-          {showPipelines ? (
+-            <SidebarNavItem to="/pipelines" label="Pipelines" icon={GitBranch} />
+-          ) : null}
+-          {showGoalsLink ? (
+-            <SidebarNavItem to="/goals" label="Goals" icon={Target} />
+-          ) : goalsLinkPending ? (
+-            <div
+-              data-testid="sidebar-goals-placeholder"
+-              className="h-8 pointer-coarse:h-7"
+-              aria-hidden="true"
+-            />
+-          ) : null}
+-          {showWorkspacesLink ? (
+-            <SidebarNavItem to="/workspaces" label="Workspaces" icon={GitBranch} />
+-          ) : null}
+-          <PluginSlotOutlet
+-            errorBehavior="hidden"
+-            slotTypes={["sidebar"]}
+-            context={pluginContext}
+-            className="flex flex-col gap-0.5"
+-            itemClassName="text-(length:--text-compact) font-medium"
+-            missingBehavior="placeholder"
+-          />
+-          <PluginLauncherOutlet
+-            errorBehavior="hidden"
+-            placementZones={["sidebar"]}
+-            context={pluginContext}
+-            className="flex flex-col gap-0.5"
+-            itemClassName="text-(length:--text-compact) font-medium"
+-          />
+-        </SidebarSection>
++
+ 
+         {streamlinedUiEnabled ? (
+           <SidebarSection
+@@ -282,6 +283,7 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+         ) : null}
+ 
+         {children ?? (streamlinedUiEnabled ? <SidebarAgents streamlined /> : null)}
++        {streamlinedUiEnabled ? workSection : null}
+ 
+         {streamlinedUiEnabled ? (
+           <SidebarRecentTasks companyId={selectedCompanyId} liveIssueIds={liveIssueIds} />
+@@ -289,6 +291,7 @@ export function Sidebar({ children }: { children?: ReactNode }) {
+           <>
+             <SidebarProjects />
+             <SidebarAgents />
++            {workSection}
+             <SidebarSection
+               label="Organization"
+               collapsible={{ open: organizationOpen, onOpenChange: setOrganizationOpen }}
 diff --git a/ui/src/components/SidebarAgents.production.tsx b/ui/src/components/SidebarAgents.production.tsx
 index 08231f68b7db70e46072f29bf5eefc0d51e7ac57..c12cdf9a6b5b1b782f7a4d6c3a9f204e5ea9f49e 100644
 --- a/ui/src/components/SidebarAgents.production.tsx

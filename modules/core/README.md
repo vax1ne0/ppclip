@@ -2,6 +2,8 @@
 
 Settings → ppclip module switches, shared server route access, the local launcher, and small shared helpers.
 
+The primary sidebar places Chats directly below Team when agent chat is enabled. Work follows the agent list and starts collapsed in both sidebar layouts; users can expand it for tasks, projects and other work tools.
+
 **Settings → ppclip switch:** — (always on; it hosts the switches)
 
 The launcher starts an isolated local instance: `node scripts/ppclip/start-local.mjs --data <folder>`. Add `--with-computer` to also start the computer-use supervisor.
