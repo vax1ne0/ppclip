@@ -8,7 +8,7 @@ export type ProductVersion = {
   checkFailed?: boolean;
 };
 export type UpdateVersions = {
-  paperclip: ProductVersion & { compatibility: "supported" | "waiting" | "unknown" };
+  paperclip: ProductVersion & { compatibility: "supported" | "waiting" | "unknown"; releaseChannel: "stable" };
   ppclip: ProductVersion;
 };
 type Git = (dir: string, args: string[], timeout?: number) => Promise<string>;
@@ -42,7 +42,7 @@ export function latestPaperclipTag(output: string, prereleases: boolean) {
     const match = line.match(/^([a-f0-9]{40})\s+refs\/tags\/(.+?)(\^\{\})?$/);
     if (!match) continue;
     const name = version(match[2]!);
-    if (!name || (!prereleases && name.includes("-"))) continue;
+    if (!name || (!prereleases && !/^v?\d+\.\d+\.\d+$/.test(match[2]!))) continue;
     // ls-remote lists annotated tags before their peeled commit.
     tags.set(name, { version: name, commit: match[1]!, tag: match[2]! });
   }
@@ -64,7 +64,7 @@ export async function installedVersions(paths: UpdatePaths, git: Git): Promise<U
     paths.packageDir ? versionLabel(paths.packageDir, "HEAD", git) : null,
   ]);
   return {
-    paperclip: { current: version(tag), latest: null, updateAvailable: null, compatibility: "unknown" },
+    paperclip: { current: version(tag), latest: null, updateAvailable: null, compatibility: "unknown", releaseChannel: "stable" },
     ppclip: { current: ppclip, latest: null, updateAvailable: null },
   };
 }
@@ -76,7 +76,8 @@ export async function checkVersions(paths: UpdatePaths, git: Git, getTree = offi
   if (!installed.paperclip.current || !paths.packageDir) return installed;
   try {
     const remote = await git(paths.app, ["ls-remote", "--tags", "origin"], 20_000);
-    const latest = latestPaperclipTag(remote, installed.paperclip.current.includes("-"));
+    // The installed prerelease must never silently opt the user into nightlies.
+    const latest = latestPaperclipTag(remote, false);
     if (!latest) throw new Error("No release tags");
     const { version: label, commit, tag } = latest;
     installed.paperclip.latest = label;

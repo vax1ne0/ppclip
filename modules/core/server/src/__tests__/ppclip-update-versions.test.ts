@@ -51,6 +51,19 @@ describe("update version compatibility", () => {
     expect(result.ppclip).toMatchObject({ current: "0.2.0", latest: "0.2.0" });
   });
 
+  it("follows stable releases even when a canary is installed and newer nightlies exist", async () => {
+    const paths = await fixture(true);
+    await git(paths.app, ["tag", "-d", "v1.0.0"]);
+    await git(paths.app, ["tag", "canary/v2.0.0-canary.1"]);
+    await git(path.join(root!, "paperclip.git"), ["tag", "nightly/v3.0.0-nightly.0", "v1.1.0"]);
+    await git(path.join(root!, "paperclip.git"), ["tag", "nightly/v9.0.0", "v1.1.0"]);
+    const before = await git(paths.app, ["rev-parse", "HEAD"]);
+    expect((await checkVersions(paths, git)).paperclip).toMatchObject({
+      current: "2.0.0-canary.1", latest: "1.1.0", latestTag: "v1.1.0", releaseChannel: "stable", updateAvailable: false,
+    });
+    expect(await git(paths.app, ["rev-parse", "HEAD"])).toBe(before);
+  });
+
   it("reports a newer Paperclip release waiting for support without changing the checkout", async () => {
     const paths = await fixture(false);
     const before = await git(paths.app, ["rev-parse", "HEAD"]);

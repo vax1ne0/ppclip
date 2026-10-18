@@ -47,6 +47,17 @@ afterEach(() => {
 });
 
 describe("ppclip update service", () => {
+  it("discards cached prerelease-channel results after switching to stable tracking", async () => {
+    const { app, pkg, home } = layout();
+    fs.writeFileSync(path.join(home, "ppclip-update-check.json"), JSON.stringify({
+      available: [], checkedAt: "2026-10-18T10:00:00Z", error: null,
+      versions: { paperclip: { current: null, latest: "3.0.0-nightly.0", latestTag: "nightly/v3.0.0-nightly.0", updateAvailable: true, compatibility: "waiting" },
+        ppclip: { current: null, latest: null, updateAvailable: false } },
+    }));
+    const result = await updateService({ paths: { app, home, packageDir: pkg } }).status();
+    expect(result.checkedAt).toBeNull();
+    expect(result.versions?.paperclip).toMatchObject({ latest: null, updateAvailable: null, releaseChannel: "stable" });
+  });
   it("reports real check completion and never marks a failed check complete", async () => {
     const { app, pkg, home } = layout();
     const service = updateService({ paths: { app, home, packageDir: pkg } });

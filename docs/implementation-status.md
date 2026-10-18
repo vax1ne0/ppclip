@@ -4,7 +4,7 @@ This is a code inventory, not a claim that every scenario has passed a fresh end
 
 | Area | Implementation | Status |
 |---|---|---|
-| Settings and updates | `modules/core` plus integration hooks | Implemented, including module switches and completed-stage check progress. |
+| Settings and updates | `modules/core` plus integration hooks | Implemented, including module switches, completed-stage check progress and stable-only upstream update tracking. |
 | Team canvas and routing | `modules/team` | Implemented. |
 | Mascots, attention, roster and chat navigation | `modules/agents` plus shared/UI hooks | Implemented; some integrations necessarily modify upstream files. |
 | Live runs and task activity | `modules/live-runs`, `modules/task-chat` | Implemented. |
@@ -15,6 +15,7 @@ This is a code inventory, not a claim that every scenario has passed a fresh end
 | agent-browser, external Playwright harness, CUA or OpenSandbox integration | Discussed as possible tools / research references | Not installed or implemented by this package. The current browser tools use the desktop's own Chromium integration. |
 | Flexible revision checks | `install.mjs compatibility` | Implemented as a read-only applicability probe; untested revisions are not automatically supported. |
 | Native Paperclip plugin migration / all-future-version support | Architectural direction | Not implemented; no guarantee of compatibility with future upstream internals. |
+| Existing canary → older stable migration | Requires an overlay port and data compatibility verification | Not implemented. As checked on October 18, 2026, the current hook patch conflicts with stable v2026.1012.0; the running canary and its data are retained. |
 
 The former local handoff referred to Paperclip v2026.1012.0 and a removed `tools/build-patch.mjs`; it was obsolete and has been moved outside the package. Installation and export instructions now live in the maintained guides. Research recommendations do not become shipped features merely by appearing in a document.
 

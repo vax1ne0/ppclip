@@ -15,7 +15,7 @@ export type UpdateJob = {
 
 export type UpdateStatus = {
   versions?: {
-    paperclip: ProductVersion & { compatibility: "supported" | "waiting" | "unknown" };
+    paperclip: ProductVersion & { compatibility: "supported" | "waiting" | "unknown"; releaseChannel?: "stable" };
     ppclip: ProductVersion;
   };
   localChanges?: string[];

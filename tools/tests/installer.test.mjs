@@ -62,6 +62,33 @@ test("compatibility probes are read-only and distinguish verified, applicable an
     const head = git("rev-parse", "HEAD");
     assert.equal(JSON.parse(run("compatibility", "--ref", commit, "--json").stdout).results[0].status, "verified");
     assert.equal(git("rev-parse", "HEAD"), head);
+    // A newer supported prerelease is not an automatic update candidate.
+    git("tag", "canary/v2.0.0", head);
+    git("tag", "v1.0.0", commit);
+    const canaryDir = path.join(pkg, "hooks/canary");
+    fs.mkdirSync(canaryDir);
+    fs.copyFileSync(path.join(pkg, "hooks/test/hooks.patch"), path.join(canaryDir, "hooks.patch"));
+    const canary = JSON.parse(fs.readFileSync(path.join(pkg, "hooks/test/manifest.json"), "utf8"));
+    fs.writeFileSync(path.join(canaryDir, "manifest.json"), JSON.stringify({ ...canary, paperclipCommit: head, paperclipTree: git("rev-parse", `${head}^{tree}`) }));
+    const origin = path.join(temp, "origin.git");
+    git("clone", "-q", "--bare", target, origin);
+    git("remote", "add", "origin", origin);
+    git("checkout", "-q", commit);
+    assert.equal(run("install").status, 0);
+    assert.equal(run("update").status, 0);
+    assert.equal(git("rev-parse", "HEAD"), commit);
+    assert.equal(run("uninstall").status, 0);
+    fs.writeFileSync(path.join(target, "prerelease.txt"), "supported canary snapshot\n");
+    git("add", "."); git("commit", "-qm", "supported canary");
+    const installedCanary = git("rev-parse", "HEAD");
+    git("tag", "canary/v3.0.0", installedCanary);
+    fs.writeFileSync(path.join(canaryDir, "manifest.json"), JSON.stringify({ ...canary, paperclipCommit: installedCanary, paperclipTree: git("rev-parse", "HEAD^{tree}") }));
+    assert.equal(run("install").status, 0);
+    fs.writeFileSync(path.join(pkg, "modules/test/ui/src/ppclip/test.ts"), "export const test = false;\n");
+    assert.equal(run("update").status, 0);
+    assert.equal(git("rev-parse", "HEAD"), installedCanary);
+    assert.equal(fs.readFileSync(path.join(target, "ui/src/ppclip/test.ts"), "utf8"), "export const test = false;\n");
+    assert.equal(run("uninstall").status, 0);
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }

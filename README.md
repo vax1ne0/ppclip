@@ -57,6 +57,8 @@ Settings → ppclip → Updates shows update status and clear installation progr
 
 Normal installation requires a **tested Paperclip commit (or identical source tree)** and a clean official checkout. ppclip changes upstream internals, so a newer release is not automatically safe just because its patch applies.
 
+Update tracking follows **stable Paperclip releases only**. The currently supported overlay base below is a canary-era snapshot; stable tracking does not turn it into a stable installation. ppclip-only fixes remain available on that base. Moving an existing canary installation to an older stable release requires a compatible overlay and a verified data migration; the updater does not downgrade it automatically.
+
 | Supported Paperclip revision | Official commit | Integration hooks |
 |---|---|---|
 | Snapshot after `v2026.1017.0-canary.2` | `669d329f2` | [master-669d329f2](hooks/master-669d329f2/) |

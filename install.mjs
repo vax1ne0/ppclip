@@ -12,8 +12,8 @@
 // one, otherwise a folder next to this ppclip repo that is one (the recommended layout).
 // --with-deps also runs pnpm install --frozen-lockfile in the checkout.
 //
-// update moves the checkout to the newest official commit this package has hooks for and
-// reinstalls ppclip on it (or just reinstalls, after pulling a newer ppclip). On any failure it
+// update moves only to supported stable releases ahead of the installed commit,
+// or reinstalls ppclip on its existing supported base. On any failure it
 // puts the previous commit back and reinstalls ppclip there.
 //
 // ppclip has two parts:
@@ -321,9 +321,17 @@ function update() {
     .map((v) => ({ ...v, time: Number(git(["show", "-s", "--format=%ct", v.commit]).out) }))
     .sort((a, b) => a.time - b.time);
   if (!known.length) fail(`None of the Paperclip versions this ppclip supports (${versions().join(", ")}) are in this checkout's history, even after fetching. Is its origin official Paperclip?`);
-  const newest = known.at(-1);
   const head = git(["rev-parse", "HEAD"]).out;
   const current = detectVersion();
+  // New upstream transitions must land on a stable release tag. An existing
+  // prerelease may still receive ppclip-only fixes on its unchanged commit.
+  const stable = known.filter(item => git(["tag", "--points-at", item.commit]).out.split("\n")
+    .some(tag => /^v?\d+\.\d+\.\d+$/.test(tag)));
+  const newestStable = stable.at(-1);
+  const currentSupported = known.find(item => item.commit === head);
+  const newest = newestStable && (head === newestStable.commit || git(["merge-base", "--is-ancestor", head, newestStable.commit]).ok)
+    ? newestStable : currentSupported;
+  if (!newest) fail("No compatible stable Paperclip upgrade is available. Prerelease upgrades and automatic downgrades are disabled; nothing was changed.");
 
   if (current === newest.version) {
     if (!record) {

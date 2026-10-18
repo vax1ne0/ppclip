@@ -175,6 +175,7 @@ export function updateService(deps: UpdateDeps = {}) {
       const installed = readJson<{ installedAt: string; paperclipVersion: string }>(path.join(paths.app, ".ppclip-overlay.json"));
       const localVersions = await installedVersions(paths, git);
       const stale = Boolean((lastCheck?.packageHead && lastCheck.packageHead !== current?.commit)
+        || (lastCheck?.versions && lastCheck.versions.paperclip.releaseChannel !== "stable")
         || (lastCheck?.versions && lastCheck.versions.paperclip.current !== localVersions.paperclip.current));
       const versions = !stale && lastCheck?.versions ? {
         paperclip: { ...lastCheck.versions.paperclip, current: localVersions.paperclip.current },
@@ -188,7 +189,7 @@ export function updateService(deps: UpdateDeps = {}) {
         current,
         available: stale ? [] : lastCheck?.available ?? [],
         checkedAt: stale ? null : lastCheck?.checkedAt ?? null,
-        checkError: lastCheck?.error ?? null,
+        checkError: stale ? null : lastCheck?.error ?? null,
         blocked: await blocked(),
         runningRuns: deps.countRunningRuns ? await deps.countRunningRuns() : 0,
         job: job(),

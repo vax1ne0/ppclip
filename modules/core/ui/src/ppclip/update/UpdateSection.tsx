@@ -22,14 +22,17 @@ function checkedLabel(value?: string | null) {
   return "Last checked " + new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 }
 
-function VersionRow({ name, item, compatibility, releaseHref }: {
+function VersionRow({ name, item, compatibility, releaseHref, stableOnly = false }: {
   name: string;
   item: NonNullable<UpdateStatus["versions"]>["ppclip"];
   compatibility?: "supported" | "waiting" | "unknown";
   releaseHref?: string;
+  stableOnly?: boolean;
 }) {
   const newer = item.updateAvailable;
-  const label = item.checkFailed ? "Couldn’t check" : newer
+  const prerelease = stableOnly && item.current?.includes("-");
+  const showLatest = newer || (stableOnly && item.latest && item.latest !== item.current);
+  const label = item.checkFailed ? "Couldn’t check" : prerelease ? "Prerelease installed" : newer
     ? compatibility === "waiting" ? "Waiting for ppclip support" : compatibility === "unknown" ? "Support not confirmed" : "Update available"
     : item.updateAvailable === null ? "Not checked" : "Up to date";
   return <div className="flex items-start gap-3 py-2">
@@ -37,7 +40,7 @@ function VersionRow({ name, item, compatibility, releaseHref }: {
     <dd className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
       <span className="flex min-w-0 flex-wrap items-center gap-2 tabular-nums">
         <span>{item.current ?? "Version unavailable"}</span>
-        {newer && item.latest && <><ArrowRight className="size-3" aria-label="New version" />{releaseHref
+        {showLatest && item.latest && <>{newer ? <ArrowRight className="size-3" aria-label="New version" /> : <span>Latest stable:</span>}{releaseHref
           ? <a href={releaseHref} target="_blank" rel="noopener noreferrer" aria-label={`View ${name} ${item.latest} release on GitHub (opens in a new tab)`}
               className="rounded-sm text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">{item.latest}</a>
           : <span className="text-foreground">{item.latest}</span>}</>}
@@ -135,11 +138,12 @@ export function UpdateSection() {
   }
 
   const paperclip = data?.versions?.paperclip;
+  const prereleaseInstalled = paperclip?.releaseChannel === "stable" && Boolean(paperclip.current?.includes("-"));
   const paperclipUpgrade = paperclip?.updateAvailable && paperclip.compatibility === "supported";
   const available = Boolean(data?.available.length || paperclipUpgrade);
   const needsAttention = Boolean(data?.checkError || check.isError || status.isError);
   const busy = updating || start.isPending || check.isPending || status.isLoading;
-  const statusLabel = updating || start.isPending ? "Updating…" : check.isPending ? "Checking…" : status.isLoading ? "Loading…" : needsAttention ? "Couldn’t check for updates" : !data?.checkedAt ? "Check for updates" : available ? "Update available" : paperclip?.updateAvailable ? "No compatible updates" : "Up to date";
+  const statusLabel = updating || start.isPending ? "Updating…" : check.isPending ? "Checking…" : status.isLoading ? "Loading…" : needsAttention ? "Couldn’t check for updates" : !data?.checkedAt ? "Check for updates" : available ? "Update available" : paperclip?.updateAvailable ? "No compatible updates" : prereleaseInstalled ? "Prerelease installed" : "Up to date";
   const StatusIcon = busy ? RefreshCw : needsAttention ? AlertCircle : data?.checkedAt && !available ? CheckCircle2 : Download;
   return (
     <section className="space-y-3" aria-labelledby="ppclip-updates" data-testid="ppclip-update-section">
@@ -150,7 +154,7 @@ export function UpdateSection() {
             <StatusIcon aria-hidden className={"mt-0.5 size-4 shrink-0 " + (busy ? "motion-safe:animate-spin " : "") + (needsAttention ? "text-muted-foreground" : "text-foreground")} />
             <div className="min-w-0 space-y-1">
               <h3 className="text-sm font-semibold" data-testid="ppclip-update-status" aria-live="polite">{statusLabel}</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">{check.isPending ? checkSteps.label : needsAttention ? "Check your connection and try again." : !busy && available ? "A new version of ppclip is ready to install." : checkedLabel(data?.checkedAt)}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{check.isPending ? checkSteps.label : needsAttention ? "Check your connection and try again." : !busy && available ? "A new version of ppclip is ready to install." : !busy && data?.checkedAt && prereleaseInstalled ? "Following stable releases. Your installed prerelease is unchanged." : checkedLabel(data?.checkedAt)}</p>
             </div>
           </div>
           {!updating && <div className="flex shrink-0 flex-wrap gap-2">
@@ -170,6 +174,7 @@ export function UpdateSection() {
           </summary>
           <dl className="divide-y divide-border border-t border-border px-4 py-1" aria-label="Installed and available versions" data-testid="ppclip-update-versions">
             <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility}
+              stableOnly={data.versions.paperclip.releaseChannel === "stable"}
               releaseHref={data.versions.paperclip.latestTag
                 ? `https://github.com/paperclipai/paperclip/releases/tag/${encodeURIComponent(data.versions.paperclip.latestTag)}`
                 : "https://github.com/paperclipai/paperclip/releases"} />

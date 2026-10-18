@@ -54,6 +54,19 @@ afterEach(() => {
 });
 
 describe("UpdateSection", () => {
+  it("shows an installed canary separately from the older latest stable, without offering a downgrade", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", versions: {
+      paperclip: { current: "2026.1017.0-canary.3", latest: "2026.1012.0", latestTag: "v2026.1012.0", releaseChannel: "stable", updateAvailable: false, compatibility: "waiting" },
+      ppclip: { current: "0.2.0", latest: "0.2.0", updateAvailable: false },
+    } }));
+    await render();
+    expect(q("ppclip-update-status")?.textContent).toBe("Prerelease installed");
+    expect(q("ppclip-update-versions")?.textContent).toContain("Latest stable:2026.1012.0");
+    expect(q("ppclip-update-versions")?.querySelector("a")?.getAttribute("href"))
+      .toBe("https://github.com/paperclipai/paperclip/releases/tag/v2026.1012.0");
+    expect(q("ppclip-update-versions")?.querySelector('[aria-label="New version"]')).toBeNull();
+    expect(q("ppclip-update-start")).toBeNull();
+  });
   it("advances only when the server reports completed check stages", async () => {
     mockApi.status.mockResolvedValue(status());
     let finish!: (value: UpdateStatus) => void;
