@@ -53,31 +53,39 @@ afterEach(() => {
 });
 
 describe("UpdateSection", () => {
-  it("shows the installed version and says when it is up to date", async () => {
+  it("shows a friendly failed-check message without exposing the raw error", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", checkError: "git fetch failed: C:/private/repo" }));
+    await render();
+    expect(q("ppclip-update-status")?.textContent).toBe("Couldn’t check for updates");
+    expect(container.textContent).not.toContain("C:/private/repo");
+    expect(q("ppclip-update-start")).toBeNull();
+  });
+  it("shows a clear status without internal revision details", async () => {
     mockApi.status.mockResolvedValue(status());
     mockApi.check.mockResolvedValue(status({ checkedAt: "2026-10-17T20:00:00Z" }));
     await render();
-    expect(q("ppclip-update-current")?.textContent).toMatch(/73cf0bd[\s\S]*Computer use: agent card/);
+    expect(container.textContent).not.toContain("73cf0bd");
     await act(async () => { q("ppclip-update-check")!.click(); });
     await flush();
-    expect(q("ppclip-update-none")?.textContent).toBe("ppclip is up to date.");
+    expect(q("ppclip-update-status")?.textContent).toBe("Up to date");
     expect(q("ppclip-update-start")).toBeNull();
   });
 
-  it("distinguishes local edits from upstream updates and exposes diagnostics", async () => {
+  it("keeps local files and diagnostics out of the user interface", async () => {
     mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", localChanges: [" M modules.json", "?? notes.txt"], logTail: ["dependency install failed"] }));
     await render();
-    expect(q("ppclip-update-none")?.textContent).toMatch(/No new upstream commits/);
-    expect(container.textContent).toContain("Local changes (2)");
-    expect(container.textContent).toContain("notes.txt");
-    expect(container.textContent).toContain("dependency install failed");
+    expect(q("ppclip-update-status")?.textContent).toBe("Up to date");
+    expect(container.textContent).not.toContain("Local changes");
+    expect(container.textContent).not.toContain("notes.txt");
+    expect(container.textContent).not.toContain("dependency install failed");
+    expect(container.textContent).not.toContain("/x/ppclip-package");
   });
 
   it("resumes progress when opened during an update", async () => {
     mockApi.status.mockResolvedValue(status({ job: { state: "running", step: "Installing dependencies", startedAt: new Date().toISOString() } }));
     await render();
     await flush();
-    expect(q("ppclip-update-progress")?.textContent).toContain("Installing dependencies");
+    expect(q("ppclip-update-progress")?.textContent).toContain("Installing update");
     expect(q("ppclip-update-check")).toBeNull();
   });
 
@@ -85,7 +93,8 @@ describe("UpdateSection", () => {
     mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", blocked: "Local edits", localChanges: [" M modules.json"] }));
     await render();
     expect(q("ppclip-update-status")?.textContent).toBe("Up to date");
-    expect(container.querySelector("details")?.open).toBe(false);
+    expect(container.querySelector("details")).toBeNull();
+    expect(q("ppclip-update-blocked")).toBeNull();
     expect(container.querySelector("progress")).toBeNull();
   });
 
@@ -100,17 +109,18 @@ describe("UpdateSection", () => {
     expect(q("ppclip-update-status")?.textContent).toBe("Checking…");
     await act(async () => { finish(status({ checkedAt: "2026-10-18T10:00:00Z", available: ["abc Fix"] })); });
     await flush();
-    expect(q("ppclip-update-status")?.textContent).toContain("Out of date");
+    expect(q("ppclip-update-status")?.textContent).toBe("Update available");
     expect(container.querySelector("progress")).toBeNull();
   });
 
-  it("lists new commits and offers Update and restart", async () => {
+  it("offers Update and restart without exposing commit titles", async () => {
     mockApi.status.mockResolvedValue(status());
     mockApi.check.mockResolvedValue(status({ checkedAt: "x", available: ["abc1234 Update button", "def5678 Fix"] }));
     await render();
     await act(async () => { q("ppclip-update-check")!.click(); });
     await flush();
-    expect(q("ppclip-update-available")?.textContent).toMatch(/2 updates available[\s\S]*Update button/);
+    expect(q("ppclip-update-status")?.textContent).toBe("Update available");
+    expect(container.textContent).not.toContain("abc1234");
     expect(q("ppclip-update-start")).not.toBeNull();
   });
 
@@ -120,7 +130,8 @@ describe("UpdateSection", () => {
     await render();
     await act(async () => { q("ppclip-update-check")!.click(); });
     await flush();
-    expect(q("ppclip-update-blocked")?.textContent).toMatch(/start-local/);
+    expect(q("ppclip-update-blocked")?.textContent).toContain("Contact the person who set up");
+    expect(container.textContent).not.toContain("start-local.mjs");
     expect(q("ppclip-update-start")).toBeNull();
   });
 
@@ -154,7 +165,8 @@ describe("UpdateSection", () => {
     mockApi.check.mockResolvedValue(status({ checkedAt: "x", available: ["abc Update"] }));
     vi.spyOn(window, "confirm").mockReturnValue(false);
     await render();
-    expect(q("ppclip-update-failed")?.textContent).toMatch(/pnpm install failed/);
+    expect(q("ppclip-update-failed")?.textContent).toContain("couldn’t finish");
+    expect(container.textContent).not.toContain("pnpm install failed");
     await act(async () => { q("ppclip-update-check")!.click(); });
     await flush();
     await act(async () => { q("ppclip-update-start")!.click(); });

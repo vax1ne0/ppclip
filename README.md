@@ -22,7 +22,7 @@ You keep the official repository. ppclip adds its own modules and marked integra
 | **Approved models** | Company-specific model lists enforced before dispatch, including task overrides and provider switches. Independently switchable. |
 | **Run controls** | Team Unlimited / Drain / Resume, daily runs left, and “Drain after next run.” |
 | **Agent visibility** | Urgency ordering, attention statuses, pending confirmations, roster columns, and task hover details. |
-| **Updates and fixes** | Compact update status and progress, local-change diagnostics, recovery for stale run states, live refresh, and Windows sign-in fixes. |
+| **Updates and fixes** | A dedicated Updates page with clear status and progress, recovery for stale run states, live refresh, and Windows sign-in fixes. |
 
 **Choose what stays on.** Open **Settings → ppclip** to toggle modules independently across the instance. Module availability defaults to on; computer access, automatic provider switching, and run controls require their own opt-in settings. Only instance administrators can change module switches.
 
@@ -47,9 +47,9 @@ Each module explains what changes when it is disabled. This example has Approved
 
 ### Update settings
 
-The update section shows version status, checks, and expandable diagnostics. Local edits remain visible when they block installation.
+Settings → Updates shows whether ppclip is up to date, with a check button and clear installation progress.
 
-![Updates section with Up to date status, Check for updates, and expanded version details in the current settings layout](docs/images/updates.jpg)
+![Dedicated Updates settings page with Up to date status, Check for updates, and the last update date](docs/images/updates.jpg)
 
 </details>
 
@@ -113,7 +113,7 @@ Each browser profile lives in a separate Docker volume. Taking control prevents 
 
 ## Updates and removal
 
-When using the local launcher, open **Settings → ppclip → Updates** to check for new commits and run **Update and restart**. The page tracks progress and reloads when the app returns. Updates require instance-admin access and refuse to overwrite local package changes.
+When using the local launcher, open **Settings → Updates** to check for a new version and run **Update and restart**. The page tracks progress and reloads when the app returns. Updates require instance-admin access and refuse to overwrite local package changes.
 
 From the parent workspace folder:
 
