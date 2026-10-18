@@ -172,26 +172,6 @@ describe('shared reporting branches', () => {
     const blocked = new Map(boxes).set('obstacle', { x: 550, y: 210, w: 100, h: 120 });
     expect(routeReportingBranches(edges, blocked).size).toBe(0);
   });
-  it('keeps clear siblings on the same height when one child needs a detour', () => {
-    const blocked = new Map(boxes).set('obstacle', { x: 850, y: 300, w: 100, h: 40 });
-    const routes = routeReportingBranches(edges, blocked);
-    expect([...routes.keys()]).toEqual(['a', 'b']);
-    expect(routes.get('a')![1].y).toBe(routes.get('b')![1].y);
-    expect(routeReportingBranches([...edges].reverse(), blocked)).toEqual(routes);
-    for (const path of routes.values()) for (let i = 1; i < path.length; i++) {
-      for (const card of blocked.values()) expect(crossesCard(path[i - 1], path[i], card)).toBe(false);
-    }
-  });
-  it('prefers aligning every sibling over a closer height that only clears some', () => {
-    const blocked = new Map(boxes).set('obstacle', { x: 200, y: 260, w: 100, h: 30 });
-    const routes = routeReportingBranches(edges, blocked);
-    expect(routes.size).toBe(3);
-    expect(new Set([...routes.values()].map(path => path[1].y)).size).toBe(1);
-    expect(routes.get('a')![1].y).not.toBeCloseTo(273.3333);
-    for (const path of routes.values()) for (let i = 1; i < path.length; i++) {
-      for (const card of blocked.values()) expect(crossesCard(path[i - 1], path[i], card)).toBe(false);
-    }
-  });
   it('never combines different managers or hidden reports', () => {
     expect(routeReportingBranches([edges[0], { ...edges[1], from: 'other' }, { id: 'hidden', from: 'manager', to: 'hidden' }], boxes).size).toBe(0);
   });
