@@ -25,7 +25,7 @@ import { grokLocalReasoningEffortsForModel } from "@paperclipai/adapter-grok-loc
 import { conflict, notFound, unprocessable } from "../../errors.js";
 import { sanitizeRecord } from "../../redaction.js";
 import { logActivity } from "../../services/activity-log.js";
-import { updateAgentConfigurationInTransaction } from "../../services/agent-configuration-transaction.js";
+import { updateAgentConfigurationInTransaction } from "../../services/agents.js";
 import { aiConnectionService } from "../../services/ai-connections.js";
 import { ppclipFeature } from "../features.js";
 import {

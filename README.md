@@ -57,10 +57,11 @@ Settings → ppclip → Updates shows update status and clear installation progr
 
 Normal installation requires a **tested Paperclip commit (or identical source tree)** and a clean official checkout. ppclip changes upstream internals, so a newer release is not automatically safe just because its patch applies.
 
-Update tracking follows **stable Paperclip releases only**. The currently supported overlay base below is a canary-era snapshot; stable tracking does not turn it into a stable installation. ppclip-only fixes remain available on that base. Moving an existing canary installation to an older stable release requires a compatible overlay and a verified data migration; the updater does not downgrade it automatically.
+Update tracking follows **stable Paperclip releases only**. New installations can use stable `v2026.1012.0`; the existing canary base remains supported for ppclip-only fixes. Moving an existing canary installation to an older stable release still requires a verified data migration; the updater does not downgrade it automatically.
 
 | Supported Paperclip revision | Official commit | Integration hooks |
 |---|---|---|
+| Stable `v2026.1012.0` | `bba6a45f0` | [v2026.1012.0](hooks/v2026.1012.0/) |
 | Snapshot after `v2026.1017.0-canary.2` | `669d329f2` | [master-669d329f2](hooks/master-669d329f2/) |
 
 Check any locally available revision without changing your checkout:
@@ -80,7 +81,7 @@ Clone the repositories side by side, then apply the overlay:
 ~~~bash
 git clone https://github.com/paperclipai/paperclip
 git clone https://github.com/vax1ne0/ppclip
-git -C paperclip checkout 669d329f257805ff3c171341ee6942d681cc6a0e
+git -C paperclip checkout v2026.1012.0
 
 node ppclip/install.mjs install --target ./paperclip --with-deps
 ~~~

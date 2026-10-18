@@ -2,6 +2,10 @@
 
 ppclip is a source overlay. Modules are separate, but integration hooks change Paperclip internals: navigation, mascot rendering, agent configuration, run dispatch and recovery. A Git patch can apply while an imported type, function signature or runtime contract has changed elsewhere. No installer can guarantee compatibility with arbitrary future upstream changes.
 
+Stable `v2026.1012.0` and the existing `669d329f2` canary snapshot have separate hook sets and share the same module source. The stable hooks integrate with its monolithic agent and heartbeat services; the canary hooks target its extracted services. Stable keeps its upstream connection/sign-in flow. ppclip does not backport the canary's entire provider gateway or browser-login subsystem.
+
+Use a fresh data directory for a stable installation. Stable support does not certify opening a newer canary database with older server code, and the updater will not perform that downgrade.
+
 ## Check a revision without changing files
 
 ```bash

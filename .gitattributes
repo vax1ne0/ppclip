@@ -1,3 +1,4 @@
 # The installer verifies these files by sha256: never convert their line endings.
-*.patch -text
+# A blank context line in a unified diff contains a required space prefix.
+*.patch -text -whitespace
 hooks/**/*.json -text

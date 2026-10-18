@@ -32,3 +32,5 @@ node install.mjs compatibility --target ../paperclip --ref HEAD
    This rewrites `modules/` (module READMEs are kept) and `hooks/<version>/`. The version name is the official tag at the checkout's commit, or `master-<short commit>`; pass `--name` to choose.
 
 **Supporting a new official release:** check out the new tag, apply the current `hooks/<version>/hooks.patch` with `git apply -3`, resolve any conflicts in the marked hook lines, copy the module files in, test, then export with `--name <tag>`. Remove hook folders for versions you no longer support, and tag the ppclip release.
+
+Both supported hook sets use the same `modules/` files. After changing a shared module, verify stable and canary in separate checkouts. When upstream moves an integration (for example, stable's monolithic heartbeat versus canary's extracted services), adapt its version-specific hooks instead of copying newer upstream internals wholesale. Provider routing imports its transactional configuration writer from the agent service: each hook set delegates to that base's official write path, preserving revisions, secret normalization and session resets.

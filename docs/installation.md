@@ -16,7 +16,7 @@ my-folder/
 # 1. Clone both, and put Paperclip on a supported version (see the compatibility table in ../README.md)
 git clone https://github.com/paperclipai/paperclip
 git clone https://github.com/vax1ne0/ppclip
-git -C paperclip checkout 669d329f2
+git -C paperclip checkout v2026.1012.0
 
 # 2. Apply ppclip and install Paperclip's dependencies
 node ppclip/install.mjs install --with-deps

@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "5b978d0b379b5093e4d551b8174bb027f7926cb0f33f776f81d704f8f3930ddd",
-  "generatedAt": "2026-10-18T09:31:33.580Z",
+  "hooksSha256": "1b3ba2dfbca501f2486b057f0a185af9d6f42d2c8528bbded688f9e1b07a762c",
+  "generatedAt": "2026-10-18T10:55:36.690Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
@@ -27,6 +27,7 @@
     "server/src/services/agent-avatars.ts",
     "server/src/services/agent-configuration.ts",
     "server/src/services/agent-hiring.ts",
+    "server/src/services/agents.ts",
     "server/src/services/heartbeat.ts",
     "server/src/services/heartbeat/queue.ts",
     "server/src/services/heartbeat/recovery.ts",

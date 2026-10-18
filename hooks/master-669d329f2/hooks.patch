@@ -4096,3 +4096,14 @@ index 85c63e50d88e315155a1f4b33fd03a1435aaa452..a52f91b2339038349a6e366139726a1a
      if (!current.mounted || scope.current !== current || signal?.aborted) return;
      navigate(`/chats/${encodeURIComponent(agentRouteRef(agent))}`);
      if (isMobile) setSidebarOpen(false);
+diff --git a/server/src/services/agents.ts b/server/src/services/agents.ts
+index d3bcaca2b1131ebdb477a1403daf3a566c024416..3e2859d68109d6ecd990671d621ed7cad538a11d 100644
+--- a/server/src/services/agents.ts
++++ b/server/src/services/agents.ts
+@@ -282,3 +282,6 @@ export function agentService(db: Db, budgetHooks: BudgetServiceHooks = {}) {
+     clearError: (id: string) => createAgentLifecycle(db, budgetHooks).clearError(id),
+   };
+ }
++
++// ppclip: stable and canary expose the same transactional routing integration.
++export { updateAgentConfigurationInTransaction } from "./agent-configuration-transaction.js";
