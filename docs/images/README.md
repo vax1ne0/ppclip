@@ -7,7 +7,7 @@ These are real UI captures from a local ppclip installation on 2026-10-18, using
 | `team.jpg` | Team canvas fitted to all seven agents, showing four reporting relationships, role colours and aligned action buttons. |
 | `computer.jpg` | Connected Live screen page with the simplified header, human-control state and expiry, and Chromium showing Google's signed-out home page. |
 | `modules.jpg` | Refreshed Settings → ppclip with the current settings sidebar and module cards, scrolled to Providers and Run controls. Approved models is disabled in this instance; the module defaults to on. |
-| `updates.jpg` | Compact Updates section inside Settings → ppclip with both installed versions and release compatibility. Version values and support status reflect the capture. Technical diagnostics are kept out of the UI. |
+| `updates.jpg` | Compact Updates section inside Settings → ppclip, with Versions collapsed by default. Expand it for both installed versions and release compatibility. Update status reflects the capture. |
 
 The screenshots contain no account email addresses, credentials, or private chat messages. Company and agent labels reflect this local installation. Images are viewport captures, without browser chrome or image-generated content.
 

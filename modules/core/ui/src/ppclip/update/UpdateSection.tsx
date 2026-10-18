@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, ArrowRight, CheckCircle2, Download, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, ChevronDown, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ppclipUpdateApi, type UpdateStatus } from "./api";
@@ -132,10 +132,15 @@ export function UpdateSection() {
           </div>}
         </div>
         {busy && <progress aria-label={updating || start.isPending ? "Updating ppclip" : "Checking for updates"} className="block h-1.5 w-full accent-primary" />}
-        {data?.versions && <dl className="divide-y divide-border border-t border-border px-4 py-1" aria-label="Installed and available versions" data-testid="ppclip-update-versions">
-          <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility} />
-          <VersionRow name="ppclip" item={data.versions.ppclip} />
-        </dl>}
+        {data?.versions && <details className="group/versions border-t border-border" data-testid="ppclip-update-version-details">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
+            <span>Versions</span><ChevronDown aria-hidden className="size-3.5 group-open/versions:rotate-180" />
+          </summary>
+          <dl className="divide-y divide-border border-t border-border px-4 py-1" aria-label="Installed and available versions" data-testid="ppclip-update-versions">
+            <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility} />
+            <VersionRow name="ppclip" item={data.versions.ppclip} />
+          </dl>
+        </details>}
         {!busy && available && data?.blocked && <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground" data-testid="ppclip-update-blocked">Automatic updates aren’t available right now. Contact the person who set up this installation to help update it.</p>}
         {updating && <div role="status" aria-live="polite" className="space-y-2 px-5 pb-5" data-testid="ppclip-update-progress">
           <p className="text-sm font-medium">{status.isError || !job ? "Restarting Paperclip…" : job.state === "done" ? "Updated. Reloading…" : progressLabel(job.step)}</p>
