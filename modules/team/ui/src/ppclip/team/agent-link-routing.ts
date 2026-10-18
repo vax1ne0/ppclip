@@ -67,6 +67,8 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
   occupied?: RoutePoint[][];
   ports?: { from: PortSide; to: PortSide };
   preferredPorts?: { from: PortSide; to: PortSide };
+  /** Reporting arrows prefer entering a lower child's top (or an upper child's bottom). */
+  preferVerticalEntry?: boolean;
   shortLeads?: boolean;
 } = {}): RoutePoint[] {
   // Saved sides are a soft preference, never a permanent constraint. Compare
@@ -75,6 +77,13 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
     const { preferredPorts, ...rest } = options;
     const preferred = routeAgentLink(from, to, cards, { ...rest, ports: preferredPorts });
     const adaptive = routeAgentLink(from, to, cards, { ...rest, ports: undefined, shortLeads: true });
+    const entryPenalty = (path: RoutePoint[]) => {
+      if (!options.preferVerticalEntry || !path.length) return 0;
+      const centerY = from.y + from.h / 2;
+      const entryY = to.y >= centerY + 16 ? to.y : to.y + to.h <= centerY - 16 ? to.y + to.h : null;
+      // A bounded preference can beat a small distance saving, but yields to long obstacle detours.
+      return entryY !== null && path.at(-1)!.y !== entryY ? Math.min(160, Math.max(64, to.w / 2)) : 0;
+    };
     const cost = (path: RoutePoint[]) => path.length < 2 ? Infinity : path.slice(1).reduce((sum, p, i) => {
       const a = path[i];
       const overlap = (options.occupied ?? []).reduce((n, line) => n + line.slice(1).reduce((m, d, j) => {
@@ -86,7 +95,7 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
         return m + Math.max(0,length)*40;
       },0),0);
       return sum + Math.abs(p.x-a.x) + Math.abs(p.y-a.y) + overlap;
-    }, Math.max(0,path.length-2)*24);
+    }, Math.max(0,path.length-2)*24 + entryPenalty(path));
     // Check simple routes across ALL side pairs before trusting the corridor
     // search. Its centering preference can otherwise hide a clear short elbow.
     const portCandidates = (card: RouteCard) => [

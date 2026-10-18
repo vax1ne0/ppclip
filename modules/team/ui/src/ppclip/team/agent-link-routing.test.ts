@@ -108,6 +108,33 @@ describe('adaptive saved connection sides', () => {
   });
 });
 
+describe('reporting entry preference', () => {
+  const parent = { x: 0, y: 0, w: 320, h: 260 };
+  const child = { x: 370, y: 285, w: 320, h: 230 };
+  const preferredPorts = { from: 'right', to: 'left' } as const;
+  it('prefers a single elbow into the lower child’s top over the saved side-entry dogleg', () => {
+    const route = routeAgentLink(parent, child, [parent, child], { preferredPorts, preferVerticalEntry: true });
+    expect(route).toEqual([{ x: 320, y: 130 }, { x: 530, y: 130 }, { x: 530, y: 285 }]);
+  });
+  it('mirrors the preference for a lower child on the left', () => {
+    const left = { ...child, x: -370 };
+    const route = routeAgentLink(parent, left, [parent, left], { preferredPorts: { from: 'left', to: 'right' }, preferVerticalEntry: true });
+    expect(route).toEqual([{ x: 0, y: 130 }, { x: -210, y: 130 }, { x: -210, y: 285 }]);
+  });
+  it('yields to obstacles rather than forcing the preferred elbow through a card', () => {
+    const blocker = { x: 400, y: 50, w: 200, h: 240 };
+    const cards = [parent, child, blocker];
+    const route = routeAgentLink(parent, child, cards, { preferredPorts, preferVerticalEntry: true });
+    expect(route.length).toBeGreaterThan(1);
+    for (let i = 1; i < route.length; i++) for (const card of cards) expect(crossesCard(route[i - 1], route[i], card)).toBe(false);
+  });
+  it('keeps aligned peers direct', () => {
+    const peer = { ...child, y: 15 };
+    const route = routeAgentLink(parent, peer, [parent, peer], { preferredPorts, preferVerticalEntry: true });
+    expect(route).toEqual([{ x: 320, y: 130 }, { x: 370, y: 130 }]);
+  });
+});
+
 it('uses the clear side gap in the reported six-agent layout', () => {
   const manager={x:738,y:423,w:248,h:298}, target={x:414,y:398,w:248,h:262};
   const all=[manager,target,{x:738,y:64,w:248,h:262},{x:378,y:45,w:248,h:281},{x:104,y:398,w:248,h:262},{x:29,y:55,w:248,h:262}];

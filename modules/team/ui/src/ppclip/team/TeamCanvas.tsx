@@ -215,6 +215,7 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
       const points = branches.get(edge.id) ?? routeAgentLink(from, to, cards, {
         occupied: edge.kind === "report" ? [] : occupied,
         preferredPorts: edgePorts[edge.id],
+        preferVerticalEntry: edge.kind === "report",
         side: reciprocal ? (edge.from < edge.to ? "above" : "below") : undefined,
       });
       occupied.push(points);
