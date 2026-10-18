@@ -1,3 +1,3 @@
 # The installer verifies these files by sha256: never convert their line endings.
 *.patch -text
-versions/**/*.json -text
+hooks/**/*.json -text

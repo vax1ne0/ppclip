@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "b09b0d5bac59662f317a74670339e24e0b7df2bb246ee1e958e08ff45c392c5b",
-  "generatedAt": "2026-10-18T09:11:33.555Z",
+  "hooksSha256": "5b978d0b379b5093e4d551b8174bb027f7926cb0f33f776f81d704f8f3930ddd",
+  "generatedAt": "2026-10-18T09:31:33.580Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",

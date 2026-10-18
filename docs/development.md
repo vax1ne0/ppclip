@@ -12,6 +12,16 @@ The computer lifecycle smoke test and startup recovery behavior are documented u
 
 The code in `modules/` is the source; edit it there or in a working Paperclip checkout and export it back.
 
+Before publishing, run these dependency-free checks from the package:
+
+```bash
+node tools/check.mjs
+node --test tools/tests/installer.test.mjs
+node install.mjs compatibility --target ../paperclip --ref HEAD
+```
+
+`tools/check.mjs` checks module ownership, duplicate destinations, generated artifacts, hook hashes and path lists, module counts, local Markdown links and JavaScript syntax. Add `--target ../paperclip` to compare module source with the installed checkout. It does not replace UI/server typechecks and behavioral tests. Keep temporary handoffs and runtime logs outside this repository. Research belongs in `docs/research/`; maintained guides describe shipped behavior. See [implementation status](implementation-status.md).
+
 **Working on ppclip:**
 1. Install ppclip on a clean official checkout of a supported commit (`install.mjs install`).
 2. Edit, build and test in that checkout as usual. New files must match a rule in `modules.json`.

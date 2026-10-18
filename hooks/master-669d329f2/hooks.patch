@@ -2240,7 +2240,7 @@ index c4d5f9ac731eb8008a5655ca1d237ced338669d0..2ea318056c51bb5ad9af14735b5ae15f
 +  } finally { await act(async () => root.unmount()); render.mockRestore(); }
 +});
 diff --git a/ui/src/components/AgentAvatar.tsx b/ui/src/components/AgentAvatar.tsx
-index 0866c2bf4906605f4672007ce353f378d6367b4e..a0dd93f66b5e619175497953b92844b2e1d88537 100644
+index 0866c2bf4906605f4672007ce353f378d6367b4e..44ab6857ff85e634bd2c7ca740cff8aa64d049c1 100644
 --- a/ui/src/components/AgentAvatar.tsx
 +++ b/ui/src/components/AgentAvatar.tsx
 @@ -1,8 +1,9 @@
@@ -2255,9 +2255,12 @@ index 0866c2bf4906605f4672007ce353f378d6367b4e..a0dd93f66b5e619175497953b92844b2
  
  export type AvatarAgent = { id?: string; name?: string; appearance?: AgentAppearance | null; avatarUrl?: string | null };
  export const avatarSizeClasses: Record<AgentAvatarSize, string> = {
-@@ -21,14 +22,27 @@ export interface AgentAvatarProps {
+@@ -19,16 +20,29 @@ export interface AgentAvatarProps {
+   muted?: boolean;
+   className?: string;
  }
- export function AgentAvatar({ agent, appearance, size = 24, name, label, pose = "rest", muted = false, className }: AgentAvatarProps) {
+-export function AgentAvatar({ agent, appearance, size = 24, name, label, pose = "rest", muted = false, className }: AgentAvatarProps) {
++export function AgentAvatar({ agent, appearance, size = 24, label, pose = "rest", muted = false, className }: AgentAvatarProps) {
    const identity = resolveAgentAppearance(appearance ?? agent?.appearance, agent?.id);
 -  const src = agentAvatarUrl(identity, size, 1, pose, muted);
 +  const portrait = useMascotPortrait(identity, size, pose, muted, agentAvatarUrl(identity, size, 1, pose, muted));
@@ -3523,7 +3526,7 @@ index ae0ea03d21cc8a9213b8730d8aede9cf3eb62a16..fe27d5f3d14537428d5528c22e5aa3d2
      </TooltipPrimitive.Portal>
    )
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
-index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b7ed2545e 100644
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..eff9c9feedf268a74b2cfb665759d68f52aeb89b 100644
 --- a/ui/src/pages/AgentDetail.tsx
 +++ b/ui/src/pages/AgentDetail.tsx
 @@ -7,6 +7,10 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
@@ -3545,15 +3548,83 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
  import { agentDisplayAdapterType, getAdapterDisplay } from "../adapters/adapter-display-registry";
  import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
  import { ToggleSwitch } from "@/components/ui/toggle-switch";
-@@ -306,6 +311,7 @@ export const AGENT_DETAIL_TABS = AGENT_DETAIL_NAVIGATION.flatMap((section) => se
+@@ -72,9 +77,6 @@ import { formatDate, relativeTime, formatTokens, visibleRunCostUsd, visibleRunTo
+ import { cn } from "../lib/utils";
+ import { RunRetryDetails } from "../components/RunRetryDetails";
+ import { Button } from "@/components/ui/button";
+-import { Tabs } from "@/components/ui/tabs";
+-import { PageTabBar } from "../components/PageTabBar";
+-import { AuditFeed } from "./audit/AuditFeed";
+ import { Skeleton } from "@/components/ui/skeleton";
+ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+ import {
+@@ -91,7 +93,6 @@ import {
+   EyeOff,
+   Copy,
+   ChevronRight,
+-  ChevronDown,
+   ArrowLeft,
+   HelpCircle,
+   FolderOpen,
+@@ -304,18 +305,6 @@ function scrollToContainerBottom(container: ScrollContainer, behavior: ScrollBeh
+ /** @deprecated Use AGENT_DETAIL_NAVIGATION for contextual navigation. */
+ export const AGENT_DETAIL_TABS = AGENT_DETAIL_NAVIGATION.flatMap((section) => section.items);
  
- const LEGACY_AGENT_DETAIL_TABS = [
-   { value: "dashboard", label: "Dashboard" },
-+  { value: "customization", label: "Customization" }, // ppclip: mascot customization
-   { value: "instructions", label: "Instructions" },
-   { value: "skills", label: "Skills" },
-   { value: "configuration", label: "Configuration" },
-@@ -1257,10 +1263,10 @@ export function AgentDetail() {
+-const LEGACY_AGENT_DETAIL_TABS = [
+-  { value: "dashboard", label: "Dashboard" },
+-  { value: "instructions", label: "Instructions" },
+-  { value: "skills", label: "Skills" },
+-  { value: "configuration", label: "Configuration" },
+-  { value: "secrets", label: "Secrets" },
+-  { value: "tools", label: "Tools" },
+-  { value: "runs", label: "Runs" },
+-  { value: "audit", label: "Audit" },
+-  { value: "budget", label: "Budget" },
+-] as const;
+-
+ export const DISCARD_AGENT_CONFIG_CHANGES_MESSAGE = "Discard unsaved agent configuration changes?";
+ 
+ export function confirmAgentConfigNavigation(
+@@ -781,19 +770,6 @@ export function AgentDetail() {
+   const activeView: AgentDetailView = urlRunId ? "run-detail"
+     : parseAgentDetailView(urlTab ?? null);
+   const legacyAuditSection = !urlRunId ? agentLegacyAuditSection(urlTab ?? null) : null;
+-  const legacyView = urlRunId
+-    ? "runs"
+-    : legacyAuditSection === "runs"
+-      ? "runs"
+-      : legacyAuditSection === "activity"
+-        ? "audit"
+-        : legacyAuditSection === "costs" || legacyAuditSection === "budgets"
+-          ? "budget"
+-          : activeView === "overview"
+-            ? "dashboard"
+-            : activeView === "runtime"
+-              ? "configuration"
+-              : activeView;
+   const needsOverviewData = activeView === "overview";
+   const needsRunData = activeView === "run-detail";
+   const shouldLoadHeartbeats = needsOverviewData || needsRunData;
+@@ -801,7 +777,6 @@ export function AgentDetail() {
+   const [configSaving, setConfigSaving] = useState(false);
+   const saveConfigActionRef = useRef<(() => void) | null>(null);
+   const cancelConfigActionRef = useRef<(() => void) | null>(null);
+-  const { isMobile } = useSidebar();
+   const routeAgentRef = agentId ?? "";
+   const routeCompanyId = useMemo(() => {
+     if (!companyPrefix) return null;
+@@ -823,10 +798,6 @@ export function AgentDetail() {
+   const lifecycle = useAgentLifecycleStatus(agent);
+   const resolvedCompanyId = agent?.companyId ?? selectedCompanyId;
+   const canonicalAgentRef = agent ? agentRouteRef(agent) : routeAgentRef;
+-  const handleLegacyTabChange = useCallback((next: string) => {
+-    if (!prepareAgentNavigation()) return;
+-    navigate(`/agents/${canonicalAgentRef || routeAgentRef}/${next}`);
+-  }, [canonicalAgentRef, navigate, prepareAgentNavigation, routeAgentRef]);
+   const agentLookupRef = agent?.id ?? routeAgentRef;
+   const resolvedAgentId = agent?.id ?? null;
+   const { data: boardAccess } = useQuery({
+@@ -1257,10 +1228,10 @@ export function AgentDetail() {
        <header className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-6">
          <div className="flex min-w-0 items-center gap-4">
            <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
@@ -3566,7 +3637,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                {agent.adapterType === "claude_local" || agent.adapterType === "codex_local"
                  ? <img src={`/brands/${agent.adapterType === "claude_local" ? "claude" : "codex"}-color.svg`} className="size-4" alt="" />
-@@ -1395,7 +1401,7 @@ export function AgentDetail() {
+@@ -1395,7 +1366,7 @@ export function AgentDetail() {
          </div>
        )}
  
@@ -3575,7 +3646,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
  
        {/* View content */}
        {activeView === "overview" && (
-@@ -1411,6 +1417,8 @@ export function AgentDetail() {
+@@ -1411,6 +1382,8 @@ export function AgentDetail() {
          />
        )}
  
@@ -3584,7 +3655,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
        {activeView === "instructions" && (
          <div><PromptsTab
            agent={agent}
-@@ -1510,13 +1518,13 @@ export function AgentDetail() {
+@@ -1510,13 +1483,13 @@ export function AgentDetail() {
          />
        )}
  
@@ -3600,7 +3671,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
  
      </div>
    );
-@@ -2011,8 +2019,6 @@ export function ConfigurationTab({
+@@ -2011,8 +1984,6 @@ export function ConfigurationTab({
    const navigate = useNavigate();
    const { tab: urlTab } = useParams<{ tab?: string }>();
    const { pushToast } = useToastActions();
@@ -3609,7 +3680,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
  
    const catalogProvider = agent.adapterType === "paperclip_runner" ? String(agent.adapterConfig.provider ?? "codex") : undefined;
    const { data: adapterModels } = useQuery({
-@@ -2042,10 +2048,8 @@ export function ConfigurationTab({
+@@ -2042,10 +2013,8 @@ export function ConfigurationTab({
  
    const updateAgent = useMutation({
      mutationFn: (data: Record<string, unknown>) => agentsApi.update(agent.id, data, companyId),
@@ -3621,7 +3692,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
        queryClient.invalidateQueries({ queryKey: queryKeys.agents.detail(agent.id) });
        queryClient.invalidateQueries({ queryKey: queryKeys.agents.configRevisions(agent.id) });
        queryClient.invalidateQueries({ queryKey: queryKeys.agents.list(agent.companyId) });
-@@ -2055,7 +2059,6 @@ export function ConfigurationTab({
+@@ -2055,7 +2024,6 @@ export function ConfigurationTab({
        pushToast({ title: "Agent saved", tone: "success" });
      },
      onError: (err) => {
@@ -3629,7 +3700,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
        const message =
          err instanceof ApiError
            ? err.message
-@@ -2066,13 +2069,7 @@ export function ConfigurationTab({
+@@ -2066,13 +2034,7 @@ export function ConfigurationTab({
      },
    });
  
@@ -3644,7 +3715,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..d7b4272259f284962c3530d796260e9b
  
    useEffect(() => {
      onSavingChange(isConfigSaving);
-@@ -2123,6 +2120,7 @@ export function ConfigurationTab({
+@@ -2123,6 +2085,7 @@ export function ConfigurationTab({
          sectionTitles={{ adapter: "Adapter", configuration: "Configuration", identity: "Agent identity" }}
          canConfigureProviderTrace={canConfigureProviderTrace}
        /> : null}
@@ -3788,10 +3859,18 @@ index 9603e6fd1f5f945da787fb871c5e8e38e1e029f0..588020c069347a8d2c99582c8e0af8f1
    await mount([account()]);
    await click("Reconnect account");
 diff --git a/ui/src/components/ai-connections/AiConnectionField.tsx b/ui/src/components/ai-connections/AiConnectionField.tsx
-index 0af1ab54331773fe8d1ac2935eef3608ed9469c0..722b7f6dca40b4ac1d0f94d61b1deb6a15941996 100644
+index 0af1ab54331773fe8d1ac2935eef3608ed9469c0..f327e3845a6a6a0571a693629054a7532af70c3b 100644
 --- a/ui/src/components/ai-connections/AiConnectionField.tsx
 +++ b/ui/src/components/ai-connections/AiConnectionField.tsx
-@@ -125,8 +125,8 @@ export function AiConnectionField({
+@@ -5,7 +5,6 @@ import {
+   isAiConnectionCompatible,
+   type AiRuntimeConnectionBinding,
+   type AiAuthMethod,
+-  type AiConnectionBinding,
+   type AiProvider,
+   type AiManagedConnectionSummary,
+ } from "@paperclipai/shared";
+@@ -125,8 +124,8 @@ export function AiConnectionField({
      <div className="space-y-4">
        {value && value.mode !== "router" && (adapterType !== "opencode_local" || Boolean(model)) && !isAiConnectionCompatible(value, adapterType, model) && (
          <p role="alert" className="text-sm text-destructive">
@@ -3924,7 +4003,7 @@ index aaae404ac66dca93634a3e5dd3cedf207484b22e..453e2f0085766c8a0e1a68446d4940b2
      getConversation: async (companyId: string, agentId: string, userId: string) => db.select().from(issues).where(and(
        eq(issues.companyId, companyId), eq(issues.conversationAgentId, agentId), eq(issues.conversationUserId, userId),
 diff --git a/ui/src/components/AgentConversationsSidebar.test.tsx b/ui/src/components/AgentConversationsSidebar.test.tsx
-index b45eeceda8430e1b5719d212f17b6b6a372ceebb..2b14b2139ef3464d6d4d952e03c063c357be5ecc 100644
+index b45eeceda8430e1b5719d212f17b6b6a372ceebb..3ac85976d3b2d645a722313528220aae926a40a2 100644
 --- a/ui/src/components/AgentConversationsSidebar.test.tsx
 +++ b/ui/src/components/AgentConversationsSidebar.test.tsx
 @@ -6,12 +6,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -3968,14 +4047,14 @@ index b45eeceda8430e1b5719d212f17b6b6a372ceebb..2b14b2139ef3464d6d4d952e03c063c3
    const more = [
      { ...roster[0], id: "zed", name: "Zed", urlKey: "zed" },
      { ...roster[0], id: "carol", name: "carol", urlKey: "carol" },
-@@ -157,6 +158,28 @@ it("lists every eligible agent: open chat, then conversations by recency, then t
+@@ -157,6 +158,31 @@ it("lists every eligible agent: open chat, then conversations by recency, then t
    await vi.waitFor(async () => {
      await act(async () => {});
      expect([...container.querySelectorAll('nav[aria-label="Agent conversations"] a')].map(link => link.getAttribute("href")))
 -      .toEqual(["/chats/alice", "/chats/bob", "/chats/carol", "/chats/zed"]); // the open chat (alice) is pinned first
 +      .toEqual(["/chats/bob", "/chats/alice", "/chats/carol", "/chats/zed"]);
-   });
- });
++  });
++});
 +
 +it("keeps clicked and newly opened chats in place until a prompt is sent, ignoring run updates", async () => {
 +  const links = () => [...container.querySelectorAll('nav[aria-label="Agent conversations"] a')].map(link => link.getAttribute("href"));
@@ -3996,8 +4075,11 @@ index b45eeceda8430e1b5719d212f17b6b6a372ceebb..2b14b2139ef3464d6d4d952e03c063c3
 +  });
 +  expect(links()).toEqual(["/chats/bob", "/chats/alice"]);
 +  await act(async () => client.setQueryData(queryKeys.agentChats.list("company-a", "user-a"), [chat("bob"), { ...chat("alice"), conversationLastSentAt: "2026-10-02T00:00:00Z" }]));
-+  expect(links()).toEqual(["/chats/alice", "/chats/bob"]);
-+});
++  await vi.waitFor(async () => {
++    await act(async () => {});
++    expect(links()).toEqual(["/chats/alice", "/chats/bob"]);
+   });
+ });
 diff --git a/ui/src/hooks/useAgentChatNavigation.ts b/ui/src/hooks/useAgentChatNavigation.ts
 index 85c63e50d88e315155a1f4b33fd03a1435aaa452..a52f91b2339038349a6e366139726a1a8589311b 100644
 --- a/ui/src/hooks/useAgentChatNavigation.ts

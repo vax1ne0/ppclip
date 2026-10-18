@@ -18,7 +18,7 @@ node ppclip/install.mjs uninstall   # back to plain official Paperclip
 
 Either way:
 - **Steps:** it stops Paperclip and the computer supervisor cleanly, then pulls ppclip and runs `install.mjs update`. Next it installs dependencies, using `pnpm`, or the copy that ships with Node if pnpm isn't on your PATH. Finally it starts Paperclip again with the same start-local options.
-- **Duration:** Paperclip is down for about a minute, longer when dependencies change, and the page reloads itself.
+- **Duration:** downtime depends on dependencies and server startup; cold local starts can take several minutes. The page reloads when the app is ready.
 - **Computer image:** if the computer-use image changed, it is rebuilt in the background afterwards.
 - **Progress:** the compact Updates section shows clear status, a loading bar and plain-language installation steps. Reopening it resumes tracking a running update. The page reloads after success and shows a brief recovery message on failure. Technical records stay in `ppclip-update.log` and `ppclip-update.json` in the data folder.
 - **Check progress:** the check bar advances through four completed stages: ppclip, Paperclip, compatibility and finishing. Its value comes from the server, not a timer or a time estimate. A lightweight memory-only endpoint is polled while a check runs; those progress reads do no Git, filesystem or remote work. Failed checks stop at their last completed stage. Installing an update retains its separate restart feedback.

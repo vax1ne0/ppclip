@@ -46,6 +46,8 @@ const patch = modified.length ? git("diff", "HEAD", "--binary", "--full-index", 
 // Files ppclip adds are sorted into module folders.
 const { modules } = JSON.parse(fs.readFileSync(path.join(root, "modules.json"), "utf8"));
 const added = lines(git("ls-files", "--others", "--exclude-standard")).filter((f) => f !== RECORD);
+const artifacts = added.filter(file => /(^|\/)(__pycache__|node_modules)(\/|$)|\.py[cod]$/.test(file));
+if (artifacts.length) throw new Error(`Remove generated files before exporting:\n  ${artifacts.join("\n  ")}`);
 const byModule = new Map(modules.map((m) => [m.id, []]));
 const unassigned = [];
 for (const file of added) {

@@ -107,15 +107,16 @@ describe("NAV-1 Team link", () => {
   });
 });
 
-describe("NAV-1 chat rail urgency order", () => {
+describe("Chat rail last-sent order", () => {
   const agent = (id: string, status = "idle") => ({ id, companyId: "company-1", name: id, urlKey: id, role: "general", title: "Teammate", status } as Agent);
 
-  it("lists running, then waiting/pending, then blocked/error, then idle, keeping official order within groups", async () => {
+  it("keeps sent-message recency above running and attention states, then unused agents alphabetical", async () => {
     client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     client.setQueryData(queryKeys.auth.session, { user: { id: "user-a" } });
-    // Official order: conversations (recent first), then the rest alphabetically.
+    // The chat list intentionally ignores the main sidebar's urgency order.
     client.setQueryData(queryKeys.agentChats.list("company-1", "user-a"), [
-      { id: "chat-idle", companyId: "company-1", conversationAgentId: "idle-chat", conversationUserId: "user-a" },
+      { id: "chat-idle", companyId: "company-1", conversationAgentId: "idle-chat", conversationUserId: "user-a", conversationLastSentAt: "2026-10-18T10:00:00Z" },
+      { id: "chat-waiting", companyId: "company-1", conversationAgentId: "waiting", conversationUserId: "user-a", conversationLastSentAt: "2026-10-17T10:00:00Z" },
     ]);
     client.setQueryData(queryKeys.agents.list("company-1"), [
       agent("idle-chat"), agent("alpha"), agent("blocked"), agent("broken", "error"), agent("live"), agent("pending"), agent("waiting"), agent("zulu", "running"),
@@ -129,10 +130,8 @@ describe("NAV-1 chat rail urgency order", () => {
     await render(<AgentConversationsSidebar />);
     const order = [...container.querySelectorAll('nav[aria-label="Agent conversations"] a')].map((link) => link.getAttribute("href"));
     expect(order).toEqual([
-      "/chats/live", "/chats/zulu",
-      "/chats/pending", "/chats/waiting",
-      "/chats/blocked", "/chats/broken",
-      "/chats/idle-chat", "/chats/alpha",
+      "/chats/idle-chat", "/chats/waiting", "/chats/alpha",
+      "/chats/blocked", "/chats/broken", "/chats/live", "/chats/pending", "/chats/zulu",
     ]);
   });
 });

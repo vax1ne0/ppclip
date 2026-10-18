@@ -55,13 +55,19 @@ Settings → ppclip → Updates shows update status and clear installation progr
 
 ## Compatibility
 
-The installer requires an **exact supported Paperclip commit** and a clean official checkout for the initial installation.
+Normal installation requires a **tested Paperclip commit (or identical source tree)** and a clean official checkout. ppclip changes upstream internals, so a newer release is not automatically safe just because its patch applies.
 
 | Supported Paperclip revision | Official commit | Integration hooks |
 |---|---|---|
 | Snapshot after `v2026.1017.0-canary.2` | `669d329f2` | [master-669d329f2](hooks/master-669d329f2/) |
 
-Do not apply the overlay to an arbitrary newer Paperclip checkout. The hook manifest records the exact revision it supports.
+Check any locally available revision without changing your checkout:
+
+~~~bash
+node ppclip/install.mjs compatibility --target ./paperclip --ref HEAD
+~~~
+
+This distinguishes **verified**, **patch-applies-unverified**, and **blocked** revisions. It checks hooks and module path collisions; it does not replace typechecks, behavioral tests or live verification. Automatic updates keep using tested revisions. See [compatibility](docs/compatibility.md) for controlled experiments and the path toward fewer upstream patches.
 
 ## Quick start
 
@@ -148,6 +154,8 @@ Removal preserves instance data and refuses to discard edited overlay files unle
 | [Computer use](docs/computer-use.md) | Architecture, control states, Docker setup, guardrails, and lifecycle tests. |
 | [Approved models](docs/model-approvals.md) | Module switch, company policies, enforcement, exceptions, and storage. |
 | [Development](docs/development.md) | Module ownership, testing, export workflow, and porting to another Paperclip revision. |
+| [Compatibility](docs/compatibility.md) | Read-only revision checks, verified support, and extension API boundaries. |
+| [Implementation status](docs/implementation-status.md) | What is implemented, what remains a research idea, and verification limits. |
 
 ## Repository layout
 
@@ -155,7 +163,7 @@ Removal preserves instance data and refuses to discard edited overlay files unle
 modules/              ppclip source, grouped into nine modules
 hooks/<version>/      Version-specific integration patch and manifest
 docs/                 Setup guides and screenshots
-tools/                Export utility and real desktop lifecycle smoke test
+tools/                Package checks, installer tests, export and desktop smoke test
 modules.json          File ownership rules
 install.mjs           Install, status, update, and uninstall
 ~~~
@@ -166,6 +174,6 @@ Edit module code in this package or a working installed checkout, then export it
 
 Paperclip and ppclip's additions are MIT-licensed. See [LICENSE](LICENSE).
 
-Computer use draws on ideas from [rakazo](https://github.com/elie222/rakazo), [desktop-bridge](https://github.com/connbot/desktop-bridge), [CUA](https://github.com/trycua/cua), [linux-computer-use](https://github.com/Roadmvn/linux-computer-use), [taw-computer](https://github.com/the-agents-work/taw-computer), and [Anthropic's computer-use demo](https://github.com/anthropics/anthropic-quickstarts). See the [research notes](docs/computer-use-research.md).
+Computer use draws on ideas from [rakazo](https://github.com/elie222/rakazo), [desktop-bridge](https://github.com/connbot/desktop-bridge), [CUA](https://github.com/trycua/cua), [linux-computer-use](https://github.com/Roadmvn/linux-computer-use), [taw-computer](https://github.com/the-agents-work/taw-computer), and [Anthropic's computer-use demo](https://github.com/anthropics/anthropic-quickstarts). See the historical [research notes](docs/research/computer-use.md); those comparisons are not a list of installed dependencies.
 
 The Docker image installs Chromium, noVNC, websockify, x11vnc, and other Debian packages under their respective licenses. Those dependencies are installed when building the image; their binaries are not bundled in this repository.

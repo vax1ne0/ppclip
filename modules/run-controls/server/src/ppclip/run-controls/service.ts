@@ -316,7 +316,7 @@ export function runControlsService(db: Db, deps: { readCap: DailyRunCapReader; w
      * unblocked, agent not paused/errored and without live work).
      */
     resume: async (companyId: string, actor: RunControlActor) => {
-      const { result } = await inTeamTransaction(companyId, async (tx, team, publications) => {
+      const { result } = await inTeamTransaction(companyId, async (tx, team) => {
         await requireEnabled(tx, companyId);
         const now = new Date();
         const changed: string[] = [];

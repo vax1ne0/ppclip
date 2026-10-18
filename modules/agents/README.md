@@ -22,6 +22,8 @@ Configuration saves publish the server-confirmed agent to matching company list 
 
 Agent chat sidebar rows also show the configured model with a provider mark. An unset model is labeled “Model not set”; the full model and harness are available on hover. This follows the Agents page extras switch. Agent model pickers require an explicit choice and do not offer a default-model option.
 
+Chat tabs use the conversation owner's last sent prompt for ordering. Opening a tab, agent replies, and runtime/attention changes do not move it. Unused agents follow alphabetically; this order is separate from the main sidebar's Urgent agents first switch.
+
 New-agent setup shows the same model picker on both **Connect** and **Configure**, preserving the selection between steps. Choose the model before testing a saved subscription, API key or new sign-in. If model discovery fails, an explicit model ID can be entered manually.
 
 **Settings → ppclip switch:** Agents and sidebar → Urgent agents first, Attention statuses, Agents page extras

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, eq } from "drizzle-orm";
+import { and, eq, like } from "drizzle-orm";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   activityLog,
@@ -22,6 +22,7 @@ import { agentService } from "../services/agents.ts";
 import { runningProcesses } from "../adapters/index.ts";
 import { runControlsService } from "../ppclip/run-controls/service.ts";
 import { readDrainAfter, readRunControl } from "../ppclip/run-controls/state.ts";
+import { modelPolicyService } from "../ppclip/providers/model-policy.ts";
 
 const mockAdapterExecute = vi.hoisted(() =>
   vi.fn(async () => ({
@@ -88,13 +89,15 @@ describeEmbeddedPostgres("ppclip run controls", () => {
       id: companyId, name: "Paperclip", issuePrefix: `T${companyId.replace(/-/g, "").slice(0, 6).toUpperCase()}`,
       defaultResponsibleUserId: "responsible-user", requireBoardApprovalForNewAgents: false,
     });
+    // Execution fixtures must satisfy the current explicit-model policy too.
+    await modelPolicyService(db).save(companyId, 0, { allowedModels: [{ adapterType: "codex_local", model: "test-model" }] }, "board-user");
     return companyId;
   }
 
   async function seedAgent(companyId: string, name: string, heartbeatConfig: Heartbeat = {}, metadata: Record<string, unknown> | null = null) {
     const id = randomUUID();
     await db.insert(agents).values({
-      id, companyId, name, role: "engineer", status: "idle", adapterType: "codex_local", adapterConfig: {},
+      id, companyId, name, role: "engineer", status: "idle", adapterType: "codex_local", adapterConfig: { model: "test-model" },
       runtimeConfig: { heartbeat: { wakeOnDemand: true, maxConcurrentRuns: 1, ...heartbeatConfig } },
       permissions: {}, metadata,
     });
@@ -126,7 +129,7 @@ describeEmbeddedPostgres("ppclip run controls", () => {
     expect(await service.setEnabled(companyId, true, board)).toMatchObject({ changed: false });
     expect((await service.overview(companyId)).enabled).toBe(true);
     const logged = await db.select({ action: activityLog.action, actorId: activityLog.actorId }).from(activityLog)
-      .where(eq(activityLog.companyId, companyId));
+      .where(and(eq(activityLog.companyId, companyId), like(activityLog.action, "ppclip.run_controls.%")));
     expect(logged).toEqual([{ action: "ppclip.run_controls.enabled", actorId: "board-user" }]);
   });
 

@@ -2,7 +2,7 @@
 
 Requirements: Git, Node.js 24.11 or newer, and pnpm 9.15.4.
 
-Use an exact supported commit from the [compatibility table](../README.md#compatibility). The optional desktop also requires Docker; agent harnesses retain Paperclip's own platform build requirements.
+Use a tested commit (or identical source tree) from the [compatibility table](../README.md#compatibility). Run `node install.mjs compatibility --target <checkout> --ref <revision>` to inspect another locally available revision without changing files. Applicability is not verified runtime support; see [compatibility](compatibility.md). The optional desktop also requires Docker; agent harnesses retain Paperclip's own platform build requirements.
 
 Clone official Paperclip and ppclip side by side in the same folder:
 

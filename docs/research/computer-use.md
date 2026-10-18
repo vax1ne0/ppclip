@@ -1,5 +1,7 @@
 # Computer use: research notes
 
+**Historical design research, not an implementation checklist.** Project comparisons below record the original October 2026 investigation and have not been revalidated by this cleanup. See [implementation status](../implementation-status.md) for shipped features. ppclip currently implements Docker and fake providers; it does not ship an E2B provider, agent-browser integration, CUA dependency, or OpenSandbox dependency.
+
 Research done in October 2026 before building ppclip computer use. Repositories were cloned and their source read; nothing was built or run. GitHub API metadata (stars, archived flags) could not be read from the research environment, so star counts are as shown on GitHub pages or marked unverified.
 
 ## Research summary
@@ -58,8 +60,8 @@ From Picrew/awesome-agent-harness (exists, ~1.9k stars) and direct search:
 - **Build our own small supervisor** that follows rakazo's architecture: a separate process owns the Docker socket, Paperclip talks to it over HTTP with a bearer token, and a provider split covers docker / remote / fake.
 - **Borrow desktop-bridge's control state machine** and its private takeover mode.
 - **Borrow cua's viewer tickets.**
-- **Use a hardened Ubuntu 24.04 image:** Xvfb, a light window manager, Chromium, and two x11vnc listeners behind websockify/noVNC.
+- **Original image proposal:** Ubuntu 24.04 with Xvfb, a light window manager, Chromium, and two x11vnc listeners behind websockify/noVNC. The shipped image uses Debian bookworm instead.
 - **Don't depend on cua or OpenSandbox.** cua is mid-rewrite and OpenSandbox is heavy. Both are far larger than we need.
-- **E2B is the optional remote provider:** it is the most stable remote desktop and is Apache-2.0.
+- **Proposed remote-provider candidate:** E2B. No E2B provider has been implemented in ppclip.
 
 ---

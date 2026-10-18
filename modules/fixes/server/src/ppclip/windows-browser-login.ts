@@ -47,7 +47,7 @@ export function resolveWindowsExecutable(name: string, env: NodeJS.ProcessEnv): 
  */
 export function createConptyLineRestorer() {
   let row = 1;
-  return (chunk: string) => chunk.replace(/\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[(\d*)(?:;(\d*))?H|\x1b\[(\d*)B/g, (match, cupRow, _cupCol, down) => {
+  return (chunk: string) => chunk.replace(/\x1b\]8;[^\x07\x1b]*(?:\x07|\x1b\\)/g, "").replace(/\x1b\[(\d*)(?:;(\d*))?H|\x1b\[(\d*)B/g, (_match, cupRow, _cupCol, down) => {
     if (down !== undefined) {
       row += Number(down || 1);
       return "\n".repeat(Number(down || 1));

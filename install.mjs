@@ -6,6 +6,7 @@
 //   node install.mjs update    [--target <paperclip folder>] [--with-deps] [--force]
 //   node install.mjs uninstall [--target <paperclip folder>] [--force]
 //   node install.mjs status    [--target <paperclip folder>]
+//   node install.mjs compatibility [--target <paperclip folder>] [--ref <revision>] [--json]
 //
 // Without --target the Paperclip checkout is found automatically: the current folder if it is
 // one, otherwise a folder next to this ppclip repo that is one (the recommended layout).
@@ -144,12 +145,12 @@ function detectVersion() {
 function dirtyFiles() {
   return git(["status", "--porcelain"]).out.split("\n").filter(Boolean).filter((line) => !line.endsWith(RECORD));
 }
-/** A throwaway git index holding HEAD with the hook patch applied. */
-function patchedIndex(patchFile) {
+/** A throwaway git index holding the selected commit with the hook patch applied. */
+function patchedIndex(patchFile, ref = "HEAD") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "ppclip-overlay-"));
   const env = { GIT_INDEX_FILE: path.join(dir, "index") };
-  const read = git(["read-tree", "HEAD"], env);
-  if (!read.ok) fail(`Could not read the checkout: ${read.err}`);
+  const read = git(["read-tree", ref], env);
+  if (!read.ok) { fs.rmSync(dir, { recursive: true, force: true }); fail(`Could not read the checkout: ${read.err}`); }
   const empty = fs.statSync(patchFile).size === 0;
   const applied = empty ? { ok: true, err: "" } : git(["apply", "--cached", "--whitespace=nowarn", patchFile], env);
   return { env, applied, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
@@ -405,6 +406,41 @@ function status() {
   }
 }
 
+/** Probe committed files through a temporary index; never alter the checkout. */
+function compatibility() {
+  requireCheckout();
+  const requested = arg("--ref", "HEAD");
+  if (requested.startsWith("-")) fail("--ref must be a Git revision, not an option.");
+  const resolved = git(["rev-parse", "--verify", `${requested}^{commit}`]);
+  if (!resolved.ok) fail(`Cannot resolve ${requested} to a local commit. Fetch it first.`);
+  const commit = resolved.out;
+  const tree = git(["rev-parse", `${commit}^{tree}`]).out;
+  const selected = arg("--version");
+  const candidates = selected ? [selected] : versions();
+  const results = candidates.map(version => {
+    if (!versions().includes(version)) fail(`Unknown hook version: ${version}`);
+    const { manifest, patchFile } = loadVersion(version);
+    const index = patchedIndex(patchFile, commit);
+    try {
+      const collisions = git(["ls-tree", "-r", "--name-only", commit, "--", ...moduleFiles().map(file => file.path)]);
+      if (!collisions.ok) fail(`Cannot inspect module paths: ${collisions.err}`);
+      const applies = index.applied.ok && !collisions.out;
+      const verified = manifest.paperclipCommit === commit || manifest.paperclipTree === tree;
+      return { version, status: !applies ? "blocked" : verified ? "verified" : "patch-applies-unverified",
+        patchApplies: index.applied.ok, collisions: collisions.out.split("\n").filter(Boolean),
+        ...(index.applied.ok ? {} : { reason: index.applied.err }) };
+    } finally { index.cleanup(); }
+  });
+  const report = { commit, scope: "committed-files-only", results };
+  if (flag("--json")) console.log(JSON.stringify(report, null, 2));
+  else {
+    console.log(`Compatibility for ${requested} (${commit.slice(0, 9)}), committed files only:`);
+    for (const result of results) console.log(`  ${result.version}: ${result.status}${result.collisions.length ? ` (${result.collisions.length} module path collisions)` : ""}`);
+    console.log("No checkout files changed. Patch applicability alone does not verify runtime APIs; unverified revisions still need typechecks, tests and live checks.");
+  }
+  if (!results.some(result => result.status !== "blocked")) process.exitCode = 2;
+}
+
 const commands = {
   install: () => { install(); nextSteps(); },
   update,
@@ -413,9 +449,10 @@ const commands = {
     console.log(`\n✓ ppclip removed. The checkout is back to official Paperclip ${version}.\n  Run pnpm install --frozen-lockfile again before starting it.\n`);
   },
   status,
+  compatibility,
 };
 if (!commands[command]) {
-  console.log("Usage: node install.mjs <install|update|uninstall|status> [--target <paperclip folder>] [--with-deps] [--force]");
+  console.log("Usage: node install.mjs <install|update|uninstall|status|compatibility> [--target <paperclip folder>] [--with-deps] [--force]\nCompatibility: [--ref <local revision>] [--version <hooks>] [--json]");
   process.exit(command ? 1 : 0);
 }
 try {
