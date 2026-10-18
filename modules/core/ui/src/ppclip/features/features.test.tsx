@@ -64,7 +64,7 @@ describe("Settings → ppclip", () => {
     mockApi.patch.mockResolvedValue({ ...defaultPpclipFeatures(), team: false });
     await render(<PpclipSettingsPage />);
     const headings = [...container.querySelectorAll("h2")].map((h) => h.textContent);
-    expect(headings).toEqual(PPCLIP_MODULES.map((group) => group.title));
+    expect(headings).toEqual(["Updates", ...PPCLIP_MODULES.map((group) => group.title)]);
     const switches = container.querySelectorAll("[role='switch']");
     expect(switches).toHaveLength(15);
     expect([...switches].every((s) => s.getAttribute("aria-checked") === "true")).toBe(true);

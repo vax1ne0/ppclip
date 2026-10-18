@@ -448,19 +448,18 @@ index 279b2553b14a47266557764cf8a37d73a71bdac4..a9d5620d83ceafd8fc40dbe21196839f
      "react-i18next": "^17.0.15",
      "react-markdown": "^10.1.0",
 diff --git a/ui/src/App.tsx b/ui/src/App.tsx
-index ba6af93f11a01cbb41d6ba2709097a2cbb283317..6b1e24a775b3d51a4ad4534dd2e5826856092b69 100644
+index ba6af93f11a01cbb41d6ba2709097a2cbb283317..9057491c68c04008709e38f7ef202b798225e7ea 100644
 --- a/ui/src/App.tsx
 +++ b/ui/src/App.tsx
-@@ -96,6 +96,8 @@ import { ProfileSettings } from "./pages/ProfileSettings";
+@@ -96,6 +96,7 @@ import { ProfileSettings } from "./pages/ProfileSettings";
  import { PluginManager } from "./pages/PluginManager";
  import { PluginSettings } from "./pages/PluginSettings";
  import { AdapterManager } from "./pages/AdapterManager";
-+import { UpdatesPage } from "./ppclip/update/UpdatesPage"; // ppclip: user-facing updates
 +import { PpclipSettingsPage } from "./ppclip/features/PpclipSettingsPage"; // ppclip: module switches
  import { PluginPage } from "./pages/PluginPage";
  import { NewAgent } from "./pages/NewAgent";
  import { AuthPage } from "./pages/Auth";
-@@ -143,6 +145,9 @@ const ProductionCompanyActivity = lazy(() =>
+@@ -143,6 +144,9 @@ const ProductionCompanyActivity = lazy(() =>
  const ProductionOrgChart = lazy(() =>
    import("./pages/OrgChart.production").then((module) => ({ default: module.OrgChart })),
  );
@@ -470,16 +469,16 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..6b1e24a775b3d51a4ad4534dd2e58268
  
  function ProductionSurface({ children }: { children: ReactNode }) {
    return <Suspense fallback={<PaperclipLoading />}>{children}</Suspense>;
-@@ -266,6 +271,8 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+@@ -266,6 +270,8 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
        <Route element={<HiddenSettingsPageGate pageKey="instance.adapters" />}>
          <Route path="company/settings/instance/adapters" element={<AdapterManager />} />
        </Route>
-+      <Route path="company/settings/instance/updates" element={<UpdatesPage />} /> {/* ppclip: user-facing updates */}
++      <Route path="company/settings/instance/updates" element={<Navigate to="/company/settings/instance/ppclip" replace />} /> {/* ppclip: legacy updates link */}
 +      <Route path="company/settings/instance/ppclip" element={<PpclipSettingsPage />} /> {/* ppclip: module switches */}
        <Route path="company/settings/:settingsRoutePath/*" element={<CompanySettingsPluginPage />} />
        <Route path="skills/sources" element={<SkillSources />} />
        <Route path="skills/sources/:sourceId" element={<SkillSources />} />
-@@ -284,6 +291,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+@@ -284,6 +290,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
          path="org"
          element={streamlinedUiEnabled ? <Navigate to="/agents/all" replace /> : <ProductionSurface><ProductionOrgChart /></ProductionSurface>}
        />
@@ -487,7 +486,7 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..6b1e24a775b3d51a4ad4534dd2e58268
        <Route path="agents" element={<Navigate to="/agents/all" replace />} />
        {AGENT_FILTER_TABS.map((tab) => (
          <Route
-@@ -294,6 +302,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
+@@ -294,6 +301,7 @@ function boardRoutes(streamlinedUiEnabled: boolean, combinedInboxTasksEnabled: b
        ))}
        <Route path="agents/new" element={<NewAgent />} />
        <Route path="agents/:agentId" element={<AgentDetail />} />
@@ -495,7 +494,7 @@ index ba6af93f11a01cbb41d6ba2709097a2cbb283317..6b1e24a775b3d51a4ad4534dd2e58268
        <Route path="agents/:agentId/:tab" element={<AgentDetail />} />
        <Route path="agents/:agentId/runs/:runId" element={<AgentDetail />} />
        <Route path="projects" element={<Projects />} />
-@@ -869,6 +878,7 @@ export function App() {
+@@ -869,6 +877,7 @@ export function App() {
            <Route path="skills/*" element={<UnprefixedBoardRedirect />} />
            <Route path="settings" element={<LegacySettingsRedirect />} />
            <Route path="settings/*" element={<LegacySettingsRedirect />} />
@@ -589,7 +588,7 @@ index 9684c360b44f82a84480563a3c76c78147f8cd1b..2f406f811077285c25f60db7416252be
          <PluginSlotOutlet slotTypes={["globalToolbarButton"]} context={context} className="flex items-center gap-1" />
        ) : null}
 diff --git a/ui/src/components/CompanySettingsSidebar.production.tsx b/ui/src/components/CompanySettingsSidebar.production.tsx
-index 690ffb7fbfe78defd98a36913327d045c616ade4..3a80755c888af18b575018d6c5d62ddaed7a5828 100644
+index 690ffb7fbfe78defd98a36913327d045c616ade4..44bbf849703bad8072db160601968d3a65b62ddc 100644
 --- a/ui/src/components/CompanySettingsSidebar.production.tsx
 +++ b/ui/src/components/CompanySettingsSidebar.production.tsx
 @@ -3,6 +3,7 @@ import {
@@ -600,18 +599,17 @@ index 690ffb7fbfe78defd98a36913327d045c616ade4..3a80755c888af18b575018d6c5d62dda
    Download,
    FlaskConical,
    KeyRound,
-@@ -213,6 +214,9 @@ export function CompanySettingsSidebar() {
+@@ -213,6 +214,8 @@ export function CompanySettingsSidebar() {
                icon={Cpu}
              />
            )}
 +          {/* ppclip: module switches, right below Adapters */}
 +          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/ppclip`} label="ppclip" icon={Blocks} />
-+          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/updates`} label="Updates" icon={Download} /> {/* ppclip: user-facing updates */}
          </div>
        </nav>
      </aside>
 diff --git a/ui/src/components/CompanySettingsSidebar.tsx b/ui/src/components/CompanySettingsSidebar.tsx
-index d264a15bccbd3c6f0d6856bd60bbf77c7c60d8e5..09c7ac0d6e92dd4eafcd7a77d482dac8443459c2 100644
+index d264a15bccbd3c6f0d6856bd60bbf77c7c60d8e5..add923928ba4362a21c388d8ed708bb68bc56af9 100644
 --- a/ui/src/components/CompanySettingsSidebar.tsx
 +++ b/ui/src/components/CompanySettingsSidebar.tsx
 @@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
@@ -622,13 +620,12 @@ index d264a15bccbd3c6f0d6856bd60bbf77c7c60d8e5..09c7ac0d6e92dd4eafcd7a77d482dac8
    Download,
    FlaskConical,
    KeyRound,
-@@ -204,6 +205,9 @@ export function CompanySettingsSidebar() {
+@@ -204,6 +205,8 @@ export function CompanySettingsSidebar() {
                icon={Cpu}
              />
            )}
 +          {/* ppclip: module switches, right below Adapters */}
 +          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/ppclip`} label="ppclip" icon={Blocks} />
-+          <SidebarNavItem to={`${INSTANCE_SETTINGS_PATH_PREFIX}/updates`} label="Updates" icon={Download} /> {/* ppclip: user-facing updates */}
          </div>
        </nav>
      </ContextualSidebarFrame>

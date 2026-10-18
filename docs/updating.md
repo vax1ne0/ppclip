@@ -10,7 +10,7 @@ node ppclip/install.mjs uninstall   # back to plain official Paperclip
 `uninstall` refuses if you edited ppclip's files after installing, and lists them. Pass `--force` to discard those edits.
 
 **The easy way: one click or one command.** If you start Paperclip with `scripts/ppclip/start-local.mjs`:
-- **In the app:** go to **Settings → Updates**, press **Check for updates**, then **Update and restart**.
+- **In the app:** go to **Settings → ppclip → Updates**, press **Check for updates**, then **Update and restart**.
 - **From a terminal:** run this from the folder that holds both checkouts:
   ```bash
   node paperclip/scripts/ppclip/update.mjs            # add --check to only look
@@ -20,8 +20,8 @@ Either way:
 - **Steps:** it stops Paperclip and the computer supervisor cleanly, then pulls ppclip and runs `install.mjs update`. Next it installs dependencies, using `pnpm`, or the copy that ships with Node if pnpm isn't on your PATH. Finally it starts Paperclip again with the same start-local options.
 - **Duration:** Paperclip is down for about a minute, longer when dependencies change, and the page reloads itself.
 - **Computer image:** if the computer-use image changed, it is rebuilt in the background afterwards.
-- **Progress:** the dedicated Updates page shows clear status, a loading bar and plain-language installation steps. Reopening it resumes tracking a running update. The page reloads after success and shows a brief recovery message on failure. Technical records stay in `ppclip-update.log` and `ppclip-update.json` in the data folder.
-- **User-facing details:** the Updates page omits commit identifiers, file lists, command output and log locations. If a new version is blocked, it explains that automatic updates are unavailable and asks the user to contact whoever set up the installation. The updater still refuses to overwrite tracked local edits. Maintainers can inspect local Git changes and updater records outside this page.
+- **Progress:** the compact Updates section shows clear status, a loading bar and plain-language installation steps. Reopening it resumes tracking a running update. The page reloads after success and shows a brief recovery message on failure. Technical records stay in `ppclip-update.log` and `ppclip-update.json` in the data folder.
+- **User-facing details:** the Updates section omits commit identifiers, file lists, command output and log locations. If a new version is blocked, it explains that automatic updates are unavailable and asks the user to contact whoever set up the installation. The updater still refuses to overwrite tracked local edits. Maintainers can inspect local Git changes and updater records outside the settings UI.
 - **Checks and recovery:** the last check survives server restarts in `ppclip-update-check.json`. A failed check does not report “up to date.” If the server stays offline, inspect `ppclip-update.log` and `server.stderr.log`, then relaunch with the same data folder and options. A failed updater launch keeps the existing server running.
 - **Who can update:** only an instance admin, and the update is written to each company's activity log.
 - **When it refuses:** it won't start if the ppclip folder has local changes. A running agent's work is interrupted, and the button warns you first.

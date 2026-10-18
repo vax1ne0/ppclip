@@ -22,7 +22,7 @@ function checkedLabel(value?: string | null) {
   return "Last checked " + new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 }
 
-/** Settings → Updates. Technical diagnostics remain in the updater's local records. */
+/** Compact Settings → ppclip updates. Diagnostics stay in the updater's records. */
 export function UpdateSection() {
   const queryClient = useQueryClient();
   const [updating, setUpdating] = useState(false);
@@ -89,13 +89,14 @@ export function UpdateSection() {
   const statusLabel = updating || start.isPending ? "Updating…" : check.isPending ? "Checking…" : status.isLoading ? "Loading…" : needsAttention ? "Couldn’t check for updates" : !data?.checkedAt ? "Check for updates" : available ? "Update available" : "Up to date";
   const StatusIcon = busy ? RefreshCw : needsAttention ? AlertCircle : data?.checkedAt && !available ? CheckCircle2 : Download;
   return (
-    <section aria-label="ppclip updates" data-testid="ppclip-update-section">
+    <section className="space-y-3" aria-labelledby="ppclip-updates" data-testid="ppclip-update-section">
+      <h2 id="ppclip-updates" className="text-sm font-semibold">Updates</h2>
       <Card className="block min-w-0 overflow-hidden bg-transparent p-0 shadow-none">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-3">
-            <StatusIcon aria-hidden className={"mt-0.5 size-5 shrink-0 " + (busy ? "motion-safe:animate-spin " : "") + (needsAttention ? "text-muted-foreground" : "text-foreground")} />
+            <StatusIcon aria-hidden className={"mt-0.5 size-4 shrink-0 " + (busy ? "motion-safe:animate-spin " : "") + (needsAttention ? "text-muted-foreground" : "text-foreground")} />
             <div className="min-w-0 space-y-1">
-              <h2 className="text-sm font-semibold" data-testid="ppclip-update-status" aria-live="polite">{statusLabel}</h2>
+              <h3 className="text-sm font-semibold" data-testid="ppclip-update-status" aria-live="polite">{statusLabel}</h3>
               <p className="text-xs leading-relaxed text-muted-foreground">{needsAttention ? "Check your connection and try again." : !busy && available ? "A new version of ppclip is ready to install." : checkedLabel(data?.checkedAt)}</p>
             </div>
           </div>
@@ -116,7 +117,6 @@ export function UpdateSection() {
         </div>}
         {!updating && (start.isError || job?.state === "failed") && <p role="alert" className="px-5 pb-5 text-sm text-destructive" data-testid="ppclip-update-failed">The update couldn’t finish. {data?.blocked ? "Contact the person who set up this installation for help." : "Check for updates and try again."}</p>}
         {!busy && available && !data?.blocked && !needsAttention && <p className="border-t border-border px-5 py-3 text-xs leading-relaxed text-muted-foreground">Paperclip will restart during installation.{data?.runningRuns ? (" " + data.runningRuns + " active agent run" + (data.runningRuns === 1 ? " will" : "s will") + " be interrupted.") : " This usually takes about a minute."}</p>}
-        {!busy && !available && !needsAttention && job?.state === "done" && job.finishedAt && !Number.isNaN(Date.parse(job.finishedAt)) && <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">Last updated {new Date(job.finishedAt).toLocaleDateString([], { dateStyle: "medium" })}</p>}
       </Card>
     </section>
   );

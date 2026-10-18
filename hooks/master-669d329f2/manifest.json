@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "b7e99bad6da03f91b5b792f63e64208fb555202db9c7e57030f0450d373c7c62",
-  "generatedAt": "2026-10-18T07:56:32.123Z",
+  "hooksSha256": "7108e902443608793ce9486dfe5bcc1c59263fb8ca50b7b31fbc26ed5ba2a03b",
+  "generatedAt": "2026-10-18T08:00:28.370Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
@@ -96,7 +96,7 @@
     "ui/vite.config.ts"
   ],
   "modules": {
-    "core": 20,
+    "core": 19,
     "team": 17,
     "live-runs": 11,
     "providers": 20,
