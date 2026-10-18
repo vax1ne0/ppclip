@@ -2190,6 +2190,38 @@ index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70f
          <div data-slot="contextual-sidebar-section" className={contextualSidebarStyles.section}>
            <p
              data-slot="contextual-sidebar-section-label"
+diff --git a/ui/src/components/ai-connections/AiConnectionUsagePanel.test.tsx b/ui/src/components/ai-connections/AiConnectionUsagePanel.test.tsx
+index 2693f17d3e84a6e4dee98f8622f3cbdc9b15adeb..49eac54d9449fb511f9e1d32099eead8aa7b2eaa 100644
+--- a/ui/src/components/ai-connections/AiConnectionUsagePanel.test.tsx
++++ b/ui/src/components/ai-connections/AiConnectionUsagePanel.test.tsx
+@@ -22,6 +22,14 @@ function render(value = account) {
+   flushSync(() => root.render(<QueryClientProvider client={client}><AiConnectionUsagePanel key={value.id} account={value} /></QueryClientProvider>));
+ }
+ const click = () => flushSync(() => host.querySelector("button")!.click());
++it("distinguishes a throttled usage lookup from an allowance reset", () => {
++  const observation = { status: "error", errorCode: "rate_limited", limits: [], overage: null } as unknown as AiConnectionUsage;
++  flushSync(() => root.render(<QueryClientProvider client={client}><AiConnectionUsagePanel account={account} observation={observation} cachedOnly /></QueryClientProvider>));
++  expect(host.textContent).toContain("Usage check temporarily rate-limited");
++  expect(host.textContent).toContain("does not mean it has reset");
++  expect(host.textContent).not.toContain("100% used");
++  expect(api.probeUsage).not.toHaveBeenCalled();
++});
+ it("checks only on demand and replaces a successful observation with a failed probe", async () => {
+   const observation: AiConnectionUsage = { ...account, connectionId: account.id, status: "ok", checkedAt: "2026-10-02T12:00:00Z", source: "anthropic_oauth", planType: null,
+     overage: { enabled: false, available: false, unlimited: null, used: null, limit: null, remaining: null, balance: null, unit: "cents" },
+diff --git a/ui/src/components/ai-connections/AiConnectionUsagePanel.tsx b/ui/src/components/ai-connections/AiConnectionUsagePanel.tsx
+index d0e7d9a5bb7d75157800656bb566c80a21d4fe09..8b55dbf0b5f636321e1eb8114e6027df663f2540 100644
+--- a/ui/src/components/ai-connections/AiConnectionUsagePanel.tsx
++++ b/ui/src/components/ai-connections/AiConnectionUsagePanel.tsx
+@@ -63,7 +63,7 @@ function usageError(usage: AiConnectionUsage) {
+   switch (usage.errorCode) {
+     case "authentication_required": return "Sign in again to check usage.";
+     case "permission_denied": return "Usage access denied.";
+-    case "rate_limited": return "Too many checks. Try again later.";
++    case "rate_limited": return "Usage check temporarily rate-limited. Your allowance may still be exhausted; this does not mean it has reset."; // ppclip: distinguish lookup throttling from quota
+     case "provider_unavailable": return "Provider unavailable. Try again.";
+     case "invalid_response": return "Couldn’t read usage. Try again.";
+     case "connection_unavailable": return "Reconnect to check usage.";
 diff --git a/ui/src/components/new-agent/NewAgentSetup.tsx b/ui/src/components/new-agent/NewAgentSetup.tsx
 index 0fb59e9aaaa69aedba6fcf44dac254b543396458..563f188de279d7bc9f66b3811e514cd94fb04772 100644
 --- a/ui/src/components/new-agent/NewAgentSetup.tsx

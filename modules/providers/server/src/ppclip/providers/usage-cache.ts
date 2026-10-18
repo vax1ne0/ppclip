@@ -13,6 +13,8 @@ import type { AiConnectionUsage } from "@paperclipai/shared";
  */
 export const USAGE_TTL_MS = 5 * 60_000;
 export const TRANSIENT_RETRY_MS = 30_000;
+/** A usage-check 429 is separate from an exhausted inference allowance. */
+export const RATE_LIMIT_RETRY_MS = 15 * 60_000;
 const STOP_ASKING = new Set(["rate_limited", "permission_denied", "authentication_required", "unsupported", "connection_unavailable"]);
 const MAX_ENTRIES = 1000;
 
@@ -49,7 +51,7 @@ export async function cachedUsage(key: string, probe: () => Promise<AiConnection
     // temporary failure (provider unavailable, network) sooner.
     const kept = lastGood.get(key) ?? value;
     const stop = value?.errorCode && STOP_ASKING.has(value.errorCode);
-    fresh.set(key, { value: kept, expires: at + (stop ? USAGE_TTL_MS : TRANSIENT_RETRY_MS) });
+    fresh.set(key, { value: kept, expires: at + (value?.errorCode === "rate_limited" ? RATE_LIMIT_RETRY_MS : stop ? USAGE_TTL_MS : TRANSIENT_RETRY_MS) });
     return kept;
   })().finally(() => inFlight.delete(key));
   inFlight.set(key, run);

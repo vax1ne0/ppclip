@@ -153,7 +153,7 @@ export function usageStatusText(entry: AccountUsage) {
     case "permission_denied": return usage.provider === "anthropic"
       ? "Anthropic doesn't share usage for Claude accounts connected in Paperclip. Sign in to Claude Code on this computer to see it here."
       : "Usage access denied.";
-    case "rate_limited": return "Too many checks. Try again later.";
+    case "rate_limited": return "Usage check temporarily rate-limited. Your allowance may still be exhausted; this does not mean it has reset. Checks retry automatically after a cooldown.";
     case "connection_unavailable": return "Reconnect to check usage.";
     case "unsupported": return "Usage unavailable.";
     case "provider_unavailable":

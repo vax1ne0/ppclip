@@ -133,6 +133,7 @@ describe("usage helpers", () => {
     expect(usageStatusText(entry({ failed: true }))).toMatch(/Couldn’t check usage/);
     expect(usageStatusText(entry({ usage: usage({ status: "unavailable", errorCode: "authentication_required", message: "raw provider text" }) }))).toBe("Sign in again to check usage.");
     expect(usageStatusText(entry({ usage: usage() }))).toBeNull();
+    expect(usageStatusText(entry({ usage: usage({ status: "unavailable", errorCode: "rate_limited" }) }))).toContain("does not mean it has reset");
     // Paperclip's Claude sign-in token can't read usage: explain it instead of "access denied".
     expect(usageStatusText(entry({ usage: usage({ status: "unavailable", errorCode: "permission_denied" }) })))
       .toMatch(/Anthropic doesn't share usage.*Claude Code on this computer/);
