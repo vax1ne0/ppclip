@@ -15,6 +15,8 @@ export type ComputerInfo = {
   agentId: string;
   running: boolean;
   paused: boolean;
+  /** Desktop daemon health; undefined when not probed (for example while paused). */
+  healthy?: boolean;
   /** True when a saved browser profile was found (logins survive). */
   profileKept: boolean;
 };
@@ -87,6 +89,7 @@ export type PageAction =
 export type StreamUpstream = { host: string; port: number; token: string };
 
 export interface ComputerProvider {
+  health?(): Promise<void>;
   describe(): ProviderInfo;
   ensure(spec: ComputerSpec): Promise<ComputerInfo>;
   inspect(agentId: string): Promise<ComputerInfo | null>;

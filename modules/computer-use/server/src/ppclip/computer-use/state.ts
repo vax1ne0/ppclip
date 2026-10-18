@@ -48,7 +48,8 @@ export type ComputerEvent =
   | "lease_expired"
   | "stop"
   | "revoke"
-  | "restore";
+  | "restore"
+  | "recovery_pause";
 
 export type ComputerActorKind = "operator" | "agent" | "system";
 
@@ -90,6 +91,7 @@ const TRANSITIONS: Record<ComputerEvent, Rule> = {
   release: { from: ["human", "human_private"], to: "agent", by: ["operator"] },
   pause: { from: ["agent", "waiting_for_human", "human", "human_private"], to: "paused", by: ["operator"] },
   resume: { from: ["paused"], to: "agent", by: ["operator"] },
+  recovery_pause: { from: ["starting", "agent", "waiting_for_human", "human", "human_private"], to: "paused", by: ["system"] },
   lease_expired: { from: ["human", "human_private"], to: "paused", by: ["system"] },
   stop: { from: "any_but_revoked", to: "stopped", by: ["operator", "system"] },
   revoke: { from: "any", to: "revoked", by: ["operator"] },
@@ -181,6 +183,7 @@ function eventWords(event: ComputerEvent) {
     case "stop": return "stop the computer";
     case "revoke": return "revoke access";
     case "restore": return "restore access";
+    case "recovery_pause": return "pause during recovery";
   }
 }
 

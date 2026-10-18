@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import express from "express";
 import request from "supertest";
 import { and, eq } from "drizzle-orm";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { activityLog, agents, companies, createDb, heartbeatRuns } from "@paperclipai/db";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { activityLog, agents, companies, createDb, heartbeatRuns, EMBEDDED_POSTGRES_TEST_TIMEOUT_MS } from "@paperclipai/db";
 import { getEmbeddedPostgresTestSupport, startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.js";
 import { truncateTablesWithDeadlockRetry } from "./helpers/truncate-with-deadlock-retry.js";
 import { computerUseService, type ComputerUseService } from "../ppclip/computer-use/service.ts";
@@ -46,7 +46,7 @@ describeEmbeddedPostgres("ppclip computer use (fake sandbox)", () => {
       idleMs: 15 * 60_000,
     });
     tools = computerTools(service);
-  }, 30_000);
+  }, EMBEDDED_POSTGRES_TEST_TIMEOUT_MS);
 
   afterEach(async () => {
     provider.boxes.clear();
@@ -208,6 +208,24 @@ describeEmbeddedPostgres("ppclip computer use (fake sandbox)", () => {
     expect(await tools.list(ctx)).toEqual([]);
   });
 
+  it("gives a restarted computer a fresh idle window instead of reusing old activity", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId);
+    await call(ctx, "computer_screenshot");
+    clock = new Date(clock.getTime() + 16 * 60_000);
+    await service.sweep();
+    expect((await state(companyId, agentId)).state).toBe("stopped");
+    await service.operate(companyId, agentId, "start", operator);
+    await service.sweep();
+    expect((await state(companyId, agentId)).state).toBe("agent");
+    clock = new Date(clock.getTime() + 14 * 60_000);
+    await service.sweep();
+    expect((await state(companyId, agentId)).state).toBe("agent");
+    clock = new Date(clock.getTime() + 2 * 60_000);
+    await service.sweep();
+    expect((await state(companyId, agentId)).state).toBe("stopped");
+  });
+
   it("issues live-view tickets that die when control changes", async () => {
     const { companyId, agentId, ctx } = await seed();
     await enable(companyId, agentId);
@@ -250,6 +268,113 @@ describeEmbeddedPostgres("ppclip computer use (fake sandbox)", () => {
     expect((await actions(companyId)).some((r) => r.action === "ppclip.computer_use.stop" && (r.details as { reason?: string }).reason === "idle")).toBe(true);
   });
 
+  it("closes view tickets while paused and reopens after resume or takeover", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId);
+    await call(ctx, "computer_screenshot");
+    const view = await service.issueTicket(companyId, agentId, operator.userId, "view");
+    await service.operate(companyId, agentId, "pause", operator);
+    expect(await service.resolveTicket(view)).toBeNull();
+    await expect(service.issueTicket(companyId, agentId, operator.userId, "view")).rejects.toThrow(/paused/);
+    await service.operate(companyId, agentId, "resume", operator);
+    expect(await service.resolveTicket(await service.issueTicket(companyId, agentId, operator.userId, "view"))).toMatchObject({ mode: "view" });
+    await service.operate(companyId, agentId, "pause", operator);
+    await service.operate(companyId, agentId, "take_control", operator);
+    expect(provider.boxes.get(agentId)).toMatchObject({ paused: false, interactive: true });
+    expect(await service.resolveTicket(await service.issueTicket(companyId, agentId, operator.userId, "control"))).toMatchObject({ mode: "control" });
+  });
+
+  it("recovers a still-valid human lease after a service restart without reusing viewer tickets", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId); await call(ctx, "computer_screenshot");
+    await service.operate(companyId, agentId, "take_control", operator);
+    const original = await state(companyId, agentId);
+    const ticket = await service.issueTicket(companyId, agentId, operator.userId, "control");
+    provider.boxes.get(agentId)!.interactive = false;
+    const restarted = computerUseService(db, { supervisor: service.supervisor, now: () => clock });
+    expect(await restarted.resolveTicket(ticket)).toBeNull();
+    expect(await restarted.reconcile()).toMatchObject({ checked: 1, unavailable: 0 });
+    expect(provider.boxes.get(agentId)!.interactive).toBe(true);
+    expect((await state(companyId, agentId)).lease).toEqual(original.lease);
+    await expect(restarted.issueTicket(companyId, agentId, "another-user", "control")).rejects.toThrow(/Take control/);
+  });
+
+  it("reconciles externally paused and stopped computers without automatically resuming them", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId); await call(ctx, "computer_screenshot");
+    provider.boxes.get(agentId)!.paused = true;
+    expect(await service.reconcile()).toMatchObject({ changed: 1 });
+    expect((await state(companyId, agentId)).state).toBe("paused");
+    const epoch = (await state(companyId, agentId)).epoch;
+    expect(await service.reconcile()).toMatchObject({ changed: 0 });
+    expect((await state(companyId, agentId)).epoch).toBe(epoch);
+    provider.boxes.get(agentId)!.paused = false;
+    await service.reconcile();
+    expect(provider.boxes.get(agentId)!.paused).toBe(true);
+    provider.boxes.get(agentId)!.running = false;
+    await service.reconcile();
+    expect((await state(companyId, agentId)).state).toBe("stopped");
+    expect(provider.profiles.has(agentId)).toBe(true);
+  });
+
+  it("preserves saved state during a supervisor outage", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId); await call(ctx, "computer_screenshot");
+    const before = await state(companyId, agentId);
+    const offline = vi.spyOn(service.supervisor, "health").mockResolvedValue({ ok: false, error: "offline" });
+    try {
+      expect(await service.reconcile()).toMatchObject({ unavailable: 1, changed: 0 });
+      expect(await state(companyId, agentId)).toEqual(before);
+    } finally { offline.mockRestore(); }
+  });
+
+  it("retries stopping a disabled desktop after a transient Docker failure", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId); await call(ctx, "computer_screenshot");
+    const before = await state(companyId, agentId);
+    await db.update(agents).set({ metadata: { keep: "me", computerUse: { ...before, enabled: false } } }).where(eq(agents.id, agentId));
+    const stop = vi.spyOn(service.supervisor, "stop").mockRejectedValueOnce(new Error("Docker temporarily unavailable"));
+    try {
+      expect(await service.reconcile()).toMatchObject({ unavailable: 1, changed: 0 });
+      expect((await state(companyId, agentId)).state).toBe("agent");
+      expect(provider.boxes.get(agentId)?.running).toBe(true);
+      expect(await service.reconcile()).toMatchObject({ unavailable: 0, changed: 1 });
+      expect((await state(companyId, agentId)).state).toBe("stopped");
+      expect(provider.boxes.get(agentId)?.running).toBe(false);
+      expect(stop).toHaveBeenCalledTimes(2);
+    } finally { stop.mockRestore(); }
+  });
+
+  it("pauses an unhealthy desktop instead of restarting or deleting it", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId); await call(ctx, "computer_screenshot");
+    const inspect = provider.inspect.bind(provider);
+    const probe = vi.spyOn(provider, "inspect").mockImplementation(async id => { const info = await inspect(id); return info ? { ...info, healthy: false } : null; });
+    try {
+      await service.reconcile();
+      expect((await state(companyId, agentId)).state).toBe("paused");
+      expect(provider.boxes.get(agentId)).toMatchObject({ running: true, paused: true });
+      expect(provider.profiles.has(agentId)).toBe(true);
+    } finally { probe.mockRestore(); }
+  });
+
+  it("restores a lost control listener only for the unexpired lease holder", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId);
+    await call(ctx, "computer_screenshot");
+    await service.operate(companyId, agentId, "take_control", operator);
+    provider.boxes.get(agentId)!.interactive = false;
+    await expect(service.issueTicket(companyId, agentId, "someone-else", "control")).rejects.toThrow(/Take control/);
+    expect(provider.boxes.get(agentId)!.interactive).toBe(false);
+    const ticket = await service.issueTicket(companyId, agentId, operator.userId, "control");
+    expect(provider.boxes.get(agentId)!.interactive).toBe(true);
+    expect(await service.resolveTicket(ticket)).toMatchObject({ mode: "control" });
+    provider.boxes.get(agentId)!.interactive = false;
+    clock = new Date(clock.getTime() + 11 * 60_000);
+    await expect(service.issueTicket(companyId, agentId, operator.userId, "control")).rejects.toThrow(/Take control/);
+    expect(provider.boxes.get(agentId)!.interactive).toBe(false);
+  });
+
   it("serialises tool calls with control changes: take control waits for the in-flight action", async () => {
     const { companyId, agentId, ctx } = await seed();
     await enable(companyId, agentId);
@@ -265,6 +390,39 @@ describeEmbeddedPostgres("ppclip computer use (fake sandbox)", () => {
     await Promise.all([slow, take]);
     expect(textOf(await late)).toMatch(/human_has_control/);
     expect(order).toEqual(["agent-action", "take-control", "late-agent-call"]);
+  });
+
+  it("waits for the interactive stream before issuing a control ticket", async () => {
+    const { companyId, agentId, ctx } = await seed();
+    await enable(companyId, agentId);
+    await call(ctx, "computer_screenshot");
+    let finish!: () => void;
+    let entered!: () => void;
+    const ready = new Promise<void>(resolve => { entered = resolve; });
+    const gate = new Promise<void>(resolve => { finish = resolve; });
+    const original = provider.setControl.bind(provider);
+    const spy = vi.spyOn(provider, "setControl").mockImplementation(async (id, interactive) => {
+      if (interactive) { entered(); await gate; }
+      await original(id, interactive);
+    });
+    try {
+      const take = service.operate(companyId, agentId, "take_control", operator);
+      await ready;
+      expect((await state(companyId, agentId)).state).toBe("human");
+      let issued = false;
+      const ticket = service.issueTicket(companyId, agentId, operator.userId, "control").then(value => { issued = true; return value; });
+      // Drain the same DB path the unguarded ticket request previously used.
+      await state(companyId, agentId);
+      await state(companyId, agentId);
+      expect(issued).toBe(false);
+      finish();
+      await take;
+      expect(await service.resolveTicket(await ticket)).toMatchObject({ mode: "control" });
+      expect(provider.boxes.get(agentId)?.interactive).toBe(true);
+    } finally {
+      finish();
+      spy.mockRestore();
+    }
   });
 
   it("offers shell only when enabled, and agent PATCHes or hires cannot touch the record", async () => {

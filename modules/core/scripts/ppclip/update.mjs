@@ -39,7 +39,7 @@ export function findPackage(appDir = app, given = arg('--package', process.env.P
 }
 
 function git(dir, args) {
-  const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+  const r = spawnSync('git', ['-C', dir, ...args], { encoding: 'utf8', timeout: 120_000, windowsHide: true });
   return { ok: r.status === 0, out: (r.stdout ?? '').trim(), err: (r.stderr ?? '').trim() };
 }
 
@@ -51,7 +51,7 @@ export function checkPackage(pkg) {
   const log = git(pkg, ['log', '--format=%h %s', 'HEAD..@{u}']);
   return {
     head,
-    fetchError: fetched.ok ? null : fetched.err || 'git fetch failed',
+    fetchError: !fetched.ok ? fetched.err || 'git fetch failed' : !log.ok ? log.err || 'No upstream branch configured' : null,
     dirty: dirty ? dirty.split('\n') : [],
     commits: log.ok && log.out ? log.out.split('\n') : [],
   };
@@ -156,7 +156,7 @@ function relaunchArgs(launcher) {
 async function performUpdate() {
   const pkg = findPackage();
   const launcher = readJson(launcherFile);
-  setStatus({ state: 'running', step: 'Waiting for Paperclip to stop', startedAt: new Date().toISOString(), finishedAt: null, error: null });
+  setStatus({ state: 'running', step: 'Waiting for Paperclip to stop', startedAt: new Date().toISOString(), finishedAt: null, error: null, image: null, commits: [], from: null, to: null });
   log(`Updating ppclip from ${pkg} for ${app} (data ${home})`);
 
   // 1. Paperclip shuts itself down gracefully when the update starts from the server (its
@@ -215,8 +215,8 @@ async function main() {
   const pkg = findPackage();
   const check = checkPackage(pkg);
   console.log(`ppclip at ${pkg} (${check.head})`);
-  if (check.fetchError) console.log(`Could not check for updates: ${check.fetchError}`);
-  if (check.dirty.length) { console.log(`The ppclip folder has local changes; commit or discard them first:\n  ${check.dirty.join('\n  ')}`); process.exitCode = 1; return; }
+  if (check.fetchError) { console.log(`Could not check for updates: ${check.fetchError}`); process.exitCode = 1; return; }
+  if (check.dirty.length) { console.log(`The ppclip folder has local changes; review and commit or stash your work first:\n  ${check.dirty.join('\n  ')}`); process.exitCode = 1; return; }
   console.log(check.commits.length ? `${check.commits.length} update(s):\n  ${check.commits.join('\n  ')}` : 'ppclip is up to date.');
   if (flag('--check') || (!check.commits.length && !flag('--force'))) return;
 
@@ -233,6 +233,8 @@ async function main() {
       if (s?.step && s.step !== last) { last = s.step; console.log(`  ${s.step}`); }
       if (s?.state === 'done' || s?.state === 'failed') { console.log(s.state === 'done' ? `Done. Open ${launcher.url} (refresh the page).` : `Failed: ${s.error}\nLog: ${logFile}`); process.exitCode = s.state === 'done' ? 0 : 1; return; }
     }
+    console.error(`Still waiting after 30 minutes. Inspect ${logFile} before retrying.`);
+    process.exitCode = 1;
     return;
   }
   if (!launcher) console.log(`Paperclip isn't running from ${home}; updating, then starting it with: start-local.mjs --data "${home}"`);

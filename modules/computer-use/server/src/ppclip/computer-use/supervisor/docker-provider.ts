@@ -49,6 +49,7 @@ export class DockerComputerProvider implements ComputerProvider {
   private runtime: string | null | undefined;
   /** websockify tokens set in each sandbox (lost on restart; re-issued on demand). */
   private readonly streamTokens = new Map<string, { view?: string; control?: string }>();
+  private readonly streamGenerations = new Map<string, string>();
 
   constructor(opts: DockerProviderOptions = {}) {
     this.docker = opts.docker ?? new DockerApi();
@@ -72,6 +73,10 @@ export class DockerComputerProvider implements ComputerProvider {
     };
   }
 
+  async health() {
+    await this.docker.request("GET", "/version", undefined, 3000);
+  }
+
   private names(agentId: string) {
     const id = safeId(agentId);
     return { container: `ppclip-computer-${id}`, network: `ppclip-computer-net-${id}`, volume: `ppclip-computer-home-${id}` };
@@ -87,7 +92,7 @@ export class DockerComputerProvider implements ComputerProvider {
   private async inspectContainer(agentId: string) {
     const { container } = this.names(agentId);
     return this.docker.tolerate(this.docker.request<{
-      State: { Running: boolean; Paused: boolean };
+      State: { Running: boolean; Paused: boolean; StartedAt?: string };
       Config: { Labels: Record<string, string> };
       NetworkSettings: { Ports: Record<string, { HostIp: string; HostPort: string }[] | null> };
     }>("GET", `/containers/${container}/json`), [404]);
@@ -96,6 +101,12 @@ export class DockerComputerProvider implements ComputerProvider {
   private async endpoint(agentId: string): Promise<Endpoint> {
     const info = await this.inspectContainer(agentId);
     if (!info?.State.Running) throw new ProviderError("not_running", "The computer is not running.");
+    if (info.State.Paused) throw new ProviderError("unavailable", "The computer is paused. Resume it or take control to open the live view.");
+    const generation = info.State.StartedAt;
+    if (generation && this.streamGenerations.get(agentId) !== generation) {
+      this.streamTokens.delete(agentId);
+      this.streamGenerations.set(agentId, generation);
+    }
     const port = (name: string) => Number(info.NetworkSettings.Ports[name]?.find((p) => p.HostIp === "127.0.0.1")?.HostPort ?? 0);
     const controlPort = port("7070/tcp");
     const streamPort = port("6080/tcp");
@@ -198,7 +209,9 @@ export class DockerComputerProvider implements ComputerProvider {
     const info = await this.inspectContainer(agentId);
     const volume = await this.docker.tolerate(this.docker.request("GET", `/volumes/${this.names(agentId).volume}`), [404]);
     if (!info) return volume ? { agentId, running: false, paused: false, profileKept: true } : null;
-    return { agentId, running: info.State.Running, paused: info.State.Paused, profileKept: Boolean(volume) };
+    const healthy = info.State.Running && !info.State.Paused
+      ? await this.daemon(agentId, "/health", {}, 3000).then(() => true, () => false) : undefined;
+    return { agentId, running: info.State.Running, paused: info.State.Paused, profileKept: Boolean(volume), healthy };
   }
 
   async stop(agentId: string) {
@@ -207,6 +220,7 @@ export class DockerComputerProvider implements ComputerProvider {
     if (info?.State.Paused) await this.docker.tolerate(this.docker.request("POST", `/containers/${container}/unpause`), [404, 409]);
     await this.docker.tolerate(this.docker.request("POST", `/containers/${container}/stop?t=5`), [304, 404]);
     this.streamTokens.delete(agentId);
+    this.streamGenerations.delete(agentId);
   }
 
   async destroy(agentId: string, opts: { purgeProfile: boolean }) {
@@ -215,6 +229,7 @@ export class DockerComputerProvider implements ComputerProvider {
     await this.docker.tolerate(this.docker.request("DELETE", `/networks/${network}`), [404]);
     if (opts.purgeProfile) await this.docker.tolerate(this.docker.request("DELETE", `/volumes/${volume}`), [404]);
     this.streamTokens.delete(agentId);
+    this.streamGenerations.delete(agentId);
   }
 
   observe(agentId: string) {
@@ -234,17 +249,18 @@ export class DockerComputerProvider implements ComputerProvider {
   }
 
   async setControl(agentId: string, interactive: boolean) {
-    const tokens = this.streamTokens.get(agentId) ?? {};
     if (interactive) {
+      await this.endpoint(agentId); // A container restart invalidates cached control tokens.
+      if (this.streamTokens.get(agentId)?.control) return;
       const token = randomBytes(18).toString("hex");
       await this.daemon(agentId, "/stream/control", { token });
-      this.streamTokens.set(agentId, { ...tokens, control: token });
+      this.streamTokens.set(agentId, { ...this.streamTokens.get(agentId), control: token });
     } else {
       // Revocation: the sandbox deletes the token and kills the interactive listener.
       await this.daemon(agentId, "/stream/control", { token: null }).catch((err) => {
         if (!(err instanceof ProviderError && err.code === "not_running")) throw err;
       });
-      this.streamTokens.set(agentId, { view: tokens.view });
+      this.streamTokens.set(agentId, { view: this.streamTokens.get(agentId)?.view });
     }
   }
 
@@ -254,6 +270,8 @@ export class DockerComputerProvider implements ComputerProvider {
 
   async thaw(agentId: string) {
     await this.docker.tolerate(this.docker.request("POST", `/containers/${this.names(agentId).container}/unpause`), [409]);
+    // Docker Desktop can republish dynamic ports after acknowledging unpause.
+    await this.waitHealthy(agentId);
   }
 
   shell(agentId: string, command: string, timeoutMs: number) {
@@ -268,7 +286,7 @@ export class DockerComputerProvider implements ComputerProvider {
       const token = randomBytes(18).toString("hex");
       await this.daemon(agentId, "/stream/view", { token });
       tokens.view = token;
-      this.streamTokens.set(agentId, tokens);
+      this.streamTokens.set(agentId, { ...this.streamTokens.get(agentId), view: token });
     }
     return { host: ep.host, port: ep.streamPort, token: tokens.view };
   }

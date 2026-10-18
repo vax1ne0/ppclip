@@ -59,4 +59,14 @@ describe("ppclip computer supervisor", () => {
     const untokened = httpSupervisorClient({ url: base, token: () => null });
     await expect(untokened.inspect("a")).rejects.toThrow(/isn.t running/);
   });
+  it("does not report a healthy supervisor when its provider is unavailable", async () => {
+    const offlineProvider = new FakeComputerProvider() as FakeComputerProvider & { health: () => Promise<void> };
+    offlineProvider.health = async () => { throw new Error("Docker is unavailable"); };
+    const offline = createSupervisorServer({ provider: offlineProvider, token: TOKEN, port: 0 });
+    const port = await offline.listen();
+    try {
+      const client = httpSupervisorClient({ url: `http://127.0.0.1:${port}`, token: () => TOKEN });
+      expect(await client.health()).toMatchObject({ ok: false });
+    } finally { await offline.close(); }
+  });
 });

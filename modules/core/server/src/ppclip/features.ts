@@ -13,6 +13,7 @@ export const PPCLIP_FEATURE_KEYS = [
   "liveRuns",
   "providerUsage",
   "providerRouting",
+  "modelApprovals",
   "runControls",
   "computerUse",
   "urgencyOrder",

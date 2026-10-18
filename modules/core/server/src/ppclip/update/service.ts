@@ -28,6 +28,8 @@ export type UpdateJob = {
 };
 
 export type UpdateStatus = {
+  localChanges?: string[];
+  installation?: { installedAt: string; paperclipVersion: string } | null;
   packageDir: string | null;
   current: { commit: string; subject: string; date: string } | null;
   /** New commits on the ppclip repo's upstream branch, newest first (from the last check). */
@@ -92,14 +94,17 @@ export type UpdateDeps = {
   paths?: UpdatePaths;
   countRunningRuns?: () => Promise<number>;
   /** Starts the detached updater. Tests replace it. */
-  spawnUpdater?: (paths: UpdatePaths & { home: string; packageDir: string }, force: boolean) => void;
+  spawnUpdater?: (paths: UpdatePaths & { home: string; packageDir: string }, force: boolean) => void | Promise<void>;
   /** Ends this server cleanly. Tests replace it. */
   shutdown?: () => void;
 };
 
 export function updateService(deps: UpdateDeps = {}) {
   const paths = deps.paths ?? defaultUpdatePaths();
-  let lastCheck: { available: string[]; checkedAt: string; error: string | null } | null = null;
+  type Check = { available: string[]; checkedAt: string; error: string | null };
+  const checkFile = paths.home ? path.join(paths.home, "ppclip-update-check.json") : null;
+  let lastCheck = checkFile ? readJson<Check>(checkFile) : null;
+  let checking: Promise<void> | null = null;
   let starting = false;
 
   const statusFile = () => (paths.home ? path.join(paths.home, "ppclip-update.json") : null);
@@ -112,22 +117,28 @@ export function updateService(deps: UpdateDeps = {}) {
   function logTail(lines = 30) {
     if (!paths.home) return [];
     try {
-      return fs.readFileSync(path.join(paths.home, "ppclip-update.log"), "utf8").trimEnd().split("\n").slice(-lines);
+      const fd = fs.openSync(path.join(paths.home, "ppclip-update.log"), "r");
+      try {
+        const size = fs.fstatSync(fd).size;
+        const buffer = Buffer.alloc(Math.min(size, 64 * 1024));
+        fs.readSync(fd, buffer, 0, buffer.length, Math.max(0, size - buffer.length));
+        return buffer.toString("utf8").trimEnd().split("\n").slice(-lines);
+      } finally { fs.closeSync(fd); }
     } catch {
       return [];
     }
   }
 
-  async function blocked(): Promise<string | null> {
+  async function blocked(ignoreStarting = false): Promise<string | null> {
     if (!paths.packageDir) return "The ppclip folder wasn't found next to Paperclip. Set PPCLIP_PACKAGE_DIR, or update from a terminal.";
     if (!paths.home || !fs.existsSync(path.join(paths.home, "launcher.json"))) {
       return "Paperclip wasn't started with scripts/ppclip/start-local.mjs, so it can't restart itself. Update from a terminal instead.";
     }
     const current = job();
-    if (starting || current?.state === "starting" || current?.state === "running") return "An update is already running.";
+    if ((!ignoreStarting && starting) || current?.state === "starting" || current?.state === "running") return "An update is already running.";
     try {
       const dirty = await git(paths.packageDir, ["status", "--porcelain", "--untracked-files=no"]);
-      if (dirty) return "The ppclip folder has local changes. Commit or discard them first.";
+      if (dirty) return "Updates are paused because the ppclip package has local changes. Review and commit or stash your work before updating.";
     } catch {
       return "The ppclip folder isn't a git checkout.";
     }
@@ -147,7 +158,10 @@ export function updateService(deps: UpdateDeps = {}) {
           current = null;
         }
       }
+      const installed = readJson<{ installedAt: string; paperclipVersion: string }>(path.join(paths.app, ".ppclip-overlay.json"));
       return {
+        localChanges: paths.packageDir ? (await git(paths.packageDir, ["status", "--porcelain", "--untracked-files=normal"]).catch(() => "")).split("\n").filter(Boolean) : [],
+        installation: installed ? { installedAt: installed.installedAt, paperclipVersion: installed.paperclipVersion } : null,
         packageDir: paths.packageDir,
         current,
         available: lastCheck?.available ?? [],
@@ -162,30 +176,46 @@ export function updateService(deps: UpdateDeps = {}) {
 
     /** Fetches the ppclip repo and lists the commits that an update would bring. */
     async check() {
-      if (!paths.packageDir) {
-        lastCheck = { available: [], checkedAt: new Date().toISOString(), error: "The ppclip folder wasn't found." };
-        return this.status();
-      }
-      try {
-        await git(paths.packageDir, ["fetch", "--quiet"], 120_000);
-        const out = await git(paths.packageDir, ["log", "--format=%h %s", "HEAD..@{u}"]);
-        lastCheck = { available: out ? out.split("\n") : [], checkedAt: new Date().toISOString(), error: null };
-      } catch (err) {
-        lastCheck = { available: lastCheck?.available ?? [], checkedAt: new Date().toISOString(), error: err instanceof Error ? err.message.split("\n")[0]! : "git fetch failed" };
-      }
+      if (!checking) checking = (async () => {
+        try {
+          if (!paths.packageDir) throw new Error("The ppclip folder wasn't found.");
+          await git(paths.packageDir, ["fetch", "--quiet"], 120_000);
+          const out = await git(paths.packageDir, ["log", "--format=%h %s", "HEAD..@{u}"]);
+          lastCheck = { available: out ? out.split("\n") : [], checkedAt: new Date().toISOString(), error: null };
+        } catch (err) {
+          lastCheck = { available: [], checkedAt: new Date().toISOString(), error: err instanceof Error ? err.message.split("\n")[0]! : "git fetch failed" };
+        }
+        if (checkFile) {
+          try { fs.writeFileSync(checkFile, JSON.stringify(lastCheck)); } catch { /* Read-only data folder: checks still work. */ }
+        }
+      })().finally(() => { checking = null; });
+      await checking;
       return this.status();
     },
 
     /** Starts the updater, then shuts this server down so it can be replaced. */
     async start(opts: { force?: boolean } = {}) {
-      const reason = await blocked();
-      if (reason) throw new UpdateBlockedError(reason);
+      if (starting) throw new UpdateBlockedError("An update is already running.");
       starting = true;
-      const ready = { ...paths, home: paths.home!, packageDir: paths.packageDir! };
-      fs.writeFileSync(path.join(ready.home, "ppclip-update.json"), JSON.stringify({
-        state: "starting", step: "Stopping Paperclip", startedAt: new Date().toISOString(), finishedAt: null, error: null,
-      }, null, 2));
-      (deps.spawnUpdater ?? spawnDetachedUpdater)(ready, opts.force === true);
+      try {
+        const reason = await blocked(true);
+        if (reason) throw new UpdateBlockedError(reason);
+        const ready = { ...paths, home: paths.home!, packageDir: paths.packageDir! };
+        fs.writeFileSync(path.join(ready.home, "ppclip-update.json"), JSON.stringify({
+          state: "starting", step: "Starting updater", startedAt: new Date().toISOString(), finishedAt: null, error: null,
+        }, null, 2));
+        try {
+          await (deps.spawnUpdater ?? spawnDetachedUpdater)(ready, opts.force === true);
+        } catch (err) {
+          fs.writeFileSync(path.join(ready.home, "ppclip-update.json"), JSON.stringify({
+            state: "failed", step: "Could not start updater", error: err instanceof Error ? err.message : String(err), finishedAt: new Date().toISOString(),
+          }, null, 2));
+          throw err;
+        }
+      } catch (err) {
+        starting = false;
+        throw err;
+      }
       // Give the response time to reach the browser, then stop cleanly (embedded Postgres included).
       setTimeout(() => (deps.shutdown ?? gracefulShutdown)(), 1500).unref?.();
       return { started: true };
@@ -195,12 +225,18 @@ export function updateService(deps: UpdateDeps = {}) {
 
 export class UpdateBlockedError extends Error {}
 
-function spawnDetachedUpdater(paths: UpdatePaths & { home: string; packageDir: string }, force: boolean) {
+async function spawnDetachedUpdater(paths: UpdatePaths & { home: string; packageDir: string }, force: boolean) {
   const log = fs.openSync(path.join(paths.home, "ppclip-update.log"), "a");
+  try {
   const child = spawn(process.execPath, [
     path.join(paths.app, "scripts", "ppclip", "update.mjs"), "--run", "--data", paths.home, "--package", paths.packageDir, ...(force ? ["--force"] : []),
   ], { cwd: paths.app, env: process.env, detached: true, windowsHide: true, stdio: ["ignore", log, log] });
+  await new Promise<void>((resolve, reject) => {
+    child.once("error", reject);
+    child.once("spawn", () => resolve());
+  });
   child.unref();
+  } finally { fs.closeSync(log); }
 }
 
 /** The server's own SIGTERM handler, called in-process so it also works on Windows. */

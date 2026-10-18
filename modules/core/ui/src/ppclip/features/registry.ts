@@ -8,6 +8,7 @@ export type PpclipFeatureKey =
   | "liveRuns"
   | "providerUsage"
   | "providerRouting"
+  | "modelApprovals"
   | "runControls"
   | "computerUse"
   | "urgencyOrder"
@@ -66,6 +67,12 @@ export const PPCLIP_MODULES: PpclipModuleGroup[] = [
         title: "Provider switching",
         description: "The Providers panel in the top bar, where you can let idle agents move to another provider when theirs runs out (Hybrid, or one provider only), with model tiers that pair equivalent models.",
         footnote: "Switching itself stays off until you turn it on in that panel. Off here: the panel and mode switch are hidden and no agent is moved. Agents already moved keep their current settings.",
+      },
+      {
+        key: "modelApprovals",
+        title: "Approved models",
+        description: "Choose which exact models each harness may run. Enforces the approved list for agents, task overrides, retries and automatic provider switching.",
+        footnote: "Off: hides the approved models panel and stops enforcing its model restrictions across this instance. Saved approvals are kept and apply again when you turn it back on. Takes effect for new runs without restarting.",
       },
     ],
   },

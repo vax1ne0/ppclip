@@ -43,20 +43,30 @@ afterEach(async () => {
 describe("ppclip module registry", () => {
   it("lists every module once, all on by default", () => {
     expect(new Set(PPCLIP_FEATURE_KEYS).size).toBe(PPCLIP_FEATURE_KEYS.length);
-    expect(PPCLIP_FEATURE_KEYS).toHaveLength(14);
+    expect(PPCLIP_FEATURE_KEYS).toHaveLength(15);
     expect(Object.values(defaultPpclipFeatures()).every(Boolean)).toBe(true);
     for (const group of PPCLIP_MODULES) for (const feature of group.features) expect(feature.description.length).toBeGreaterThan(20);
   });
 });
 
 describe("Settings → ppclip", () => {
+  it("can disable Approved models independently", async () => {
+    mockApi.patch.mockResolvedValue({ ...defaultPpclipFeatures(), modelApprovals: false });
+    await render(<PpclipSettingsPage />);
+    const toggle = container.querySelector("[data-testid='ppclip-feature-modelApprovals'] [role='switch']") as HTMLButtonElement;
+    await act(async () => { toggle.click(); });
+    for (let i = 0; i < 3; i++) await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockApi.patch).toHaveBeenCalledWith("/ppclip/features", { modelApprovals: false });
+    expect(ppclipFeatureEnabled("modelApprovals")).toBe(false);
+    expect(ppclipFeatureEnabled("providerRouting")).toBe(true);
+  });
   it("shows each module group with a toggle per feature, and saves a change", async () => {
     mockApi.patch.mockResolvedValue({ ...defaultPpclipFeatures(), team: false });
     await render(<PpclipSettingsPage />);
     const headings = [...container.querySelectorAll("h2")].map((h) => h.textContent);
     expect(headings).toEqual(["Updates", ...PPCLIP_MODULES.map((group) => group.title)]);
     const switches = container.querySelectorAll("[role='switch']");
-    expect(switches).toHaveLength(14);
+    expect(switches).toHaveLength(15);
     expect([...switches].every((s) => s.getAttribute("aria-checked") === "true")).toBe(true);
 
     const team = container.querySelector("[data-testid='ppclip-feature-team'] [role='switch']") as HTMLButtonElement;
@@ -73,7 +83,7 @@ describe("Settings → ppclip", () => {
     const team = container.querySelector("[data-testid='ppclip-feature-team'] [role='switch']") as HTMLButtonElement;
     await act(async () => { team.click(); });
     for (let i = 0; i < 3; i += 1) await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
-    expect(container.querySelector("[role='alert']")?.textContent).toContain("Instance admin access required");
+    expect([...container.querySelectorAll("[role='alert']")].some(alert => alert.textContent?.includes("Instance admin access required"))).toBe(true);
     expect(ppclipFeatureEnabled("team")).toBe(true);
   });
 });

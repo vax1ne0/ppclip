@@ -2,7 +2,7 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { AgentComputer, ComputerUseOverview } from "./api";
@@ -64,6 +64,32 @@ afterEach(() => {
 });
 
 describe("ComputerPanel", () => {
+  it("shows a paused placeholder without requesting a stream and keeps recovery actions available", async () => {
+    await render(<ComputerPanel companyId={companyId} computer={computer({ state: "paused" })} agentName="Robin" liveView />);
+    expect(container.textContent).toContain("Computer paused");
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(mockApi.viewer).not.toHaveBeenCalled();
+    expect(button("Resume")).toBeTruthy();
+    await act(async () => { button("Take control")!.click(); });
+    expect(mockApi.act).toHaveBeenCalledWith(companyId, "agent-1", "take-control");
+  });
+  it("keeps the sandboxed viewer toolbar in sync with the app theme", async () => {
+    const element = document.documentElement;
+    const previous = element.style.getPropertyValue("--background");
+    try {
+      element.style.setProperty("--background", "#171717");
+      await render(<ComputerPanel companyId={companyId} computer={computer()} agentName="Robin" liveView />);
+      const frame = container.querySelector("iframe")!;
+      const post = vi.spyOn(frame.contentWindow!, "postMessage");
+      await act(async () => { frame.dispatchEvent(new Event("load")); });
+      expect(post).toHaveBeenLastCalledWith({ type: "ppclip:computer-view-theme", tokens: expect.objectContaining({ background: "#171717" }) }, "*");
+      await act(async () => { element.style.setProperty("--background", "#ffffff"); });
+      expect(post).toHaveBeenLastCalledWith({ type: "ppclip:computer-view-theme", tokens: expect.objectContaining({ background: "#ffffff" }) }, "*");
+    } finally {
+      if (previous) element.style.setProperty("--background", previous);
+      else element.style.removeProperty("--background");
+    }
+  });
   it("embeds a view-only live view in a sandboxed frame while the agent drives", async () => {
     await render(<ComputerPanel companyId={companyId} computer={computer()} agentName="Robin" liveView />);
     expect(container.querySelector("[data-testid=computer-state]")?.textContent).toBe("Agent driving");
@@ -73,6 +99,56 @@ describe("ComputerPanel", () => {
     expect(mockApi.viewer).toHaveBeenCalledWith(companyId, "agent-1", "view");
     expect(button("Take control")).toBeTruthy();
     expect(button("Release to agent")).toBeFalsy();
+  });
+
+  it("requests a new ticket when reopening with the same query cache", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const panel = <ComputerPanel companyId={companyId} computer={computer()} agentName="Robin" liveView />;
+    const mount = async (node: React.ReactNode) => {
+      await act(async () => { root.render(<QueryClientProvider client={client}><TooltipProvider>{node}</TooltipProvider></QueryClientProvider>); });
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    };
+    await mount(panel);
+    expect(mockApi.viewer).toHaveBeenCalledTimes(1);
+    await mount(null);
+    mockApi.viewer.mockResolvedValue({ src: "/fresh-ticket", mode: "view" });
+    await mount(panel);
+    expect(mockApi.viewer).toHaveBeenCalledTimes(2);
+    expect(container.querySelector("iframe")?.getAttribute("src")).toBe("/fresh-ticket");
+  });
+
+  it("renews on focus and offers a manual reconnect", async () => {
+    await render(<ComputerPanel companyId={companyId} computer={computer()} agentName="Robin" liveView />);
+    const calls = mockApi.viewer.mock.calls.length;
+    await act(async () => { focusManager.setFocused(false); focusManager.setFocused(true); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockApi.viewer.mock.calls.length).toBe(calls);
+    const later = Date.now() + 61_000;
+    vi.spyOn(Date, "now").mockReturnValue(later);
+    await act(async () => { focusManager.setFocused(false); focusManager.setFocused(true); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockApi.viewer.mock.calls.length).toBeGreaterThan(calls);
+    const renewed = mockApi.viewer.mock.calls.length;
+    await act(async () => { button("Reconnect")!.click(); });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockApi.viewer.mock.calls.length).toBe(renewed + 1);
+    focusManager.setFocused(undefined);
+  });
+
+  it("only accepts reconnect signals from its own frame and stops retry loops", async () => {
+    await render(<ComputerPanel companyId={companyId} computer={computer()} agentName="Robin" liveView />);
+    const data = { type: "ppclip:computer-view-disconnected", src: "/api/ppclip/computer-use/view/t/vnc_lite.html" };
+    const post = async (source: Window | null, payload = data) => {
+      await act(async () => { window.dispatchEvent(new MessageEvent("message", { source, data: payload })); });
+      await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+    };
+    await post(window);
+    expect(mockApi.viewer).toHaveBeenCalledTimes(1);
+    await post(container.querySelector("iframe")!.contentWindow, { ...data, src: "/old-ticket" });
+    expect(mockApi.viewer).toHaveBeenCalledTimes(1);
+    for (let i = 0; i < 4; i++) await post(container.querySelector("iframe")!.contentWindow);
+    expect(mockApi.viewer).toHaveBeenCalledTimes(4);
+    expect(button("Reconnect live view")).toBeTruthy();
   });
 
   it("shows the agent's request and asks for a control stream while a person drives", async () => {

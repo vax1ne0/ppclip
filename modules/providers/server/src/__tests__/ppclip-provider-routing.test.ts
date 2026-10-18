@@ -21,6 +21,7 @@ import { agentService } from "../services/agents.ts";
 import { emptyTiers, readRoutingRecord, type RoutingPolicyInput } from "../ppclip/providers/policy.ts";
 import { ppclipProviderRoutingRoutes } from "../ppclip/providers/routes.ts";
 import { providerRoutingService, type UsageSource } from "../ppclip/providers/service.ts";
+import { modelPolicyService } from "../ppclip/providers/model-policy.ts";
 
 const embeddedPostgresSupport = await getEmbeddedPostgresTestSupport();
 const describeEmbeddedPostgres = embeddedPostgresSupport.supported ? describe : describe.skip;
@@ -103,6 +104,7 @@ describeEmbeddedPostgres("ppclip provider routing", () => {
     const codex = await seedAgent(companyId, "Codex dev", "codex_local", {
       model: "gpt-6.1-sol", modelReasoningEffort: "medium", search: true, cwd: "/work/codex",
     }, { aiConnection: { mode: "responsible_user", provider: "openai", method: "subscription" } });
+    await modelPolicyService(db).initializeExisting();
     return { companyId, claude, codex };
   }
 
@@ -131,6 +133,44 @@ describeEmbeddedPostgres("ppclip provider routing", () => {
   const localBoard: Actor = { type: "board", userId: "board-user", source: "local_implicit" } as Actor;
 
   describe("routes", () => {
+    it("keeps approvals company-scoped, auditable, and revision checked", async () => {
+      const team = await seedTeam();
+      const other = await seedCompany();
+      const path = `/api/companies/${team.companyId}/ppclip/model-policy`;
+      const server = app(localBoard);
+      const current = await modelPolicyService(db).get(team.companyId);
+      expect(current.allowedModels).toHaveLength(2);
+      const saved = await http(server).put(path).send({ expectedRevision: current.revision, policy: { allowedModels: [] } });
+      expect(saved.status).toBe(200);
+      expect(saved.body.allowedModels).toEqual([]);
+      // A transaction that waited for the advisory lock can have an older
+      // createdAt timestamp even though its policy revision is newer.
+      await db.update(activityLog).set({ createdAt: new Date("2000-01-01T00:00:00Z") })
+        .where(and(eq(activityLog.companyId, team.companyId), eq(activityLog.action, "ppclip.model_policy.updated"), eq(activityLog.actorType, "user")));
+      expect((await modelPolicyService(db).get(team.companyId)).allowedModels).toEqual([]);
+      expect((await modelPolicyService(db).get(other)).allowedModels).toEqual([]);
+      expect((await http(server).put(path).send({ expectedRevision: current.revision, policy: { allowedModels: current.allowedModels } })).status).toBe(409);
+      await modelPolicyService(db).initializeExisting();
+      expect((await modelPolicyService(db).get(team.companyId)).allowedModels).toEqual([]);
+      const userRows = await db.select().from(activityLog).where(and(eq(activityLog.companyId, team.companyId), eq(activityLog.action, "ppclip.model_policy.updated"), eq(activityLog.actorType, "user")));
+      expect(userRows).toHaveLength(1);
+    });
+
+    it("does not auto-approve later agent edits or task override models", async () => {
+      const team = await seedTeam();
+      await db.update(agents).set({ adapterConfig: { model: "gpt-6-astra" } }).where(eq(agents.id, team.codex));
+      await modelPolicyService(db).initializeExisting();
+      await expect(modelPolicyService(db).assertAllowed(team.companyId, "codex_local", { model: "gpt-6-astra" })).rejects.toThrow(/not approved/);
+      await expect(modelPolicyService(db).assertAllowed(team.companyId, "codex_local", {})).rejects.toThrow(/explicit model/);
+    });
+
+    it("requires write authority to change model approvals", async () => {
+      const team = await seedTeam();
+      const server = app(localBoard, { assertWrite: async () => { throw forbidden("read only"); } });
+      const result = await http(server).put(`/api/companies/${team.companyId}/ppclip/model-policy`).send({ expectedRevision: 1, policy: { allowedModels: [] } });
+      expect(result.status).toBe(403);
+      expect((await modelPolicyService(db).get(team.companyId)).allowedModels).toHaveLength(2);
+    });
     it("are board-only and company-scoped", async () => {
       const { companyId } = await seedTeam();
       const agentActor = { type: "agent", companyId, agentId: randomUUID(), source: "agent_key" } as Actor;
@@ -154,7 +194,7 @@ describeEmbeddedPostgres("ppclip provider routing", () => {
       expect(saved.body.policy.modelTiers).toHaveLength(2);
       const stale = await http(server).put(url).send({ expectedRevision: 0, policy: policyFor(team, { mode: "codex_local" }) });
       expect(stale.status).toBe(409);
-      const logged = await db.select().from(activityLog).where(eq(activityLog.companyId, team.companyId));
+      const logged = await db.select().from(activityLog).where(and(eq(activityLog.companyId, team.companyId), eq(activityLog.actorType, "user")));
       expect(logged.map((row) => row.action)).toEqual(["ppclip.provider_routing.updated"]);
       expect(logged[0]).toMatchObject({ actorType: "user", actorId: "board-user", entityType: "company", entityId: team.companyId });
       expect((await service().readPolicy(team.companyId))).toMatchObject({ revision: 1, mode: "hybrid", enabled: true });
@@ -168,7 +208,7 @@ describeEmbeddedPostgres("ppclip provider routing", () => {
       const denied = app(localBoard, { assertWrite: async () => { throw forbidden("nope"); } });
       expect((await http(denied).put(url).send({ expectedRevision: 0, policy: policyFor(team) })).status).toBe(403);
       expect((await http(denied).post(`${url}/reconcile`)).status).toBe(403);
-      expect(await db.select().from(activityLog).where(eq(activityLog.companyId, team.companyId))).toEqual([]);
+      expect(await db.select().from(activityLog).where(and(eq(activityLog.companyId, team.companyId), eq(activityLog.actorType, "user")))).toEqual([]);
     });
   });
 

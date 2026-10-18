@@ -29,6 +29,15 @@ STATE = {"locked": False, "control_proc": None}
 LOCK = threading.Lock()
 
 
+def desktop_ready():
+    try:
+        return subprocess.run(["xdpyinfo", "-display", ":1"], env=ENV,
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                              timeout=2).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 class Refused(Exception):
     def __init__(self, code, message, status=409):
         super().__init__(message)
@@ -465,7 +474,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if self.path == "/ping":
-            return self.reply(200, {"ok": True})
+            ready = desktop_ready()
+            return self.reply(200 if ready else 503, {"ok": ready})
         return self.reply(404, {"error": "not found"})
 
     def do_POST(self):
@@ -480,7 +490,8 @@ class Handler(BaseHTTPRequestHandler):
         pattern = str(body.get("irreversiblePattern", "(?!)"))[:2000]
         try:
             if self.path == "/health":
-                return self.reply(200, {"ok": True, "browser": BROWSER.proc is not None and BROWSER.proc.poll() is None})
+                ready = desktop_ready()
+                return self.reply(200 if ready else 503, {"ok": ready, "browser": BROWSER.proc is not None and BROWSER.proc.poll() is None})
             if self.path == "/observe":
                 png = screenshot()
                 url, title = BROWSER.info()

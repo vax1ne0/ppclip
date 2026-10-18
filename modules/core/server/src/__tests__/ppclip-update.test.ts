@@ -50,7 +50,7 @@ describe("ppclip update service", () => {
   it("finds the one ppclip folder next to Paperclip", () => {
     const { app, pkg } = layout();
     expect(findPackageDir(app, {})).toBe(pkg);
-    expect(findPackageDir(app, { PPCLIP_PACKAGE_DIR: "/somewhere" })).toBe("/somewhere");
+    expect(findPackageDir(app, { PPCLIP_PACKAGE_DIR: "/somewhere" })).toBe(path.resolve("/somewhere"));
     fs.mkdirSync(path.join(root, "ppclip-2"));
     fs.writeFileSync(path.join(root, "ppclip-2", "install.mjs"), "");
     fs.writeFileSync(path.join(root, "ppclip-2", "modules.json"), "");
@@ -74,6 +74,39 @@ describe("ppclip update service", () => {
     expect((await service.status()).blocked).toMatch(/local changes/);
     git(pkg, "checkout", "--", "modules.json");
     expect((await service.status()).blocked).toBeNull();
+  });
+
+  it("persists checks and exposes tracked and untracked changes without losing local work", async () => {
+    const { app, pkg, home } = layout();
+    const paths = { app, home, packageDir: pkg };
+    await updateService({ paths }).check();
+    fs.writeFileSync(path.join(pkg, "notes.txt"), "keep me");
+    fs.appendFileSync(path.join(pkg, "modules.json"), "edit");
+    const result = await updateService({ paths }).status();
+    expect(result.available).toHaveLength(1);
+    expect(result.localChanges?.join("\n")).toMatch(/notes.txt/);
+    expect(result.localChanges?.join("\n")).toMatch(/modules.json/);
+  });
+
+  it("records spawn failure, keeps the server running and permits a retry", async () => {
+    const { app, pkg, home } = layout();
+    fs.writeFileSync(path.join(home, "launcher.json"), "{}");
+    const shutdown = vi.fn();
+    const service = updateService({ paths: { app, home, packageDir: pkg }, shutdown, spawnUpdater: async () => { throw new Error("spawn denied"); } });
+    await expect(service.start()).rejects.toThrow("spawn denied");
+    expect(shutdown).not.toHaveBeenCalled();
+    expect((await service.status()).job).toMatchObject({ state: "failed", error: "spawn denied" });
+    expect((await service.status()).blocked).toBeNull();
+  });
+
+  it("rejects concurrent starts before launching a second updater", async () => {
+    const { app, pkg, home } = layout();
+    fs.writeFileSync(path.join(home, "launcher.json"), "{}");
+    const spawnUpdater = vi.fn(() => { throw new Error("test stop"); });
+    const service = updateService({ paths: { app, home, packageDir: pkg }, spawnUpdater });
+    const results = await Promise.allSettled([service.start(), service.start()]);
+    expect(results.every(result => result.status === "rejected")).toBe(true);
+    expect(spawnUpdater).toHaveBeenCalledOnce();
   });
 
   it("starts the detached updater and then shuts the server down", async () => {
@@ -138,6 +171,9 @@ fs.writeFileSync(${JSON.stringify(path.join(home, "launcher.json"))}, JSON.strin
     const bin = path.join(root, "bin");
     fs.mkdirSync(bin);
     fs.writeFileSync(path.join(bin, "pnpm"), `#!/bin/sh\necho "$@" >> ${logs}/pnpm-args.txt\n`, { mode: 0o755 });
+    if (process.platform === "win32") {
+      fs.writeFileSync(path.join(bin, "pnpm.cmd"), '@echo off\r\necho %* >> "%FAKE_LOG_DIR%\\pnpm-args.txt"\r\nexit /b 0\r\n');
+    }
     // Paperclip was started with --with-computer; it isn't running now.
     fs.writeFileSync(path.join(home, "launcher.json"), JSON.stringify({ pid: 0, url: `http://127.0.0.1:${port}`, args: ["--data", home, "--with-computer"] }));
 
@@ -147,7 +183,7 @@ fs.writeFileSync(${JSON.stringify(path.join(home, "launcher.json"))}, JSON.strin
     });
     const launcher = JSON.parse(fs.readFileSync(path.join(home, "launcher.json"), "utf8"));
     try {
-      expect(result.status, result.stdout + result.stderr).toBe(0);
+      expect(result.status, result.stdout + result.stderr + fs.readFileSync(path.join(home, "ppclip-update.log"), "utf8")).toBe(0);
       expect(fs.existsSync(path.join(pkg, "NEW.md"))).toBe(true);
       expect(JSON.parse(fs.readFileSync(path.join(logs, "install-args.json"), "utf8"))).toEqual(["update", "--target", app]);
       expect(fs.readFileSync(path.join(logs, "pnpm-args.txt"), "utf8")).toMatch(/install --frozen-lockfile/);

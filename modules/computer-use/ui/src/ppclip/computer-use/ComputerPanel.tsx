@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Expand, Hand, LockKeyhole, Maximize2, Monitor, Pause, Play, Power, ShieldOff, Undo2 } from "lucide-react";
+import { Expand, Hand, LockKeyhole, Maximize2, Monitor, Pause, Play, Power, RefreshCw, ShieldOff, Undo2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/lib/router";
@@ -41,6 +41,13 @@ const CONFIRM: Partial<Record<ComputerAction, string>> = {
 
 const VIEW_REFRESH_MS = 8 * 60_000;
 
+function syncViewerTheme(frame: HTMLIFrameElement | null) {
+  const style = getComputedStyle(document.documentElement);
+  const tokens = Object.fromEntries(["background", "foreground", "border", "accent", "ring", "status-task-done", "status-task-todo", "destructive"]
+    .map(token => [token, style.getPropertyValue(`--${token}`).trim()]).filter(([, value]) => value));
+  frame?.contentWindow?.postMessage({ type: "ppclip:computer-view-theme", tokens }, "*");
+}
+
 function stateVariant(state: AgentComputer["state"]): "default" | "secondary" | "destructive" | "outline" {
   if (state === "waiting_for_human" || state === "revoked") return "destructive";
   if (state === "agent") return "default";
@@ -51,10 +58,16 @@ function stateVariant(state: AgentComputer["state"]): "default" | "secondary" | 
 /** The live desktop, embedded through Paperclip's ticketed proxy in a sandboxed frame. */
 function LiveView({ companyId, computer, agentName }: { companyId: string; computer: AgentComputer; agentName: string }) {
   const frameBox = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLIFrameElement>(null);
+  // Tickets are process-local capabilities, not reusable query data. Never
+  // mount a previously cached URL after navigation or a server restart.
+  const instanceId = useId();
+  const reconnects = useRef<number[]>([]);
+  const [connectionFailed, setConnectionFailed] = useState(false);
   const humanState = computer.state === "human" || computer.state === "human_private";
   const viewer = useQuery({
     // A new ticket whenever control changes; the old one stops working at the server anyway.
-    queryKey: ["ppclip", "computer-use", "viewer", computer.agentId, computer.state, computer.lease?.grantedAt ?? null],
+    queryKey: ["ppclip", "computer-use", "viewer", companyId, computer.agentId, instanceId, computer.state, computer.lease?.grantedAt ?? null],
     queryFn: async () => {
       if (humanState) {
         try {
@@ -66,18 +79,55 @@ function LiveView({ companyId, computer, agentName }: { companyId: string; compu
       return computerUseApi.viewer(companyId, computer.agentId, "view");
     },
     refetchInterval: VIEW_REFRESH_MS,
-    staleTime: VIEW_REFRESH_MS,
+    staleTime: 60_000,
+    gcTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: "always",
     retry: 1,
   });
-  if (viewer.isError) return <p className="text-sm text-muted-foreground">The live view is not available right now.</p>;
+  useEffect(() => {
+    reconnects.current = [];
+    setConnectionFailed(false);
+  }, [computer.state, computer.lease?.grantedAt]);
+  const refetch = viewer.refetch;
+  useEffect(() => {
+    const observer = new MutationObserver(() => syncViewerTheme(frame.current));
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme"] });
+    return () => observer.disconnect();
+  }, [viewer.data?.src]);
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.source !== frame.current?.contentWindow || !viewer.data
+        || event.data?.type !== "ppclip:computer-view-disconnected"
+        || event.data?.src !== viewer.data.src) return;
+      const recent = reconnects.current.filter(at => Date.now() - at < 60_000);
+      if (recent.length >= 3) { setConnectionFailed(true); return; }
+      reconnects.current = [...recent, Date.now()];
+      void refetch();
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [viewer.data, refetch]);
+  function reconnect() {
+    reconnects.current = [];
+    setConnectionFailed(false);
+    void refetch();
+  }
+  if (viewer.isError || connectionFailed) return <div className="space-y-2" role="alert">
+    <p className="text-sm text-muted-foreground">The live view could not connect. The computer’s state has not changed.</p>
+    <Button type="button" size="sm" variant="outline" onClick={reconnect}><RefreshCw aria-hidden />Reconnect live view</Button>
+  </div>;
   if (!viewer.data) return <p className="text-sm text-muted-foreground" role="status">Connecting to the live view…</p>;
   const driving = viewer.data.mode === "control";
   return (
     <div className="flex flex-col gap-2">
       <div ref={frameBox} className="flex items-center justify-center bg-background">
       <iframe
+        ref={frame}
         key={viewer.data.src}
         src={viewer.data.src}
+        onLoad={() => syncViewerTheme(frame.current)}
         title={`${agentName}'s computer${driving ? " (you are in control)" : " (view only)"}`}
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
@@ -86,7 +136,8 @@ function LiveView({ companyId, computer, agentName }: { companyId: string; compu
         data-testid="computer-live-view"
       />
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" variant="ghost" onClick={reconnect} disabled={viewer.isFetching}><RefreshCw aria-hidden className={viewer.isFetching ? "motion-safe:animate-spin" : undefined} />Reconnect</Button>
         <p className="text-xs text-muted-foreground">
           {driving ? "You are in control. Click inside the screen to type. The agent is paused until you release." : "View only."}
         </p>
@@ -170,7 +221,13 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
           Control returns to paused at {new Date(computer.lease.expiresAt).toLocaleTimeString()} unless you release it sooner.
         </p>
       ) : null}
-      {live && liveView && seen && computer.state !== "starting" ? <LiveView companyId={companyId} computer={computer} agentName={agentName} /> : null}
+      {computer.state === "paused" ? (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-8 text-center" role="status">
+          <Pause className="size-5 text-muted-foreground" aria-hidden />
+          <p className="text-sm font-medium">Computer paused</p>
+          <p className="text-xs text-muted-foreground">Resume to let the agent continue, or take control to use the computer yourself.</p>
+        </div>
+      ) : live && liveView && seen && computer.state !== "starting" ? <LiveView companyId={companyId} computer={computer} agentName={agentName} /> : null}
       {live && !liveView ? <p className="text-sm text-muted-foreground">This provider has no live view.</p> : null}
       <div className="flex flex-wrap gap-2">
         {availableActions(computer).map((action) => {

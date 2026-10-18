@@ -7,6 +7,8 @@ import { computerMcpRoutes } from "./mcp.js";
 import type { ComputerUseService, OperatorAction } from "./service.js";
 import { ppclipComputerUse } from "./index.js";
 import { ppclipFeatureGate } from "../features.js";
+import { expiredViewerDocument, viewerDocument, viewerSrc } from "./viewer.js";
+import { logger } from "../../middleware/logger.js";
 
 const switchSchema = z.object({ enabled: z.boolean() }).strict();
 const agentSchema = z.object({
@@ -32,25 +34,19 @@ const ACTIONS: Record<string, OperatorAction> = {
 const VIEW_PREFIX = "/ppclip/computer-use/view";
 const VIEW_FILE = /^[A-Za-z0-9_./-]{1,200}$/;
 
-/** Builds the iframe address for a ticket: noVNC's lite client, pointed at the ticket's websocket path. */
-function viewerSrc(ticket: string, mode: "view" | "control") {
-  const base = `/api${VIEW_PREFIX}/${ticket}`;
-  const params = new URLSearchParams({ autoconnect: "true", scale: "true", resize: "scale", view_only: mode === "view" ? "true" : "false", path: `${base.slice(1)}/websockify` });
-  return `${base}/vnc_lite.html?${params.toString()}`;
-}
-
 /**
  * ppclip computer use (board side). Reads need company access; every write
  * needs the same permission as managing agents (`agents:create`) and is
  * activity-logged. The agent MCP endpoint and the view proxy are mounted here too.
  */
-export function ppclipComputerUseRoutes(db: Db, service: ComputerUseService = ppclipComputerUse(db)) {
+export function ppclipComputerUseRoutes(db: Db, service: ComputerUseService = ppclipComputerUse(db), options: { isPaused?: () => boolean } = {}) {
   const router = Router();
   router.use("/companies/:companyId/ppclip/computer-use", ppclipFeatureGate("computerUse"));
   router.use(VIEW_PREFIX, ppclipFeatureGate("computerUse"));
   const guard = ppclipBoardAccess(db);
 
-  const sweeper = setInterval(() => { void service.sweep().catch(() => undefined); }, 30_000);
+  if (!options.isPaused?.()) void service.reconcile().catch(err => logger.warn({ err }, "Computer recovery will retry on the next sweep"));
+  const sweeper = setInterval(() => { if (!options.isPaused?.()) void service.sweep().catch(err => logger.warn({ err }, "Computer recovery sweep failed")); }, 30_000);
   sweeper.unref?.();
 
   const readAccess = guard.read;
@@ -105,7 +101,10 @@ export function ppclipComputerUseRoutes(db: Db, service: ComputerUseService = pp
   // authorised operator, expires, and is re-checked against current state on every request.
   router.get(`${VIEW_PREFIX}/:ticket/*splat`, async (req, res) => {
     const ticket = await service.resolveTicket(req.params.ticket as string);
-    if (!ticket) return res.status(403).json({ error: "This live view has expired. Reopen it." });
+    if (!ticket) {
+      res.setHeader("cache-control", "no-store");
+      return res.status(403).type("html").send(expiredViewerDocument());
+    }
     const splat = (req.params as Record<string, unknown>).splat;
     const file = Array.isArray(splat) ? splat.join("/") : String(splat ?? "");
     if (!VIEW_FILE.test(file) || file.includes("..")) return res.status(400).json({ error: "bad path" });
@@ -117,7 +116,8 @@ export function ppclipComputerUseRoutes(db: Db, service: ComputerUseService = pp
     res.setHeader("referrer-policy", "no-referrer");
     // The iframe is sandboxed without same-origin, so module scripts load in CORS mode.
     res.setHeader("access-control-allow-origin", "*");
-    res.send(Buffer.from(await upstream.arrayBuffer()));
+    const content = Buffer.from(await upstream.arrayBuffer());
+    res.send(file === "vnc_lite.html" && upstream.status === 200 ? viewerDocument(content.toString("utf8")) : content);
   });
 
   router.use(computerMcpRoutes(db, service));

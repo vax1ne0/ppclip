@@ -4,6 +4,7 @@ import { agentsApi } from "@/api/agents";
 import { queryKeys } from "@/lib/queryKeys";
 import { Link } from "@/lib/router";
 import { ProviderMark } from "./ProviderMark";
+import { ModelApprovals } from "./ModelApprovals";
 import { AI_PROVIDERS } from "@/components/ai-connections/model";
 import { QuotaBar } from "@/components/QuotaBar";
 import { Badge } from "@/components/ui/badge";
@@ -425,7 +426,7 @@ export function ProviderSettingsSheet({ companyId, open, onOpenChange }: { compa
   const routing = useProviderRouting(companyId);
   const save = useSaveProviderRouting(companyId);
   const features = usePpclipFeatures();
-  const accounts = features.providerUsage ? <AccountsSection companyId={companyId} status={routing.data} onLeave={() => onOpenChange(false)} /> : null;
+  const accounts = <>{features.providerUsage ? <AccountsSection companyId={companyId} status={routing.data} onLeave={() => onOpenChange(false)} /> : null}{features.modelApprovals ? <ModelApprovals companyId={companyId} /> : null}</>;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full gap-0 p-0 sm:max-w-xl" data-testid="ppclip-provider-settings">

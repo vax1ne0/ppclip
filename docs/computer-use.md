@@ -3,6 +3,9 @@
 Computer use gives a Paperclip agent its own sandboxed Linux desktop with a Chromium browser:
 - You can watch it work live from the agent's card on the Live runs page.
 - You can take control, for example to sign in, and then hand control back.
+- Live views request fresh tickets when opened, renew on focus/reconnect, and retry dropped connections up to three times per minute. **Reconnect** retries immediately without changing control.
+- The computer bar stays above the agent chat while the conversation scrolls. Expanded screens have their own bounded scroll area.
+- The desktop has a bottom taskbar. If you minimize Chromium, click its taskbar button to restore the same window and tabs. Closing Chromium is handled by the browser supervisor, which relaunches it.
 - The browser profile is kept between sessions, so logins survive.
 
 It is **off by default**. The quickest path:
@@ -158,6 +161,16 @@ Optional: install gVisor (`runsc`) and register it with Docker. The supervisor p
 
 ## Testing it
 
+For a real end-to-end check, run from the **ppclip package** folder:
+
+```bash
+node tools/computer-lifecycle-smoke.mjs --target ../paperclip-official --isolated
+```
+
+The app and Docker supervisor must already be running. Isolated mode creates and removes its own test company. Alternatively, pass `--company <company-UUID>` for a company with computer use enabled and direct agent creation permitted. The smoke test creates its own disposable agent with scheduled runs disabled. It checks live view, takeover, real mouse and keyboard input, release, pause/resume, recovery from an external Docker pause, and profile persistence across stop/start. It then removes only its own agent, computer and profile. It invokes no model. For an authenticated local instance, supply its access token through `PPCLIP_SMOKE_TOKEN`.
+
+On startup and every 30 seconds, recovery compares saved live computer state with Docker. Missing or stopped containers become stopped; unhealthy desktops and inconsistent paused states become paused. Valid human leases are restored after supervisor restarts, expired leases pause, and recovery never resumes paused work. Unavailable Docker leaves saved intent intact for a later retry. Recovery is suspended on warm standby servers.
+
 The automated tests use the in-memory fake provider and never need Docker or a model.
 
 ```bash
@@ -175,4 +188,4 @@ To test the real Docker provider:
 5. Ask the agent (Claude or Codex local adapter) to "open example.com with your computer and tell me the page title". The card shows it working, and the Activity page shows `ppclip.computer_use.tool` rows.
 6. Ask it to sign in somewhere. It should call `computer_request_takeover`, and the card shows **Needs you**. Take control privately, sign in, release. Stop and start the computer, and the login is still there.
 7. Check the guardrails. Ask it to open `http://169.254.169.254/` or `file:///etc/passwd` (both refused), or to type into a password field (refused).
-8. Check what's exposed. `docker ps` shows only `127.0.0.1:` port bindings, and `docker inspect ppclip-computer-<agent id>` shows `CapDrop: ALL`.
+8. Check what's exposed. `docker ps` shows only `127.0.0.1:` port bindings for a running, unpaused desktop. `docker inspect ppclip-computer-<agent id>` shows `CapDrop: ALL` and `CapAdd` limited to `SETUID`, `SETGID` and `KILL`. Paused containers can temporarily omit published ports on Docker Desktop; resume waits for the desktop to become reachable again.

@@ -6,6 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { ProviderMark } from "./ProviderMark";
 import { cn } from "@/lib/utils";
 import { ProviderSettingsSheet } from "./ProviderSettingsSheet";
+import { usePpclipFeatures } from "../features/store";
 import {
   headlineLimit,
   modeStops,
@@ -17,7 +18,6 @@ import {
   type AccountUsage,
 } from "./usage";
 import { useProviderRouting, useSetRoutingMode } from "./useProviderRouting";
-import { usePpclipFeatures } from "../features/store";
 
 function fillClass(percent: number) {
   if (percent > 90) return "bg-(--status-task-blocked)";
@@ -55,8 +55,12 @@ function UsageBar({ entry }: { entry: AccountUsage }) {
           aria-label={`${providerName(entry.account.provider)} usage: ${percent == null ? "unknown" : `${Math.round(percent)}% used`}`}
           data-testid="ppclip-provider-usage-bar"
         >
-          {/* The provider's own mark (Codex, Claude, Grok); AppLogo would prefer the app-catalog logo. */}
-          <ProviderMark provider={entry.account.provider} routing={entry.account.routing} />
+          {entry.account.provider === "openai" ? (
+            <span className="flex size-4 shrink-0 items-center justify-center" aria-hidden>
+              <img src="/brands/apps/openai.svg" alt="" className="size-4 object-contain dark:hidden" />
+              <img src="/brands/apps/openai-dark.svg" alt="" className="hidden size-4 object-contain dark:block" />
+            </span>
+          ) : <ProviderMark provider={entry.account.provider} routing={entry.account.routing} />}
           {/* A compact pill: official's bordered QuotaBar box is too heavy at top-bar size. */}
           <span className="relative h-1.5 w-12 overflow-hidden rounded-full bg-muted" aria-hidden>
             <span
@@ -79,11 +83,11 @@ function UsageBar({ entry }: { entry: AccountUsage }) {
  */
 export function ProviderToolbar({ companyId }: { companyId: string | null }) {
   const [open, setOpen] = useState(false);
+  const features = usePpclipFeatures();
   const usage = useProviderUsage(companyId);
   const routing = useProviderRouting(companyId);
   const mode = useSetRoutingMode(companyId ?? "");
-  const features = usePpclipFeatures();
-  if (!companyId || (!features.providerUsage && !features.providerRouting)) return null;
+  if (!companyId || (!features.providerUsage && !features.providerRouting && !features.modelApprovals)) return null;
 
   const policy = routing.data?.policy;
   const providers = policy?.providers.map((p) => p.adapterType) ?? [];

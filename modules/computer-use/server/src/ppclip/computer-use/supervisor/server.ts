@@ -66,7 +66,10 @@ export function createSupervisorServer(opts: SupervisorOptions) {
   async function handle(req: IncomingMessage, res: ServerResponse) {
     if (!tokenMatches(req.headers.authorization, token)) return send(res, 401, { error: "unauthorized" });
     const url = new URL(req.url ?? "/", "http://supervisor");
-    if (url.pathname === "/health" && req.method === "GET") return send(res, 200, { ok: true, provider: provider.describe() });
+    if (url.pathname === "/health" && req.method === "GET") {
+      await provider.health?.();
+      return send(res, 200, { ok: true, provider: provider.describe() });
+    }
     const m = ROUTE.exec(url.pathname);
     if (!m) return send(res, 404, { error: "not found" });
     const agentId = m[1]!;

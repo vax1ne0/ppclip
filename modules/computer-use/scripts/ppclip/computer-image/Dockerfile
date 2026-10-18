@@ -13,9 +13,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --uid 1000 --create-home --home-dir /home/agent --shell /bin/bash agent \
     && useradd --uid 1001 --create-home --home-dir /home/sandbox --shell /bin/bash sandbox
 
+# Keep desktop additions separate so updates reuse the Chromium image layer.
+RUN apt-get update && apt-get install -y --no-install-recommends tint2 \
+    && rm -rf /var/lib/apt/lists/*
+
 # Chromium policy: no Google sign-in or sync, no saved passwords, no local files.
 COPY chromium-policy.json /etc/chromium/policies/managed/ppclip.json
 COPY start.sh control.py egress_proxy.py shell_runner.py /opt/ppclip/
+COPY tint2rc /opt/ppclip/tint2rc
 # Windows checkouts with core.autocrlf=true add CRLF; a CRLF shebang cannot run on Linux.
 RUN sed -i 's/\r$//' /opt/ppclip/* /etc/chromium/policies/managed/ppclip.json \
     && chmod 0755 /opt/ppclip/*.sh /opt/ppclip/*.py \

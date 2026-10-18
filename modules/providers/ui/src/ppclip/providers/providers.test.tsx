@@ -41,6 +41,7 @@ vi.mock("@/pages/apps/AppLogo", () => ({ AppLogo: ({ name }: { name: string }) =
 import { SubscriptionUsagePanel } from "./SubscriptionUsagePanel";
 import { ProviderToolbar } from "./ProviderToolbar";
 import { ProviderSettingsSheet } from "./ProviderSettingsSheet";
+import { resetPpclipFeaturesForTests } from "../features/store";
 import { headlineLimit, modeStops, resetLabel, usageStatusText, type AccountUsage } from "./usage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -96,6 +97,7 @@ async function render(node: ReactNode) {
 }
 
 beforeEach(() => {
+  resetPpclipFeaturesForTests();
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -235,6 +237,15 @@ describe("ProviderToolbar", () => {
 });
 
 describe("ProviderSettingsSheet", () => {
+  it("hides approved models when its module is off", async () => {
+    resetPpclipFeaturesForTests({ modelApprovals: false });
+    mockConnections.list.mockResolvedValue({ connections: [] });
+    mockRouting.status.mockResolvedValue(routingStatus());
+    await render(<ProviderSettingsSheet companyId={companyId} open onOpenChange={() => {}} />);
+    expect(document.body.textContent).not.toContain("Approved models");
+    await act(async () => { resetPpclipFeaturesForTests(); });
+    expect(document.body.textContent).toContain("Approved models");
+  });
   it("edits the five model tiers with catalog suggestions and saves them", async () => {
     mockRouting.status.mockResolvedValue(routingStatus());
     mockRouting.save.mockResolvedValue(routingStatus({ revision: 4 }));

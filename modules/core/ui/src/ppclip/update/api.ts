@@ -14,6 +14,8 @@ export type UpdateJob = {
 };
 
 export type UpdateStatus = {
+  localChanges?: string[];
+  installation?: { installedAt: string; paperclipVersion: string } | null;
   packageDir: string | null;
   current: { commit: string; subject: string; date: string } | null;
   available: string[];

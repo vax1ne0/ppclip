@@ -135,50 +135,6 @@ index ab0bf9e23a287082d9d3e64565e76d0d4b845ceb..473b5e2150c20a32724f117a42765471
 +    "@lydell/node-pty": "1.2.0-beta.15"
    }
  }
-diff --git a/server/src/app.ts b/server/src/app.ts
-index 14814f644196632c542ea3b95926c6d34745c890..0afb40a86f124e481b35dca9ba646e7f2c8802f0 100644
---- a/server/src/app.ts
-+++ b/server/src/app.ts
-@@ -80,6 +80,11 @@ import { companyRoutes } from "./routes/companies.js";
- import { companySkillRoutes } from "./routes/company-skills.js";
- import { companySkillPolicyRoutes } from "./routes/company-skill-policy.js";
- import { inboxAgentPolicyRoutes } from "./routes/inbox-agent-policy.js";
-+import { ppclipRunControlRoutes } from "./ppclip/run-controls/routes.js";
-+import { ppclipProviderRoutingRoutes } from "./ppclip/providers/routes.js"; // ppclip: PROV-1/PROV-2
-+import { startProviderRoutingController } from "./ppclip/providers/service.js"; // ppclip: PROV-2
-+import { ppclipComputerUseRoutes } from "./ppclip/computer-use/routes.js"; // ppclip: computer use
-+import { ppclipFeatureRoutes } from "./ppclip/features-routes.js"; // ppclip: module switches
- import { builtInAgentRoutes } from "./routes/built-in-agents.js";
- import { folderRoutes } from "./routes/folders.js";
- import { summarySlotRoutes } from "./routes/summary-slots.js";
-@@ -753,6 +758,10 @@ export async function createApp(
-   api.use(companySkillPolicyRoutes(db));
-   api.use(inboxAgentPolicyRoutes(db));
-   api.use(agentCommentaryRoutes(db));
-+  api.use(ppclipRunControlRoutes(db)); // ppclip: run controls (RUN-1, RUN-2, master switch)
-+  api.use(ppclipProviderRoutingRoutes(db)); // ppclip: provider routing (PROV-1, PROV-2)
-+  api.use(ppclipComputerUseRoutes(db)); // ppclip: computer use (off by default)
-+  api.use(ppclipFeatureRoutes(db)); // ppclip: module switches (Settings → ppclip)
-   api.use(builtInAgentRoutes(db));
-   api.use(summarySlotRoutes(db));
-   api.use(statusCardRoutes(db));
-@@ -1335,6 +1344,8 @@ export async function createApp(
-       });
-   };
-   registerBrowserUseCleanup(deliveryWork, browserUse, () => !isIdleTaskDrainActive());
-+  // ppclip: PROV-2 provider-routing controller (opt-in per company, off by default).
-+  const ppclipProviderController = startProviderRoutingController(db, { isPaused: isWarmStandby, onError: (err) => logger.warn({ err }, "ppclip provider routing pass failed") });
-   let importTransferSweepTimer: ReturnType<typeof setInterval> | null =
-     setInterval(
-       sweepImportTransferSpools,
-@@ -1448,6 +1459,7 @@ export async function createApp(
-         chatPublicationTimer = null;
-       }
-       await chatReconciliation.drain();
-+      ppclipProviderController.stop(); // ppclip: PROV-2
-       if (importTransferSweepTimer) {
-         clearInterval(importTransferSweepTimer);
-         importTransferSweepTimer = null;
 diff --git a/server/src/index.ts b/server/src/index.ts
 index 264adcd5589c24b172fd2b6b8fe130355f258b8b..8df9d343ed2bb663ce178161649351940652e540 100644
 --- a/server/src/index.ts
@@ -389,28 +345,6 @@ index b9df9f435e519b54626f2b371d377f2c094e1a1b..1fcc7eb7319e4190fc6759ace65657f0
          ),
        )
        .orderBy(desc(issueComments.createdAt), desc(issueComments.id));
-diff --git a/server/src/services/heartbeat/runtime-execution.ts b/server/src/services/heartbeat/runtime-execution.ts
-index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..7bb1e50370366b15e38729c976a798afd9547691 100644
---- a/server/src/services/heartbeat/runtime-execution.ts
-+++ b/server/src/services/heartbeat/runtime-execution.ts
-@@ -92,6 +92,7 @@ import type { NativeExecutionInput, NativeSessionBackend } from "../../vendor/pa
- import type { PluginWorkerManager } from "../plugin-worker-manager.js";
- import type { RealizedExecutionWorkspace } from "../workspace-runtime.js";
- import type { reserveWarmNativeInstructionDirectory } from "../native-runtime/index.js";
-+import { ppclipComputerUseMcpServer } from "../../ppclip/computer-use/index.js"; // ppclip: computer use
- 
- type Selection = HeartbeatRuntimeSelectionInput;
- type Selected = Extract<HeartbeatRuntimeSelectionResult, { selected: true }>;
-@@ -774,6 +775,9 @@ export async function executeHeartbeatRuntime(db: Db, input: HeartbeatRuntimeExe
-         runtimeMcpServers.unshift({ name: "Paperclip projects", url: `${paperclipApiBaseUrl()}/api/mcp/project-tools`,
-           token: authToken, connectionId: "paperclip-project-tools" });
-       }
-+      // ppclip: computer use tools for agents that have it turned on (off by default).
-+      const ppclipComputer = configuredPaperclipApiBaseUrl() ? await ppclipComputerUseMcpServer(db, agent, authToken, paperclipApiBaseUrl()) : null;
-+      if (ppclipComputer) runtimeMcpServers.push(ppclipComputer);
-       const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
-       if (runtimeTools && runtimeToolDelivery === "invocation_context") {
-         adapterContext.paperclipRuntimeTools = runtimeTools;
 diff --git a/server/src/services/local-ai-browser-login.ts b/server/src/services/local-ai-browser-login.ts
 index 4ae7e26ab163debfcd5ba93d05da29b3c44be844..dff3327328f569a865aeb38f35199e5666675058 100644
 --- a/server/src/services/local-ai-browser-login.ts
@@ -1341,7 +1275,7 @@ index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..6d78372046e4e3e1750b006c814fb230
  import { isUuidLike, type Issue } from "@paperclipai/shared";
  
  export function AgentChat() {
-@@ -93,9 +94,12 @@ export function AgentChat() {
+@@ -93,9 +94,14 @@ export function AgentChat() {
        <p className="text-sm text-muted-foreground">Loading conversation…</p>
      );
    return (
@@ -1349,13 +1283,15 @@ index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..6d78372046e4e3e1750b006c814fb230
 -      key={`${agent.id}:${userId}`}
 -      conversation={{ agent, issue: chat.data ?? null, ensureIssue }}
 -    />
-+    <>
++    <div className="flex min-h-0 flex-col md:h-full" data-testid="agent-chat-layout">
 +      <AgentChatComputerBar agent={agent} /> {/* ppclip: computer use */}
-+      <TaskDetailSurface
-+        key={`${agent.id}:${userId}`}
-+        conversation={{ agent, issue: chat.data ?? null, ensureIssue }}
-+      />
-+    </>
++      <div className="min-h-0 flex-1">
++        <TaskDetailSurface
++          key={`${agent.id}:${userId}`}
++          conversation={{ agent, issue: chat.data ?? null, ensureIssue }}
++        />
++      </div>
++    </div>
    );
  }
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
@@ -1585,3 +1521,533 @@ index 6ac1be642c9ba3ba8bab8ef2840ed3c396ee9f71..3d708c402b72deae8203ceb41a84c35d
    build: {
      minify: "esbuild",
    },
+diff --git a/packages/shared/src/feature-catalog.ts b/packages/shared/src/feature-catalog.ts
+index 570cc5d9d6f6938ecf0c9427ae18bf59aa501dc4..796c5d275e0901c7ab341c3a66f79abb9866ce80 100644
+--- a/packages/shared/src/feature-catalog.ts
++++ b/packages/shared/src/feature-catalog.ts
+@@ -189,7 +189,7 @@ export const INSTANCE_FEATURE_CATALOG: Record<InstanceFeatureKey, FeatureCatalog
+       "Persistent task-backed conversations that clarify goals and hand work off to tasks. Chat leads the Work group with an agent rail, and each chat's side panel shows the agent's tasks and artifacts as cards.",
+     tier: "managed",
+     cloudDefault: false,
+-    selfHostedDefault: false,
++    selfHostedDefault: true, // ppclip: match the self-hosted settings default
+   },
+   enableCombinedInboxTasks: {
+     title: "Combined Inbox + Task List",
+diff --git a/packages/shared/src/validators/instance.ts b/packages/shared/src/validators/instance.ts
+index bbabb3e54612983c4dcd8bd1911832a59b250a1b..97285f78bb561583a6566d4cbba98461b95aa496 100644
+--- a/packages/shared/src/validators/instance.ts
++++ b/packages/shared/src/validators/instance.ts
+@@ -62,7 +62,7 @@ export const instanceExperimentalSettingsSchema = z.object({
+   enableMemoryConnectors: z.boolean().default(false),
+   enablePipelines: z.boolean().default(false),
+   enableCases: z.boolean().default(false),
+-  enableAgentChat: z.boolean().default(false),
++  enableAgentChat: z.boolean().default(true), // ppclip: chat on by default; explicit off is preserved
+   enableCombinedInboxTasks: z.boolean().default(false),
+   enableConferenceRoomChat: z.boolean().default(false),
+   enableClassicTaskInterface: z.boolean().default(false),
+diff --git a/server/src/__tests__/instance-settings-service.test.ts b/server/src/__tests__/instance-settings-service.test.ts
+index 383b3458fe7c5c60ef4fc0832d5f923045a4875f..b625376a91a6913bd24271be6dd7de292f952a56 100644
+--- a/server/src/__tests__/instance-settings-service.test.ts
++++ b/server/src/__tests__/instance-settings-service.test.ts
+@@ -7,6 +7,13 @@ import {
+ } from "../services/instance-settings.js";
+ 
+ describe("instance settings service", () => {
++  it("defaults agent chat on while preserving an explicit off setting", () => {
++    expect(normalizeExperimentalSettings({}).enableAgentChat).toBe(true);
++    expect(normalizeExperimentalSettings(undefined).enableAgentChat).toBe(true);
++    expect(normalizeExperimentalSettings({ enableAgentChat: false }).enableAgentChat).toBe(false);
++    const disabled = applyExperimentalSettingsPatch({}, { enableAgentChat: false });
++    expect(normalizeExperimentalSettings(JSON.parse(JSON.stringify(disabled))).enableAgentChat).toBe(false);
++  });
+   it("keeps OpenAI Dot opt-in and persists its setting independently of its prerequisites", () => {
+     expect(normalizeExperimentalSettings({}).enableOpenAiDot).toBe(false);
+     const enabled = applyExperimentalSettingsPatch({}, { enableOpenAiDot: true });
+@@ -57,7 +64,7 @@ describe("instance settings service", () => {
+       enableStreamlinedUi: true,
+       enableApps: true,
+     enableMcpAggregators: true,
+-      enableAgentChat: false,
++      enableAgentChat: true,
+       enablePublicMcp: false,
+       enableOpenAiDot: false,
+       enableMuse: false,
+diff --git a/server/src/services/instance-settings.ts b/server/src/services/instance-settings.ts
+index 138d60bc1f8a0b3c4472f3dc7b6fa70457bf517c..f9e20f155b29e2fe16c176c4a1bb9353ad6860d6 100644
+--- a/server/src/services/instance-settings.ts
++++ b/server/src/services/instance-settings.ts
+@@ -242,7 +242,7 @@ export function normalizeExperimentalSettings(raw: unknown): InstanceExperimenta
+       enableMemoryConnectors: parsed.data.enableMemoryConnectors ?? false,
+       enablePipelines: parsed.data.enablePipelines ?? false,
+       enableCases: parsed.data.enableCases ?? false,
+-      enableAgentChat: parsed.data.enableAgentChat ?? false,
++      enableAgentChat: parsed.data.enableAgentChat ?? true, // ppclip: default on
+       enableCombinedInboxTasks: parsed.data.enableCombinedInboxTasks ?? false,
+       enableConferenceRoomChat: parsed.data.enableConferenceRoomChat ?? false,
+       enableClassicTaskInterface: parsed.data.enableClassicTaskInterface ?? false,
+@@ -293,7 +293,7 @@ export function normalizeExperimentalSettings(raw: unknown): InstanceExperimenta
+     enableMemoryConnectors: false,
+     enablePipelines: false,
+     enableCases: false,
+-    enableAgentChat: false,
++    enableAgentChat: true, // ppclip: default on
+     enableCombinedInboxTasks: false,
+     enableConferenceRoomChat: false,
+     enableClassicTaskInterface: false,
+diff --git a/ui/src/components/AgentConversationSidebar.tsx b/ui/src/components/AgentConversationSidebar.tsx
+index a500d2e863d45f7f3c0b674176cf9f96889e6506..0a82f6e6291e6c882760879f965ae168556ae9ff 100644
+--- a/ui/src/components/AgentConversationSidebar.tsx
++++ b/ui/src/components/AgentConversationSidebar.tsx
+@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { Link, useNavigate } from "@/lib/router";
+ import { agentRouteRef, cn } from "@/lib/utils";
++import { AgentChatModel } from "@/ppclip/nav/AgentChatModel"; // ppclip: model in chat navigation
+ 
+ export interface AgentConversationSidebarProps {
+   agents: Agent[];
+@@ -81,6 +82,7 @@ export function AgentConversationSidebar({ agents, existingChatAgentIds, availab
+           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+             <span className="truncate text-sm font-medium">{agent.name}</span>
+             <span className="truncate text-xs text-muted-foreground">{agent.status === "terminated" ? "Terminated" : agent.status === "paused" ? "Paused" : previews[agent.id] ?? agent.title ?? "Start a conversation"}</span>
++            <AgentChatModel agent={agent} />
+           </span>
+         </Link>)}
+       </nav> : !agents.length && (historyLoading || historyError) ? null : <div className="flex flex-col items-start gap-2 px-2 py-6">
+diff --git a/ui/src/components/AgentConfigForm.tsx b/ui/src/components/AgentConfigForm.tsx
+index b595d2e6fabac8832f98c075e75ee24e033d1d7f..d781e1cfe1533e74faea9cb906fd4bed64568af5 100644
+--- a/ui/src/components/AgentConfigForm.tsx
++++ b/ui/src/components/AgentConfigForm.tsx
+@@ -36,7 +36,6 @@ import {
+   DEFAULT_CODEX_LOCAL_BYPASS_APPROVALS_AND_SANDBOX,
+   DEFAULT_CODEX_LOCAL_MODEL,
+ } from "@paperclipai/adapter-codex-local";
+-import { DEFAULT_CLAUDE_LOCAL_MODEL } from "@paperclipai/adapter-claude-local";
+ import { DEFAULT_CURSOR_LOCAL_MODEL } from "@paperclipai/adapter-cursor-local";
+ import { DEFAULT_GEMINI_LOCAL_MODEL } from "@paperclipai/adapter-gemini-local";
+ import { DEFAULT_KIMI_LOCAL_MODEL } from "@paperclipai/adapter-kimi-local";
+@@ -561,6 +560,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+     setEnvironmentEditorKey(key => key + 1);
+   }, []);
+ 
++  const [modelSelectionError, setModelSelectionError] = useState<string | null>(null);
+   const handleSave = useCallback(async () => {
+     if (isCreate) return;
+     const flushedEnv = flushEnvironmentDraft();
+@@ -574,7 +574,20 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+         }
+       : overlay;
+     if (!isOverlayDirty(nextOverlay)) return;
+-    await props.onSave(buildAgentUpdatePatch(props.agent, nextOverlay));
++    const patch = buildAgentUpdatePatch(props.agent, nextOverlay);
++    const nextType = String(patch.adapterType ?? props.agent.adapterType);
++    const nextConfig = (patch.adapterConfig ?? props.agent.adapterConfig ?? {}) as Record<string, unknown>;
++    const nextCaps = getCapabilities(agentHarnessType(nextType, nextConfig));
++    // ppclip: preserve legacy agents, but never save a newly cleared model or harness change without one.
++    if ((nextOverlay.adapterType !== undefined || Object.hasOwn(nextOverlay.adapterConfig, "model"))
++      && (nextCaps.supportsInstructionsBundle || nextCaps.supportsSkills || nextCaps.supportsLocalAgentJwt)
++      && !["openai_dot", "grok_bot"].includes(String(nextConfig.provider))
++      && !(typeof nextConfig.model === "string" && nextConfig.model.trim())) {
++      setModelSelectionError("Choose an explicit model before saving.");
++      return;
++    }
++    setModelSelectionError(null);
++    await props.onSave(patch);
+   }, [isCreate, isDirty, overlay, props]);
+ 
+   useEffect(() => {
+@@ -1767,6 +1780,7 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+ 
+           {renderAdapterFields("adapter")}
+           {isLocal && (<>
++              {modelSelectionError && <p role="alert" className="text-sm text-destructive">{modelSelectionError}</p>}
+               <ModelDropdown
+                 models={models}
+                 loadingModels={connectionModels?.isLoading ?? fetchingModels}
+@@ -1791,9 +1805,8 @@ export function AgentConfigForm(props: AgentConfigFormProps) {
+                 }}
+                 open={modelOpen}
+                 onOpenChange={setModelOpen}
+-                defaultLabel={adapterType === "claude_local" ? `Default (${DEFAULT_CLAUDE_LOCAL_MODEL})` : undefined}
+-                allowDefault={adapterType !== "opencode_local" && adapterType !== "pi_local" && adapterType !== "paperclip_runner"}
+-                required={adapterType === "opencode_local" || adapterType === "pi_local"}
++                allowDefault={false} // ppclip: require an explicit model selection
++                required
+                 groupByProvider={!connectionModels && (adapterType === "opencode_local" || adapterType === "pi_local")}
+                 preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(adapterType)}
+                 creatable
+diff --git a/ui/src/components/ConfigureBuiltInAgentModal.tsx b/ui/src/components/ConfigureBuiltInAgentModal.tsx
+index 8e6e63176bbfbc1967296e40be644cc95265d6b4..6377767649e3d5e6247d32d7a14423f102491534 100644
+--- a/ui/src/components/ConfigureBuiltInAgentModal.tsx
++++ b/ui/src/components/ConfigureBuiltInAgentModal.tsx
+@@ -205,7 +205,7 @@ export function ConfigureBuiltInAgentModal({
+               onChange={setModel}
+               open={modelOpen}
+               onOpenChange={setModelOpen}
+-              allowDefault={adapterType !== "opencode_local"}
++              allowDefault={false} // ppclip: explicit model choices only
+               required
+               groupByProvider={false}
+               preserveOrder={adapterCuratesModelOrder(adapterType)}
+diff --git a/ui/src/components/InlineEntitySelector.tsx b/ui/src/components/InlineEntitySelector.tsx
+index 8fccd9c3272d77b52eb6cc910940049ca38993c3..c9f693106ee1bd81cba580a952c6364525b63137 100644
+--- a/ui/src/components/InlineEntitySelector.tsx
++++ b/ui/src/components/InlineEntitySelector.tsx
+@@ -16,6 +16,7 @@ interface InlineEntitySelectorProps {
+   options: InlineEntityOption[];
+   placeholder: string;
+   noneLabel: string;
++  allowNone?: boolean;
+   /** Keep the no-selection action before the selected and recent choices. */
+   noneAtTop?: boolean;
+   /** Keep the no-selection action after the project choices. */
+@@ -74,6 +75,7 @@ export const InlineEntitySelector = forwardRef<HTMLButtonElement, InlineEntitySe
+       options,
+       placeholder,
+       noneLabel,
++      allowNone = true,
+       noneAtTop = false,
+       noneAtEnd = false,
+       searchPlaceholder,
+@@ -107,11 +109,13 @@ export const InlineEntitySelector = forwardRef<HTMLButtonElement, InlineEntitySe
+     const isPointerDownRef = useRef(false);
+ 
+     const allOptions = useMemo<InlineEntityOption[]>(() => {
++      // ppclip: model override pickers do not expose an implicit default.
++      if (!allowNone) return orderItemsBySelectedAndRecent(options.filter(option => option.id), value, recentOptionIds);
+       const baseOptions = [{ id: "", label: noneLabel, searchText: noneLabel }, ...options];
+       const ordered = orderItemsBySelectedAndRecent(baseOptions, value, recentOptionIds);
+       if (noneAtTop) return [baseOptions[0]!, ...ordered.filter((option) => option.id)];
+       return noneAtEnd ? [...ordered.filter((option) => option.id), baseOptions[0]!] : ordered;
+-    }, [noneAtEnd, noneAtTop, noneLabel, options, recentOptionIds, value]);
++    }, [allowNone, noneAtEnd, noneAtTop, noneLabel, options, recentOptionIds, value]);
+ 
+     const filteredOptions = useMemo(() => {
+       const term = query.trim().toLowerCase();
+diff --git a/ui/src/components/IssueProperties.test.tsx b/ui/src/components/IssueProperties.test.tsx
+index 44ac2de0a1d18dd40b50b39bb786ae13ae0b2af6..84e8f17e789684880a711286c93253ce5dc5390c 100644
+--- a/ui/src/components/IssueProperties.test.tsx
++++ b/ui/src/components/IssueProperties.test.tsx
+@@ -2336,7 +2336,7 @@ describe("IssueProperties", () => {
+     act(() => root.unmount());
+   });
+ 
+-  it("keeps Astra-only task efforts when the task inherits the agent model", async () => {
++  it("keeps task effort when explicitly pinning the inherited agent model", async () => {
+     const onUpdate = vi.fn();
+     mockAgentsApi.list.mockResolvedValue([
+       {
+@@ -2373,15 +2373,16 @@ describe("IssueProperties", () => {
+     expect(container.textContent).not.toContain("Minimal");
+ 
+     const defaultModelButton = Array.from(container.querySelectorAll("button"))
+-      .find((button) => button.textContent?.includes("Default model"));
++      .find((button) => button.textContent?.includes("Select model"));
+     expect(defaultModelButton).not.toBeUndefined();
+     await act(async () => {
+       defaultModelButton!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+     });
+     await flush();
+ 
++    expect(document.body.textContent).not.toContain("Default model");
+     const defaultModelOption = Array.from(document.body.querySelectorAll("button"))
+-      .filter((button) => button.textContent?.trim() === "Default model")
++      .filter((button) => button.textContent?.trim() === "gpt-6-astra")
+       .at(-1);
+     expect(defaultModelOption).not.toBeUndefined();
+     await act(async () => {
+@@ -2390,7 +2391,7 @@ describe("IssueProperties", () => {
+ 
+     expect(onUpdate).toHaveBeenCalledWith({
+       assigneeAdapterOverrides: {
+-        adapterConfig: { modelReasoningEffort: "ultra" },
++        adapterConfig: { model: "gpt-6-astra", modelReasoningEffort: "ultra" },
+       },
+     });
+ 
+diff --git a/ui/src/components/ModelDropdown.test.tsx b/ui/src/components/ModelDropdown.test.tsx
+index 6a17a623cc41272866de74af524a4a81464d24e7..1f376c7085ed22b4bb759c76e991194617e1f987 100644
+--- a/ui/src/components/ModelDropdown.test.tsx
++++ b/ui/src/components/ModelDropdown.test.tsx
+@@ -18,7 +18,7 @@ afterEach(() => {
+ 
+ function renderOpenDropdown(
+   models: AdapterModel[],
+-  { groupByProvider = false, preserveOrder = false }: { groupByProvider?: boolean; preserveOrder?: boolean } = {},
++  { groupByProvider = false, preserveOrder = false, presentation = "searchable" }: { groupByProvider?: boolean; preserveOrder?: boolean; presentation?: "native" | "searchable" } = {},
+ ) {
+   const container = document.createElement("div");
+   document.body.appendChild(container);
+@@ -37,6 +37,7 @@ function renderOpenDropdown(
+           required
+           groupByProvider={groupByProvider}
+           preserveOrder={preserveOrder}
++          presentation={presentation}
+         />
+       </TooltipProvider>,
+     );
+@@ -55,6 +56,19 @@ const curated = [
+ ];
+ 
+ describe("ModelDropdown", () => {
++  it.each(["native", "searchable"] as const)("requires an explicit model in the %s picker", (presentation) => {
++    renderOpenDropdown(curated, { presentation });
++    expect(document.body.textContent).not.toContain("Default");
++    expect(document.body.textContent).toContain("Select model (required)");
++    if (presentation === "native") {
++      const select = document.querySelector("select")!;
++      expect(select.required).toBe(true);
++      expect(select.querySelector<HTMLOptionElement>('option[value=""]')!.disabled).toBe(true);
++      expect(select.checkValidity()).toBe(false);
++    } else {
++      expect([...document.querySelectorAll('[role="option"]')].every(option => option.textContent?.trim() !== "Default")).toBe(true);
++    }
++  });
+   it("keeps a hand-ordered list in the adapter's order when preserveOrder is set", () => {
+     renderOpenDropdown(curated, { preserveOrder: true });
+ 
+diff --git a/ui/src/components/agent-config-primitives.tsx b/ui/src/components/agent-config-primitives.tsx
+index f4bc17261e59624e2d28d58819395fb40b556c03..d9c84cdfb3c3e2c940849a229d756fb34fee77cd 100644
+--- a/ui/src/components/agent-config-primitives.tsx
++++ b/ui/src/components/agent-config-primitives.tsx
+@@ -28,7 +28,7 @@ export const help: Record<string, string> = {
+   adapterType: "How this agent runs: local CLI (Claude/Codex/OpenCode), OpenClaw Gateway, spawned process, or generic HTTP webhook.",
+   cwd: "Deprecated legacy working directory fallback for local adapters. Existing agents may still carry this value, but new configurations should use project workspaces instead.",
+   promptTemplate: "Sent on every heartbeat. Keep this small and dynamic. Use it for current-task framing, not large static instructions. Supports {{ agent.id }}, {{ agent.name }}, {{ agent.role }} and other template variables.",
+-  model: "Override the default model used by the adapter.",
++  model: "Choose the exact model this agent should use.", // ppclip: explicit choice
+   thinkingEffort: "Control model reasoning depth. Supported values vary by adapter/model.",
+   chrome: "Enable Claude's Chrome integration by passing --chrome.",
+   dangerouslySkipPermissions: "Run unattended by auto-approving adapter permission prompts when supported.",
+diff --git a/ui/src/components/issue-properties/IssueProperties.tsx b/ui/src/components/issue-properties/IssueProperties.tsx
+index 29f1b57f2a3758a719858f2a640d01551df0a5a0..01d273298a2212af02e16bade00abf13d00f2ad2 100644
+--- a/ui/src/components/issue-properties/IssueProperties.tsx
++++ b/ui/src/components/issue-properties/IssueProperties.tsx
+@@ -883,9 +883,10 @@ export function IssueProperties({
+             <InlineEntitySelector
+               value={assigneeOverrideModel}
+               options={modelOverrideOptions}
+-              placeholder="Default model"
++              placeholder="Select model"
+               disablePortal
+-              noneLabel="Default model"
++              noneLabel="Select model"
++              allowNone={false}
+               searchPlaceholder="Search models..."
+               emptyMessage="No models found."
+               onChange={updateAssigneeOverrideModel}
+diff --git a/ui/src/components/new-agent/NewAgentSetup.tsx b/ui/src/components/new-agent/NewAgentSetup.tsx
+index 0fb59e9aaaa69aedba6fcf44dac254b543396458..d0e8ea7fb8798c10f6df76cbab678460d1acbbb3 100644
+--- a/ui/src/components/new-agent/NewAgentSetup.tsx
++++ b/ui/src/components/new-agent/NewAgentSetup.tsx
+@@ -421,6 +421,8 @@ function Setup({
+     return config;
+   }
+   function preparedConfig(nextConnection = connection) {
++    // ppclip: never leave a model picker on an implicit CLI/provider default.
++    if (showModel && !usingKimiApi && !model.trim()) throw new Error("Choose an explicit model before continuing.");
+     if (isDot && !allowUnmeteredProvider) throw new Error("Acknowledge external provider billing before creating your Dot agent.");
+     if (multiProvider && (!model.trim() || !model.includes("/")))
+       throw new Error("Choose or enter a model in provider/model format.");
+@@ -930,8 +932,8 @@ function Setup({
+                                 }}
+                                 open={modelOpen}
+                                 onOpenChange={setModelOpen}
+-                                allowDefault={!multiProvider}
+-                                required={multiProvider}
++                                allowDefault={false}
++                                required
+                                 creatable
+                                 groupByProvider={multiProvider && !connectionModels}
+                                 preserveOrder={Boolean(connectionModels) || adapterCuratesModelOrder(brandType)}
+diff --git a/ui/src/components/AgentConfigForm.render.test.tsx b/ui/src/components/AgentConfigForm.render.test.tsx
+index 0363a08af95fe7b6ffb112fe8be835a8cc54c50b..628ce136ae541ba31b02d3c67ea9c26c52ac1522 100644
+--- a/ui/src/components/AgentConfigForm.render.test.tsx
++++ b/ui/src/components/AgentConfigForm.render.test.tsx
+@@ -1058,14 +1058,15 @@ describe("AgentConfigForm environment selector", () => {
+     });
+   });
+ 
+-  it("names the Claude default for new and existing agents without pinning it", async () => {
++  it("requires an explicit model for new and existing Claude agents without silently pinning one", async () => {
+     const environments = [makeEnvironment({ id: "local-1", name: "Local", driver: "local" })];
+     const existing = await renderForm(environments, { adapterType: "claude_local", adapterConfig: {} });
+     roots.push(existing.root);
+     const created = await renderCreateForm(environments, { adapterType: "claude_local", model: "" });
+     roots.push(created.root);
+-    expect(existing.container.textContent).toContain("Default (claude-opus-5)");
+-    expect(created.container.textContent).toContain("Default (claude-opus-5)");
++    expect(existing.container.textContent).toContain("Select model (required)");
++    expect(created.container.textContent).toContain("Select model (required)");
++    expect(existing.container.textContent).not.toContain("Default (claude-opus-5)");
+     expect(existing.onSave).not.toHaveBeenCalled();
+   });
+ 
+@@ -1187,7 +1188,7 @@ describe("AgentConfigForm environment selector", () => {
+     expect(result.container.textContent).toContain("Hermes Gateway fields");
+   });
+ 
+-  it("tests a Codex agent after clearing the primary model to the adapter default", async () => {
++  it("keeps the explicit Codex model and offers no adapter-default choice", async () => {
+     const result = await renderForm([
+       makeEnvironment({ id: "local-1", name: "Local", driver: "local" }),
+     ], {
+@@ -1210,10 +1211,10 @@ describe("AgentConfigForm environment selector", () => {
+     const defaultButton = Array.from(document.body.querySelectorAll("button")).find(
+       (button) => button.textContent?.trim() === "Default",
+     );
+-    expect(defaultButton).toBeTruthy();
++    expect(defaultButton).toBeUndefined();
+ 
+     await act(async () => {
+-      defaultButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
++      modelButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+     });
+     await flushReact();
+ 
+@@ -1229,12 +1230,12 @@ describe("AgentConfigForm environment selector", () => {
+ 
+     expect(mockAgentsApi.testEnvironment).toHaveBeenCalledTimes(1);
+     expect(mockAgentsApi.testEnvironment.mock.calls[0]?.[2]).toMatchObject({
+-      adapterConfig: {},
++      adapterConfig: { model: "gpt-5.4" },
+     });
+     const adapterConfig = (mockAgentsApi.testEnvironment.mock.calls[0]?.[2] as {
+       adapterConfig: Record<string, unknown>;
+     }).adapterConfig;
+-    expect(adapterConfig).not.toHaveProperty("model");
++    expect(adapterConfig.model).toBe("gpt-5.4");
+     expect(result.container.textContent).not.toContain("Cannot read properties of undefined");
+   });
+ 
+diff --git a/server/src/app.ts b/server/src/app.ts
+index 14814f644196632c542ea3b95926c6d34745c890..0b30bf705ae0c2963bc157b9e544164855c13d54 100644
+--- a/server/src/app.ts
++++ b/server/src/app.ts
+@@ -80,6 +80,12 @@ import { companyRoutes } from "./routes/companies.js";
+ import { companySkillRoutes } from "./routes/company-skills.js";
+ import { companySkillPolicyRoutes } from "./routes/company-skill-policy.js";
+ import { inboxAgentPolicyRoutes } from "./routes/inbox-agent-policy.js";
++import { ppclipRunControlRoutes } from "./ppclip/run-controls/routes.js";
++import { ppclipProviderRoutingRoutes } from "./ppclip/providers/routes.js"; // ppclip: PROV-1/PROV-2
++import { modelPolicyService } from "./ppclip/providers/model-policy.js"; // ppclip: preserve existing explicit model choices once
++import { startProviderRoutingController } from "./ppclip/providers/service.js"; // ppclip: PROV-2
++import { ppclipComputerUseRoutes } from "./ppclip/computer-use/routes.js"; // ppclip: computer use
++import { ppclipFeatureRoutes } from "./ppclip/features-routes.js"; // ppclip: module switches
+ import { builtInAgentRoutes } from "./routes/built-in-agents.js";
+ import { folderRoutes } from "./routes/folders.js";
+ import { summarySlotRoutes } from "./routes/summary-slots.js";
+@@ -753,6 +759,11 @@ export async function createApp(
+   api.use(companySkillPolicyRoutes(db));
+   api.use(inboxAgentPolicyRoutes(db));
+   api.use(agentCommentaryRoutes(db));
++  api.use(ppclipRunControlRoutes(db)); // ppclip: run controls (RUN-1, RUN-2, master switch)
++  api.use(ppclipProviderRoutingRoutes(db)); // ppclip: provider routing (PROV-1, PROV-2)
++  if (!isWarmStandby()) await modelPolicyService(db).initializeExisting(); // ppclip: finish migration before accepting requests or dispatching runs
++  api.use(ppclipComputerUseRoutes(db, undefined, { isPaused: isWarmStandby })); // ppclip: computer use (off by default)
++  api.use(ppclipFeatureRoutes(db)); // ppclip: module switches (Settings → ppclip)
+   api.use(builtInAgentRoutes(db));
+   api.use(summarySlotRoutes(db));
+   api.use(statusCardRoutes(db));
+@@ -1335,6 +1346,8 @@ export async function createApp(
+       });
+   };
+   registerBrowserUseCleanup(deliveryWork, browserUse, () => !isIdleTaskDrainActive());
++  // ppclip: PROV-2 provider-routing controller (opt-in per company, off by default).
++  const ppclipProviderController = startProviderRoutingController(db, { isPaused: isWarmStandby, onError: (err) => logger.warn({ err }, "ppclip provider routing pass failed") });
+   let importTransferSweepTimer: ReturnType<typeof setInterval> | null =
+     setInterval(
+       sweepImportTransferSpools,
+@@ -1448,6 +1461,7 @@ export async function createApp(
+         chatPublicationTimer = null;
+       }
+       await chatReconciliation.drain();
++      ppclipProviderController.stop(); // ppclip: PROV-2
+       if (importTransferSweepTimer) {
+         clearInterval(importTransferSweepTimer);
+         importTransferSweepTimer = null;
+diff --git a/server/src/services/heartbeat/runtime-execution.test.ts b/server/src/services/heartbeat/runtime-execution.test.ts
+index 361fe422b698e94c03c329aa772143b45216e4c0..92056d700da5142ce1270eea4162abee8eb0d036 100644
+--- a/server/src/services/heartbeat/runtime-execution.test.ts
++++ b/server/src/services/heartbeat/runtime-execution.test.ts
+@@ -25,6 +25,7 @@ import { createHeartbeatRunState } from "./run-state.js";
+ import { buildEffectiveRunSessionConfigMetadata } from "./workspaces.js";
+ import { revokeHeartbeatRunGatewayTokens } from "./run-preparation.js";
+ import { executeHeartbeatRuntime, type HeartbeatRuntimeExecutionInput } from "./runtime-execution.js";
++import { modelPolicyService } from "../../ppclip/providers/model-policy.js";
+ 
+ // Keep real accounting, workspace barriers, and task-session persistence. Providers
+ // and gateway delivery are external boundaries; browser acceptance covers their wiring.
+@@ -86,7 +87,7 @@ describe.skipIf(!support.supported)("heartbeat runtime execution boundary", () =
+         executionTarget: null, nativeWorkspaceSync: null, workspaceRestoreSource: undefined, remoteExecution: null,
+         workspaceOperationRecorder: workspaceOperationService(db).createRecorder({ companyId: company.id, heartbeatRunId: run.id, issueId: issue.id }),
+       },
+-      config: { runtimeConfig: {}, resolvedConfig: {}, managedAiRuntime: undefined,
++      config: { runtimeConfig: { ...agent.adapterConfig }, resolvedConfig: {}, managedAiRuntime: undefined,
+         resolvedInstanceSettings: { experimental: { enableWorkspaceBranchReconcileForward: false, enableWorkspaceDirtyQuarantineRepair: false } },
+         configuredTaskEnvironment: {}, adapterEnv: {}, agentIdentity: undefined, runtimeEnv: {}, useHostGitHub: false, githubSelection: { configured: false },
+       },
+@@ -108,6 +109,10 @@ describe.skipIf(!support.supported)("heartbeat runtime execution boundary", () =
+       },
+       effects: { onUsageCaptureReady: vi.fn(), onNativeDispatchStarted: vi.fn(), onLegacyAdapterEntered: vi.fn(), onWorkspaceRestoreFailure: vi.fn(), onProviderResourceDisposition: vi.fn(), onNativeWorkspaceFinalizeScheduled: vi.fn(), onNativeSessionResumeScheduled: vi.fn(), onNativeOwnershipHeld: vi.fn() },
+     };
++    if (native && provider === "codex") {
++      input.config.runtimeConfig.model = "gpt-5.4";
++      await modelPolicyService(db).save(company.id, 0, { allowedModels: [{ adapterType: "codex_local", model: "gpt-5.4" }] }, "board-user");
++    }
+     return { input, adapter, run };
+   }
+   const read = (id: string) => db.select().from(heartbeatRuns).where(eq(heartbeatRuns.id, id)).then(rows => rows[0]!);
+@@ -186,6 +191,19 @@ describe.skipIf(!support.supported)("heartbeat runtime execution boundary", () =
+     } else expectCleanup(input);
+   });
+ 
++  it.each([false, true])("blocks unapproved task models before provider dispatch (native: %s)", async native => {
++    const { input, adapter } = await fixture(native);
++    if (!native) {
++      input.agent.adapterType = "codex_local";
++      await modelPolicyService(db).save(input.agent.companyId, 0, { allowedModels: [{ adapterType: "codex_local", model: "gpt-5.4" }] }, "board-user");
++    }
++    input.config.runtimeConfig.model = "gpt-6-astra";
++    await expect(executeHeartbeatRuntime(db, input)).rejects.toThrow(/not approved/);
++    expect(adapter.execute).not.toHaveBeenCalled();
++    expect(executePaperclipNativeSession).not.toHaveBeenCalled();
++    expectCleanup(input);
++  });
++
+   it("dispatches native execution with the selected session and persists its usage", async () => {
+     const { input, adapter, run } = await fixture(true);
+     vi.mocked(executePaperclipNativeSession).mockImplementationOnce(async native => {
+diff --git a/server/src/services/heartbeat/runtime-execution.ts b/server/src/services/heartbeat/runtime-execution.ts
+index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a7252a15943 100644
+--- a/server/src/services/heartbeat/runtime-execution.ts
++++ b/server/src/services/heartbeat/runtime-execution.ts
+@@ -92,6 +92,8 @@ import type { NativeExecutionInput, NativeSessionBackend } from "../../vendor/pa
+ import type { PluginWorkerManager } from "../plugin-worker-manager.js";
+ import type { RealizedExecutionWorkspace } from "../workspace-runtime.js";
+ import type { reserveWarmNativeInstructionDirectory } from "../native-runtime/index.js";
++import { ppclipComputerUseMcpServer } from "../../ppclip/computer-use/index.js"; // ppclip: computer use
++import { modelPolicyService } from "../../ppclip/providers/model-policy.js"; // ppclip: enforce the resolved model before any provider dispatch
+ 
+ type Selection = HeartbeatRuntimeSelectionInput;
+ type Selected = Extract<HeartbeatRuntimeSelectionResult, { selected: true }>;
+@@ -494,6 +496,7 @@ export async function executeHeartbeatRuntime(db: Db, input: HeartbeatRuntimeExe
+     context.goalControlRequestId,
+   );
+   try {
++    await modelPolicyService(db).assertAllowed(agent.companyId, agent.adapterType, runtimeConfig);
+     if (nativeRuntimeResolution.kind === "native") {
+       if (!nativeExecution || !nativeRunnerInstanceId)
+         throw new Error("native_runtime_selection_not_persisted");
+@@ -774,6 +777,9 @@ export async function executeHeartbeatRuntime(db: Db, input: HeartbeatRuntimeExe
+         runtimeMcpServers.unshift({ name: "Paperclip projects", url: `${paperclipApiBaseUrl()}/api/mcp/project-tools`,
+           token: authToken, connectionId: "paperclip-project-tools" });
+       }
++      // ppclip: computer use tools for agents that have it turned on (off by default).
++      const ppclipComputer = configuredPaperclipApiBaseUrl() ? await ppclipComputerUseMcpServer(db, agent, authToken, paperclipApiBaseUrl()) : null;
++      if (ppclipComputer) runtimeMcpServers.push(ppclipComputer);
+       const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
+       if (runtimeTools && runtimeToolDelivery === "invocation_context") {
+         adapterContext.paperclipRuntimeTools = runtimeTools;

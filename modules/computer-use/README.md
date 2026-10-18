@@ -2,6 +2,10 @@
 
 A sandboxed Linux desktop and Chromium per agent in Docker, with live view, takeover and agent tools over MCP.
 
+The live viewer uses the app's theme, a compact connection-status dot, and a keyboard-accessible Ctrl+Alt+Del button. The button is enabled only for a connected control stream.
+
+Paused computers show a placeholder rather than opening a stream. Resume or Take control waits for the desktop to become ready before reconnecting; pausing invalidates existing live-view tickets.
+
 **Settings → ppclip switch:** Computer use
 
 **How to use it:**

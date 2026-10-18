@@ -226,8 +226,71 @@ export function computerUseService(db: Db, opts: ComputerUseServiceOptions) {
     return transition(companyId, agentId, "ready", { kind: "system" });
   }
 
+  let recovering: Promise<{ checked: number; changed: number; unavailable: number }> | null = null;
+  async function recoverComputers() {
+    const result = { checked: 0, changed: 0, unavailable: 0 };
+    if (!(await supervisor.health()).ok) return { ...result, unavailable: 1 };
+    const rows = await db.select({ id: agents.id, companyId: agents.companyId }).from(agents)
+      .where(and(ne(agents.status, "terminated"), sql`${agents.metadata}->'computerUse'->>'state' in ('starting','agent','waiting_for_human','human','human_private','paused')`));
+    for (const row of rows) {
+      try {
+        await locks.run(row.id, async () => {
+          const meta = readComputerUse((await loadAgent(row.companyId, row.id)).metadata);
+          if (!isLive(meta.state)) return;
+          result.checked++;
+          const computer = await supervisor.inspect(row.id);
+          if (!computer?.running || !meta.enabled || !(await isComputerUseEnabled(db, row.companyId))) {
+            dropTickets(row.id);
+            // Keep the saved state eligible for the next recovery pass if
+            // Docker cannot stop the container. Never report success first.
+            if (computer?.running) await supervisor.stop(row.id);
+            await transition(row.companyId, row.id, "stop", { kind: "system" }, { details: { reason: computer?.running ? "access_disabled_recovery" : "container_not_running_recovery" } });
+            result.changed++;
+            return;
+          }
+          const human = meta.state === "human" || meta.state === "human_private";
+          const validLease = human && meta.lease && Date.parse(meta.lease.expiresAt) > now().getTime();
+          const needsPause = meta.state === "starting" || computer.healthy === false
+            || (human && !validLease) || (computer.paused && meta.state !== "paused");
+          if (needsPause && meta.state !== "paused") {
+            dropTickets(row.id);
+            await transition(row.companyId, row.id, human && !validLease ? "lease_expired" : "recovery_pause", { kind: "system" }, { details: { reason: computer.healthy === false ? "desktop_unhealthy_recovery" : "state_mismatch_recovery" } });
+            if (!computer.paused) {
+              await supervisor.setControl(row.id, false);
+              await supervisor.freeze(row.id);
+            }
+            result.changed++;
+          } else if (meta.state === "paused") {
+            if (!computer.paused) {
+              await supervisor.setControl(row.id, false);
+              await supervisor.freeze(row.id);
+              result.changed++;
+            }
+          } else if (validLease) {
+            // Re-establish the existing lease after a supervisor/container restart.
+            await supervisor.setControl(row.id, true);
+          } else {
+            await supervisor.setControl(row.id, false);
+          }
+        });
+      } catch {
+        // Preserve intent when Docker is unavailable; retry on the next bounded pass.
+        result.unavailable++;
+      }
+    }
+    return result;
+  }
+  function reconcile() {
+    if (recovering) return recovering;
+    const work = recoverComputers();
+    recovering = work;
+    void work.finally(() => { if (recovering === work) recovering = null; }).catch(() => undefined);
+    return work;
+  }
+
   return {
     supervisor,
+    reconcile,
     isEnabled: (companyId: string) => isComputerUseEnabled(db, companyId),
     withAgentLock: <T>(agentId: string, fn: () => Promise<T>) => locks.run(agentId, fn),
 
@@ -407,14 +470,25 @@ export function computerUseService(db: Db, opts: ComputerUseServiceOptions) {
 
     /** A short-lived capability for the live view. View tickets work while the computer is live; control tickets need the caller's lease. */
     async issueTicket(companyId: string, agentId: string, userId: string, mode: "view" | "control") {
-      if (!(await isComputerUseEnabled(db, companyId))) throw conflict("Computer use is off.");
-      const meta = readComputerUse((await loadAgent(companyId, agentId)).metadata);
-      if (!meta.enabled || !isLive(meta.state)) throw conflict("The computer is not running.");
-      if (mode === "control" && (!meta.lease || meta.lease.holderUserId !== userId)) throw forbidden("Take control first.");
-      for (const [key, ticket] of tickets) if (ticket.expiresAt < Date.now()) tickets.delete(key);
-      const ticket = randomBytes(24).toString("base64url");
-      tickets.set(ticket, { companyId, agentId, userId, mode, leaseGrantedAt: mode === "control" ? meta.lease!.grantedAt : null, expiresAt: Date.now() + ticketTtlMs });
-      return ticket;
+      // State changes are published before the supervisor finishes opening the
+      // interactive stream. A viewer must wait for that operation to settle.
+      return locks.run(agentId, async () => {
+        if (!(await isComputerUseEnabled(db, companyId))) throw conflict("Computer use is off.");
+        const meta = readComputerUse((await loadAgent(companyId, agentId)).metadata);
+        if (!meta.enabled || !isLive(meta.state)) throw conflict("The computer is not running.");
+        if (meta.state === "paused") throw conflict("The computer is paused. Resume it or take control to open the live view.");
+        if (mode === "control") {
+          if ((meta.state !== "human" && meta.state !== "human_private") || !meta.lease
+            || meta.lease.holderUserId !== userId || Date.parse(meta.lease.expiresAt) <= now().getTime()) throw forbidden("Take control first.");
+          // A supervisor restart loses its in-memory stream token. Restore it
+          // only after checking the caller's current lease; repeated calls are idempotent.
+          await supervisor.setControl(agentId, true);
+        }
+        for (const [key, ticket] of tickets) if (ticket.expiresAt < Date.now()) tickets.delete(key);
+        const ticket = randomBytes(24).toString("base64url");
+        tickets.set(ticket, { companyId, agentId, userId, mode, leaseGrantedAt: mode === "control" ? meta.lease!.grantedAt : null, expiresAt: Date.now() + ticketTtlMs });
+        return ticket;
+      });
     },
 
     /** Re-checks a ticket against current state. Used on every stream request and every second while streaming. */
@@ -429,7 +503,7 @@ export function computerUseService(db: Db, opts: ComputerUseServiceOptions) {
         .where(and(eq(agents.id, entry.agentId), eq(agents.companyId, entry.companyId)));
       if (!row || row.status === "terminated") return null;
       const meta = readComputerUse(row.metadata);
-      const valid = meta.enabled && isLive(meta.state) && (entry.mode === "view"
+      const valid = meta.enabled && isLive(meta.state) && meta.state !== "paused" && (entry.mode === "view"
         || ((meta.state === "human" || meta.state === "human_private") && meta.lease?.holderUserId === entry.userId
           && meta.lease.grantedAt === entry.leaseGrantedAt && Date.parse(meta.lease.expiresAt) > now().getTime()));
       if (!valid) {
@@ -441,6 +515,7 @@ export function computerUseService(db: Db, opts: ComputerUseServiceOptions) {
 
     /** Lease expiry (person → paused) and idle stop (agent idle → stopped). Run every 30 s. */
     async sweep() {
+      await reconcile();
       const rows = await db.select().from(agents)
         .where(sql`${agents.metadata}->'computerUse'->>'state' in ('human','human_private','agent','starting')`);
       const t = now().getTime();
@@ -455,7 +530,7 @@ export function computerUseService(db: Db, opts: ComputerUseServiceOptions) {
               await transition(companyId, agent.id, "lease_expired", { kind: "system" });
               await bestEffort(() => supervisor.freeze(agent.id));
             });
-          } else if (meta.state === "agent" && t - Date.parse(meta.lastActivityAt ?? meta.updatedAt ?? new Date(0).toISOString()) > idleMs) {
+          } else if (meta.state === "agent" && t - Math.max(Date.parse(meta.lastActivityAt ?? "") || 0, Date.parse(meta.updatedAt ?? "") || 0) > idleMs) {
             await locks.run(agent.id, async () => {
               dropTickets(agent.id);
               await transition(companyId, agent.id, "stop", { kind: "system" }, { details: { reason: "idle" } });

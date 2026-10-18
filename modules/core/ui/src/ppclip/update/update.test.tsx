@@ -57,11 +57,51 @@ describe("UpdateSection", () => {
     mockApi.status.mockResolvedValue(status());
     mockApi.check.mockResolvedValue(status({ checkedAt: "2026-10-17T20:00:00Z" }));
     await render();
-    expect(q("ppclip-update-current")?.textContent).toMatch(/73cf0bd Computer use: agent card/);
+    expect(q("ppclip-update-current")?.textContent).toMatch(/73cf0bd[\s\S]*Computer use: agent card/);
     await act(async () => { q("ppclip-update-check")!.click(); });
     await flush();
     expect(q("ppclip-update-none")?.textContent).toBe("ppclip is up to date.");
     expect(q("ppclip-update-start")).toBeNull();
+  });
+
+  it("distinguishes local edits from upstream updates and exposes diagnostics", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", localChanges: [" M modules.json", "?? notes.txt"], logTail: ["dependency install failed"] }));
+    await render();
+    expect(q("ppclip-update-none")?.textContent).toMatch(/No new upstream commits/);
+    expect(container.textContent).toContain("Local changes (2)");
+    expect(container.textContent).toContain("notes.txt");
+    expect(container.textContent).toContain("dependency install failed");
+  });
+
+  it("resumes progress when opened during an update", async () => {
+    mockApi.status.mockResolvedValue(status({ job: { state: "running", step: "Installing dependencies", startedAt: new Date().toISOString() } }));
+    await render();
+    await flush();
+    expect(q("ppclip-update-progress")?.textContent).toContain("Installing dependencies");
+    expect(q("ppclip-update-check")).toBeNull();
+  });
+
+  it("shows up-to-date status independently of local changes", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", blocked: "Local edits", localChanges: [" M modules.json"] }));
+    await render();
+    expect(q("ppclip-update-status")?.textContent).toBe("Up to date");
+    expect(container.querySelector("details")?.open).toBe(false);
+    expect(container.querySelector("progress")).toBeNull();
+  });
+
+  it("shows an indeterminate bar during checks and an out-of-date result", async () => {
+    mockApi.status.mockResolvedValue(status());
+    let finish!: (value: UpdateStatus) => void;
+    mockApi.check.mockImplementation(() => new Promise<UpdateStatus>(resolve => { finish = resolve; }));
+    await render();
+    await act(async () => { q("ppclip-update-check")!.click(); });
+    await flush();
+    expect(container.querySelector("progress")?.hasAttribute("value")).toBe(false);
+    expect(q("ppclip-update-status")?.textContent).toBe("Checking…");
+    await act(async () => { finish(status({ checkedAt: "2026-10-18T10:00:00Z", available: ["abc Fix"] })); });
+    await flush();
+    expect(q("ppclip-update-status")?.textContent).toContain("Out of date");
+    expect(container.querySelector("progress")).toBeNull();
   });
 
   it("lists new commits and offers Update and restart", async () => {

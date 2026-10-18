@@ -12,6 +12,7 @@ import { aiConnectionService } from "../../services/ai-connections.js";
 import { getActorInfo } from "../../routes/authz.js";
 import { cachedUsage, usageCacheKey } from "./usage-cache.js";
 import { hostClaudeUsage } from "./host-claude-usage.js";
+import { modelPolicyService, modelPolicyUpdateSchema } from "./model-policy.js";
 
 type ProviderRoutingService = Pick<ReturnType<typeof providerRoutingService>, "status" | "savePolicy" | "release" | "reconcile">;
 
@@ -35,6 +36,21 @@ export function ppclipProviderRoutingRoutes(
   async function writeAccess(req: Request, companyId: string): Promise<RoutingActor> {
     return { actorType: "user", actorId: await guard.write(req, companyId) };
   }
+
+  const models = modelPolicyService(db);
+  const modelPath = "/companies/:companyId/ppclip/model-policy";
+  router.use(modelPath, ppclipFeatureGate("modelApprovals"));
+  router.get(modelPath, async (req, res) => {
+    const companyId = req.params.companyId as string;
+    readAccess(req, companyId);
+    res.setHeader("Cache-Control", "no-store");
+    res.json(await models.get(companyId));
+  });
+  router.put(modelPath, validate(modelPolicyUpdateSchema), async (req, res) => {
+    const companyId = req.params.companyId as string;
+    const actor = await writeAccess(req, companyId);
+    res.json(await models.save(companyId, req.body.expectedRevision, req.body.policy, actor.actorId));
+  });
 
   // Usage of the viewer's AI accounts through the shared server cache, so tabs and
   // page loads never multiply provider checks (they rate-limit hard).

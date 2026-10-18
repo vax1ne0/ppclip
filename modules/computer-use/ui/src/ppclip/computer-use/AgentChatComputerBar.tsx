@@ -7,7 +7,7 @@ import { usePpclipFeature } from "@/ppclip/features/store";
 import { ComputerPanel } from "./ComputerPanel";
 import { ComputerStateChip } from "./ComputerStateChip";
 import { agentComputerHref } from "./links";
-import { useComputerUse } from "./useComputerUse";
+import { isLiveState, STATE_LABELS, useComputerUse } from "./useComputerUse";
 
 const OPEN_KEY = "ppclip.chat-computer-open";
 
@@ -50,11 +50,11 @@ export function AgentChatComputerBar({ agent }: { agent: ChatAgent }) {
   }
 
   return (
-    <div className="mb-3 flex shrink-0 flex-col gap-2" data-testid="chat-computer-bar">
+    <div className="sticky top-0 z-20 mb-3 flex shrink-0 flex-col gap-2 bg-background" data-testid="chat-computer-bar">
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border px-3 py-2">
         <Monitor className="size-4 text-muted-foreground" aria-hidden />
         <span className="text-sm text-foreground">{agent.name}'s computer</span>
-        <ComputerStateChip computer={computer} />
+        {isLiveState(computer.state) ? <ComputerStateChip computer={computer} /> : <span className="text-xs text-muted-foreground">{STATE_LABELS[computer.state]}</span>}
         <div className="ml-auto flex gap-1">
           <Button type="button" size="sm" variant="ghost" onClick={toggle} aria-expanded={open} data-testid="chat-computer-toggle">
             {open ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
@@ -68,7 +68,7 @@ export function AgentChatComputerBar({ agent }: { agent: ChatAgent }) {
           </Button>
         </div>
       </div>
-      {open ? <ComputerPanel companyId={selectedCompanyId} computer={computer} agentName={agent.name} liveView={liveView} /> : null}
+      {open ? <div className="max-h-[60vh] overflow-y-auto"><ComputerPanel companyId={selectedCompanyId} computer={computer} agentName={agent.name} liveView={liveView} /></div> : null}
     </div>
   );
 }

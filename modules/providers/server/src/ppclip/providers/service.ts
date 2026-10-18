@@ -49,6 +49,7 @@ import {
 } from "./policy.js";
 import { parseObject as asRecord } from "@paperclipai/adapter-utils/server-utils";
 import { cachedUsage, usageCacheKey } from "./usage-cache.js";
+import { modelPolicyService } from "./model-policy.js";
 
 const POLICY_UPDATED_ACTION = "ppclip.provider_routing.updated";
 const AGENT_SWITCHED_ACTION = "ppclip.provider_routing.agent_switched";
@@ -403,6 +404,7 @@ export function providerRoutingService(db: Db, options: { usage?: UsageSource } 
       const [liveRun] = await tx.select({ id: heartbeatRuns.id }).from(heartbeatRuns)
         .where(and(eq(heartbeatRuns.agentId, agentId), inArray(heartbeatRuns.status, LIVE_RUN_STATUSES))).limit(1);
       if (liveRun) return false;
+      await modelPolicyService(tx as unknown as Db).assertAllowed(companyId, next.adapterType, next.adapterConfig);
       const runtimeConfig = { ...asRecord(fresh.runtimeConfig) };
       if (next.aiConnection) runtimeConfig.aiConnection = next.aiConnection;
       else delete runtimeConfig.aiConnection;
