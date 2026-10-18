@@ -2575,7 +2575,7 @@ index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70f
            <p
              data-slot="contextual-sidebar-section-label"
 diff --git a/ui/src/components/AgentIdentity.tsx b/ui/src/components/AgentIdentity.tsx
-index 86f7e38d117900618a37f8ae0f8837f18a5cd8da..584906a15030cc614e72a13502a301952213a4fe 100644
+index 86f7e38d117900618a37f8ae0f8837f18a5cd8da..47ce81a47c2d6e5e8728a354d20518fb947cd00e 100644
 --- a/ui/src/components/AgentIdentity.tsx
 +++ b/ui/src/components/AgentIdentity.tsx
 @@ -1,9 +1,11 @@
@@ -2587,7 +2587,7 @@ index 86f7e38d117900618a37f8ae0f8837f18a5cd8da..584906a15030cc614e72a13502a30195
    return <span title={agent.name} className={cn("inline-flex min-w-0 items-center gap-1.5", className)}>
      <AgentAvatar agent={agent} size={pixels[size]} />
      <span className={cn("truncate", size === "sm" ? "text-xs" : "text-sm")}>{agent.name ?? "Agent"}</span>
-+    <AgentComputerBadge agentId={agent.id} />
++    <AgentComputerBadge agentId={agent.id} size={size === "xs" ? "compact" : "default"} />
    </span>;
  }
 diff --git a/ui/src/components/AgentPersona.test.tsx b/ui/src/components/AgentPersona.test.tsx
@@ -2649,7 +2649,7 @@ index 385941d6ca16c41fbd11f6b4694965ce9db33f69..51eaf079ba6d726121c1d12214ead607
    );
  }
 diff --git a/ui/src/components/SidebarAgents.production.tsx b/ui/src/components/SidebarAgents.production.tsx
-index 08231f68b7db70e46072f29bf5eefc0d51e7ac57..a70363ccf0b01c183d3dd94aa97e3c3555ab8cc6 100644
+index 08231f68b7db70e46072f29bf5eefc0d51e7ac57..c12cdf9a6b5b1b782f7a4d6c3a9f204e5ea9f49e 100644
 --- a/ui/src/components/SidebarAgents.production.tsx
 +++ b/ui/src/components/SidebarAgents.production.tsx
 @@ -1,5 +1,6 @@
@@ -2681,7 +2681,7 @@ index 08231f68b7db70e46072f29bf5eefc0d51e7ac57..a70363ccf0b01c183d3dd94aa97e3c35
        )}
        trailing={
 -        showBuiltInLifecycle || hasInvalidOrgChain ? (
-+        <><AgentComputerBadge agentId={agent.id} />{showBuiltInLifecycle || hasInvalidOrgChain ? (
++        <><AgentComputerBadge agentId={agent.id} size="compact" />{showBuiltInLifecycle || hasInvalidOrgChain ? (
            <span className="ml-1 flex shrink-0 items-center gap-1">
              {showBuiltInLifecycle ? <BuiltInLifecycleChip status={builtInStatus} compact /> : null}
              {hasInvalidOrgChain ? (
@@ -2718,7 +2718,7 @@ index 08231f68b7db70e46072f29bf5eefc0d51e7ac57..a70363ccf0b01c183d3dd94aa97e3c35
    const dedupedDisplayedAgents = useMemo(
      () => displayedAgents.filter((agent: Agent) => !starredAgentIdSet.has(agent.id)),
 diff --git a/ui/src/components/SidebarAgents.tsx b/ui/src/components/SidebarAgents.tsx
-index 7f5f6a55a6d1b34045bc9cf0cbff2f398407aec1..2b3a6126e629f966042e65a314f7438779a86ed3 100644
+index 7f5f6a55a6d1b34045bc9cf0cbff2f398407aec1..db386cbc80ed8a5fccca8cc3a462b1da80b91ee0 100644
 --- a/ui/src/components/SidebarAgents.tsx
 +++ b/ui/src/components/SidebarAgents.tsx
 @@ -1,5 +1,6 @@
@@ -2750,7 +2750,7 @@ index 7f5f6a55a6d1b34045bc9cf0cbff2f398407aec1..2b3a6126e629f966042e65a314f74387
        )}
        trailing={
 -        showBuiltInLifecycle || hasInvalidOrgChain ? (
-+        <><AgentComputerBadge agentId={agent.id} />{showBuiltInLifecycle || hasInvalidOrgChain ? (
++        <><AgentComputerBadge agentId={agent.id} size="compact" />{showBuiltInLifecycle || hasInvalidOrgChain ? (
            <span className="ml-1 flex shrink-0 items-center gap-1">
              {showBuiltInLifecycle ? <BuiltInLifecycleChip status={builtInStatus} compact /> : null}
              {hasInvalidOrgChain ? (
@@ -2967,7 +2967,7 @@ index ae0ea03d21cc8a9213b8730d8aede9cf3eb62a16..fe27d5f3d14537428d5528c22e5aa3d2
      </TooltipPrimitive.Portal>
    )
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
-index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..4f066f8d07697984e8d8dadd7f7d33bfae2cfba9 100644
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..235c8b5849bea4aa207611e8063ad5c9d969cddd 100644
 --- a/ui/src/pages/AgentDetail.tsx
 +++ b/ui/src/pages/AgentDetail.tsx
 @@ -7,6 +7,9 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
@@ -3005,7 +3005,7 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..4f066f8d07697984e8d8dadd7f7d33bf
            </div>
            <div className="min-w-0 space-y-1">
 -            <div className="flex items-center gap-2"><h1 className="truncate text-2xl font-semibold tracking-tight">{agent.name}</h1><PrimaryAgentIndicator agentId={agent.id} companyId={agent.companyId} /></div>
-+            <div className="flex items-center gap-2"><h1 className="truncate text-2xl font-semibold tracking-tight">{agent.name}</h1><AgentComputerBadge agentId={agent.id} /><PrimaryAgentIndicator agentId={agent.id} companyId={agent.companyId} /></div>
++            <div className="flex min-w-0 items-center gap-2"><h1 className="truncate text-2xl font-semibold tracking-tight">{agent.name}</h1><AgentComputerBadge agentId={agent.id} size="heading" /><PrimaryAgentIndicator agentId={agent.id} companyId={agent.companyId} /></div>
              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                {agent.adapterType === "claude_local" || agent.adapterType === "codex_local"
                  ? <img src={`/brands/${agent.adapterType === "claude_local" ? "claude" : "codex"}-color.svg`} className="size-4" alt="" />

@@ -2,6 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vitest";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { AgentComputerBadge, ComputerBadgesProvider } from "./AgentComputerBadge";
 const state = vi.hoisted(() => ({ on: true, enabled: true, rows: [{ agentId: "enabled", enabled: true, state: "stopped" }, { agentId: "disabled", enabled: false, state: "agent" }], overview: vi.fn() }));
 vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ selectedCompanyId: "company" }) }));
@@ -10,7 +11,7 @@ vi.mock("./useComputerUse", () => ({ useComputerUse: (id: string | null) => { st
 it("shows enabled computers even when stopped, hides disabled or unknown ones, and shares one subscription", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div"), root = createRoot(host);
-  const page = () => <ComputerBadgesProvider><AgentComputerBadge agentId="enabled" /><AgentComputerBadge agentId="disabled" /><AgentComputerBadge agentId="missing" /></ComputerBadgesProvider>;
+  const page = () => <TooltipProvider><ComputerBadgesProvider><AgentComputerBadge agentId="enabled" /><AgentComputerBadge agentId="disabled" /><AgentComputerBadge agentId="missing" /></ComputerBadgesProvider></TooltipProvider>;
   try {
     await act(async () => root.render(page()));
     expect(host.querySelectorAll('[aria-label="Computer use enabled"]')).toHaveLength(1);
