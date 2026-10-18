@@ -1,182 +1,142 @@
 # ppclip
 
-**A modular upgrade for your Paperclip workspace.**
+Team views, live activity, customizable mascots, provider controls, and agent desktops for [Paperclip](https://github.com/paperclipai/paperclip). Install over an official source checkout and choose your features in **Settings → ppclip**.
 
-Watch your team, follow live runs, manage AI providers, and give agents a desktop you can take over. ppclip adds features and fixes to an [official Paperclip checkout](https://github.com/paperclipai/paperclip) through a reversible overlay.
+[Existing installation](#add-to-existing-paperclip) · [Fresh installation](#install-paperclip--ppclip) · [Computer use](#enable-computer-use) · [Backups](#back-up-first)
 
-You keep the official repository. ppclip adds its own modules and marked integration hooks; the installer can remove the overlay again while keeping your data.
-
-[Install](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Updates](#updates-and-removal) · [Documentation](#documentation)
-
-![Team canvas showing seven agents, reporting routes, role colours, and chat and computer shortcuts](docs/images/team.jpg)
+![Team canvas with agent cards, reporting lines, and chat and computer shortcuts](docs/images/team.jpg)
 
 ## Features
 
-| Area | What ppclip adds |
-|---|---|
-| **Team canvas** | Reporting and work relationships, editable layouts, Magic sort, and group colours. |
-| **Agent chat** | Chat enabled by default, configured model labels, tabs ordered by your last sent message without jumping when opened, clearer follow-up runs, and activity scoped to the right task. |
-| **Live runs** | One card per agent with live activity, the current task, and the last reply. |
-| **Computer use** | A Linux desktop and Chromium per agent, live view, human takeover, private control, and persistent browser profiles. |
-| **Providers** | Account usage bars, subscription usage, model tiers, and optional switching between providers. |
-| **Approved models** | Company-specific model lists enforced before dispatch, including task overrides and provider switches. Independently switchable. |
-| **Run controls** | Team Unlimited / Drain / Resume, daily runs left, and “Drain after next run.” |
-| **Agent visibility** | Urgency ordering, attention statuses, pending confirmations, roster columns, and task hover details. |
-| **Updates and fixes** | Compact update status and progress, recovery for stale run states, live refresh, and Windows sign-in fixes. |
+- **Team & live runs:** editable layouts, reporting lines, and live activity cards.
+- **Agent chat & mascots:** model labels, tabs ordered by your last sent message, custom colors, and interactive previews.
+- **Computer use:** a Linux desktop and Chromium per agent, live screen, and human takeover.
+- **Provider & run controls:** usage limits, optional provider switching, approved models, and team pause/resume controls.
+- **Settings & fixes:** independent module switches, update checks, and run-state and Windows sign-in fixes.
 
-**Choose what stays on.** Open **Settings → ppclip** to toggle modules independently across the instance. Module availability defaults to on; computer access, automatic provider switching, and run controls require their own opt-in settings. Only instance administrators can change module switches.
+## Back up first
 
-Agent chat retains its separate Experimental switch. Approved models defaults to on, requires an explicit approved model for model-based runs, and can be disabled without deleting its saved lists. See [model approvals](docs/model-approvals.md).
+Before changing an existing installation:
 
-## Screenshots
+1. Pause agents and save a **database backup**. It holds agents, tasks, chat history, and saved settings.
+2. Stop Paperclip and its workers. Copy the **whole data folder**, including configuration, uploads, workspaces, and **`secrets/master.key`**. Usually this is `~/.paperclip`; ppclip's launcher uses the folder passed to `--data`, often `.ppclip-runtime`.
+3. Save files outside that folder: custom instructions, project workspaces, `.env` files, and separately configured storage. Back up Docker profile volumes if you already use agent computers.
 
-Actual captures from a local installation. Names, usage values, and switch states reflect that installation rather than product defaults. [Capture notes](docs/images/README.md).
+Keep backups outside the installation folders. A company/agent export **is not a full backup**. [Backup commands and restore checklist →](docs/backups.md)
 
-### Computer controls
+## Requirements
 
-Watch an agent's desktop, take control, pause it, or stop it. The connected desktop below shows the compact status row and control expiry.
+**Git, Node.js 24.11+, pnpm 9.15.4**, and [Paperclip's build prerequisites](https://github.com/paperclipai/paperclip#development), including Rust or a compatible prebuilt runner. Computer use also needs **Docker** running Linux containers; on Windows, enable Docker Desktop's WSL2 integration.
 
-![Connected agent desktop with the simplified Live screen header, control status, and expiry time](docs/images/computer.jpg)
+Commands below use **Bash** (Linux, macOS, or WSL2), including `curl`. [PowerShell and native Windows notes →](docs/installation.md#windows-powershell)
 
-<details>
-<summary><strong>Module settings and updates</strong></summary>
+## Add to existing Paperclip
 
-Each module explains what changes when it is disabled. This example has Approved models turned off; its default is on.
+Use an official **Git source checkout**. Docker-image and npm-only installations need a separate source setup. Back up and stop the app first. Run from the folder containing your `paperclip` checkout; replace that path if yours has another name.
 
-![Independent switches for usage bars, provider switching, Approved models, and run controls](docs/images/modules.jpg)
+```bash
+git clone https://github.com/vax1ne0/ppclip
+node ppclip/install.mjs compatibility --target ./paperclip --ref HEAD
+node ppclip/install.mjs install --target ./paperclip --with-deps
+cd paperclip
+pnpm build
+node scripts/ppclip/computer-supervisor.mjs build-image
+```
 
-### Update settings
+Continue only when compatibility reports **`verified`**. The installer requires a clean, supported checkout. Preserve local code changes before installing; do not force a different version onto your data.
 
-Settings → ppclip → Updates shows update status and clear installation progress. Expand **Versions** to see installed and newer Paperclip and ppclip versions and whether a newer Paperclip is waiting for ppclip support.
+**Run it:** restart with your **usual Paperclip command, data directory, and environment**. In a second terminal, from the same checkout and with the same environment, run:
 
-![Compact Updates section with update status, Check for updates, and the Versions dropdown collapsed](docs/images/updates.jpg)
+```bash
+node scripts/ppclip/computer-supervisor.mjs
+```
 
-</details>
+For a custom data directory, [configure the shared supervisor token](docs/installation.md#existing-instance-computer-connection). If you already use ppclip's local launcher, restart with your existing `--data` value and add `--with-computer` instead. Then [enable computer use](#enable-computer-use).
+
+## Install Paperclip + ppclip
+
+This downloads the **latest official stable release** and ppclip. If that release is not supported yet, the installer stops; check [compatibility](#compatibility) before continuing.
+
+Run in a new workspace folder, with Docker running. Run each command after the previous one succeeds.
+
+```bash
+stable=$(curl -fsSL https://api.github.com/repos/paperclipai/paperclip/releases/latest | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).tag_name")
+git clone --branch "$stable" https://github.com/paperclipai/paperclip paperclip
+git clone https://github.com/vax1ne0/ppclip
+node ppclip/install.mjs install --target ./paperclip --with-deps
+cd paperclip
+pnpm build
+node scripts/ppclip/computer-supervisor.mjs build-image
+node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime --with-computer
+```
+
+Open **http://127.0.0.1:3410**, create your company and agents, and connect their AI accounts. Select an explicit model; manage allowed models under **Providers → Approved models**, or disable that module in **Settings → ppclip**.
+
+**Start it again later**, from `paperclip`:
+
+```bash
+node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime --with-computer
+```
+
+Keep using the same data folder. The launcher starts the app and supervisor in the background. Build the desktop image once; rebuild when an update requires it. To skip computer use, omit `build-image` and `--with-computer`.
+
+## Enable computer use
+
+1. Open a **Claude Code or Codex local agent → Harness / Runtime → Computer use**.
+2. Turn on company computer use, enable **Give this agent a computer**, and check that the supervisor is connected.
+3. Open **Live screen → Start computer**. Ask the agent to use its browser; choose **Take control** to interact yourself.
+
+Browser profiles persist in Docker volumes. Computer use is opt-in; shell access has its own switch. [Setup, controls, and security limits →](docs/computer-use.md)
 
 ## Compatibility
 
-Normal installation requires a **tested Paperclip commit (or identical source tree)** and a clean official checkout. ppclip changes upstream internals, so a newer release is not automatically safe just because its patch applies.
+| Supported Paperclip | Revision |
+|---|---|
+| [Stable v2026.1012.0](https://github.com/paperclipai/paperclip/releases/tag/v2026.1012.0) | `bba6a45f0` |
+| Existing canary snapshot | `669d329f2` |
 
-Update tracking follows **stable Paperclip releases only**. New installations can use stable `v2026.1012.0`; the existing canary base remains supported for ppclip-only fixes. Moving an existing canary installation to an older stable release still requires a verified data migration; the updater does not downgrade it automatically.
+Updates follow stable releases. Newer releases need tested ppclip support; existing canary databases are not automatically downgraded. [Details →](docs/compatibility.md)
 
-| Supported Paperclip revision | Official commit | Integration hooks |
-|---|---|---|
-| Stable `v2026.1012.0` | `bba6a45f0` | [v2026.1012.0](hooks/v2026.1012.0/) |
-| Snapshot after `v2026.1017.0-canary.2` | `669d329f2` | [master-669d329f2](hooks/master-669d329f2/) |
+## Update or remove
 
-Check any locally available revision without changing your checkout:
+For launcher-based installs, use **Settings → ppclip → Updates → Check for updates**. Back up before updating. [Manual updates and other startup methods →](docs/updating.md)
 
-~~~bash
-node ppclip/install.mjs compatibility --target ./paperclip --ref HEAD
-~~~
+To remove ppclip, stop the app and run from the parent workspace:
 
-This distinguishes **verified**, **patch-applies-unverified**, and **blocked** revisions. It checks hooks and module path collisions; it does not replace typechecks, behavioral tests or live verification. Automatic updates keep using tested revisions. See [compatibility](docs/compatibility.md) for controlled experiments and the path toward fewer upstream patches.
-
-## Quick start
-
-Requires **Git**, **Node.js 24.11+**, and **pnpm 9.15.4**, plus Paperclip's platform build prerequisites. Docker is only needed for computer use.
-
-Clone the repositories side by side, then apply the overlay:
-
-~~~bash
-git clone https://github.com/paperclipai/paperclip
-git clone https://github.com/vax1ne0/ppclip
-git -C paperclip checkout v2026.1012.0
-
-node ppclip/install.mjs install --target ./paperclip --with-deps
-~~~
-
-Build Paperclip and start an isolated local instance:
-
-~~~bash
-cd paperclip
-pnpm build
-node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime
-~~~
-
-Open **http://127.0.0.1:3410**. Keep the two checkouts and the runtime data folder separate:
-
-~~~text
-workspace/
-├── paperclip/          Official checkout with the overlay applied
-├── ppclip/             This package
-└── .ppclip-runtime/    Instance data, configuration, and logs
-~~~
-
-The launcher uses ports **3410** for the app, **13410** for its auxiliary listener, and **55440** for embedded Postgres. App and database ports can be changed with `--port` and `--pg-port`. For Windows setup, target discovery, and installer behavior, see [installation](docs/installation.md).
-
-### Add computer use
-
-With Docker running, execute these commands from the **Paperclip checkout**:
-
-~~~bash
-node scripts/ppclip/computer-supervisor.mjs build-image
-node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime --with-computer
-~~~
-
-Enable computer use in Company Settings or the agent's **Configuration → Computer use** card, then give the selected agent a computer. Open its live screen and choose **Start computer**. Supported Claude Code and Codex local agents receive computer tools automatically.
-
-Each browser profile lives in a separate Docker volume. Taking control prevents the agent from acting; private takeover also hides the screen from it. Paused computers stay paused during recovery.
-
-[Computer setup, security, and testing →](docs/computer-use.md)
-
-## Updates and removal
-
-When using the local launcher, open **Settings → ppclip → Updates** to check for a new version and run **Update and restart**. The page tracks progress and reloads when the app returns. Updates require instance-admin access and refuse to overwrite local package changes.
-
-From the parent workspace folder:
-
-~~~bash
-node ppclip/install.mjs status --target ./paperclip
-node paperclip/scripts/ppclip/update.mjs --check
-~~~
-
-To remove the overlay:
-
-~~~bash
+```bash
 node ppclip/install.mjs uninstall --target ./paperclip
-~~~
+cd paperclip
+pnpm install --frozen-lockfile
+pnpm build
+```
 
-Removal preserves instance data and refuses to discard edited overlay files unless explicitly forced. Back up the runtime folder before updates: ppclip adds no database migrations, but an updated Paperclip version may run its own.
+Restart with your usual configuration. Removal keeps your instance data.
 
-[Update workflow, manual commands, and recovery →](docs/updating.md)
+<details>
+<summary><strong>More screenshots</strong></summary>
 
-## Data and execution boundaries
+**Live screen**
 
-- **Settings stay local.** Module flags live in the instance's `ppclip-features.json`. Company policies and computer state use existing activity-log records and agent metadata. Uninstalling leaves this data in place.
-- **Computer tools run in Docker.** Desktop containers have memory, CPU, and process limits. They drop all Linux capabilities except SETUID, SETGID, and KILL, used to start services under separate users. Other agent commands follow their configured execution environment.
-- **Access is explicit.** Computer use and shell access require separate switches. Supervisor and desktop ports bind to loopback, and live views use short-lived tickets checked against current control state.
-- **Guardrails have limits.** Browser navigation filters private and metadata addresses; page content is treated as untrusted. Containers share the host kernel, and these checks do not eliminate prompt injection. See the [computer-use guide](docs/computer-use.md) and [model policy boundaries](docs/model-approvals.md#enforcement).
+![Agent desktop with live view and takeover controls](docs/images/computer.jpg)
+
+**Module settings**
+
+![Independent ppclip module switches](docs/images/modules.jpg)
+
+**Updates**
+
+![Compact update section with collapsed version details](docs/images/updates.jpg)
+
+Captures show one installation; names and switch states are examples. [Capture notes](docs/images/README.md).
+
+</details>
 
 ## Documentation
 
-| Guide | Contents |
-|---|---|
-| [Installation](docs/installation.md) | Requirements, folder layout, installer behavior, and optional computer setup. |
-| [Updates and removal](docs/updating.md) | One-click and manual updates, local edits, logs, rollback, and uninstall. |
-| [Computer use](docs/computer-use.md) | Architecture, control states, Docker setup, guardrails, and lifecycle tests. |
-| [Approved models](docs/model-approvals.md) | Module switch, company policies, enforcement, exceptions, and storage. |
-| [Development](docs/development.md) | Module ownership, testing, export workflow, and porting to another Paperclip revision. |
-| [Compatibility](docs/compatibility.md) | Read-only revision checks, verified support, and extension API boundaries. |
-| [Implementation status](docs/implementation-status.md) | What is implemented, what remains a research idea, and verification limits. |
+[Installation](docs/installation.md) · [Backups](docs/backups.md) · [Computer use](docs/computer-use.md) · [Updates](docs/updating.md) · [Approved models](docs/model-approvals.md) · [Development](docs/development.md) · [Implementation status](docs/implementation-status.md)
 
 ## Repository layout
 
-~~~text
-modules/              ppclip source, grouped into nine modules
-hooks/<version>/      Version-specific integration patch and manifest
-docs/                 Setup guides and screenshots
-tools/                Package checks, installer tests, export and desktop smoke test
-modules.json          File ownership rules
-install.mjs           Install, status, update, and uninstall
-~~~
+`modules/` holds features, `hooks/` holds version-specific integrations, `docs/` holds guides, and `tools/` holds maintainer checks. `install.mjs` installs and removes the overlay. Keep this package, Paperclip, and runtime data in separate folders.
 
-Edit module code in this package or a working installed checkout, then export it back. Each module has its own README. Version-specific edits to official files belong in the hook patch, marked `// ppclip:`.
-
-## License and acknowledgements
-
-Paperclip and ppclip's additions are MIT-licensed. See [LICENSE](LICENSE).
-
-Computer use draws on ideas from [rakazo](https://github.com/elie222/rakazo), [desktop-bridge](https://github.com/connbot/desktop-bridge), [CUA](https://github.com/trycua/cua), [linux-computer-use](https://github.com/Roadmvn/linux-computer-use), [taw-computer](https://github.com/the-agents-work/taw-computer), and [Anthropic's computer-use demo](https://github.com/anthropics/anthropic-quickstarts). See the historical [research notes](docs/research/computer-use.md); those comparisons are not a list of installed dependencies.
-
-The Docker image installs Chromium, noVNC, websockify, x11vnc, and other Debian packages under their respective licenses. Those dependencies are installed when building the image; their binaries are not bundled in this repository.
+MIT licensed. [License](LICENSE) · [Computer-use acknowledgements](docs/research/computer-use.md). The desktop image installs third-party packages under their respective licenses.
