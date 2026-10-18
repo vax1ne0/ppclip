@@ -2284,10 +2284,10 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
 diff --git a/ui/src/components/AgentAvatar.test.tsx b/ui/src/components/AgentAvatar.test.tsx
-index c4d5f9ac731eb8008a5655ca1d237ced338669d0..5d22365848242bc23b6e0680cc68ed79842c2ca8 100644
+index c4d5f9ac731eb8008a5655ca1d237ced338669d0..b168352f5522ace91270e217a5db7ad2e24e5671 100644
 --- a/ui/src/components/AgentAvatar.test.tsx
 +++ b/ui/src/components/AgentAvatar.test.tsx
-@@ -1,12 +1,55 @@
+@@ -1,12 +1,70 @@
  // @vitest-environment jsdom
  import { act } from "react";
  import { createRoot } from "react-dom/client";
@@ -2317,8 +2317,23 @@ index c4d5f9ac731eb8008a5655ca1d237ced338669d0..5d22365848242bc23b6e0680cc68ed79
 +    expect(container.textContent).not.toContain("FA");
 +    await act(async () => root.render(<AgentAvatar appearance={appearance} name="Fathy" size={16} />));
 +    const latest = [...container.querySelectorAll("img")].at(-1)!;
-+    expect(decodeURIComponent(latest.getAttribute("src")!)).toContain('width="64"');
++    expect(decodeURIComponent(latest.getAttribute("src")!)).toContain('width="16"');
 +    expect(latest.getAttribute("loading")).toBe("eager");
++  } finally { await act(async () => root.unmount()); }
++});
++
++it("keeps customized thumbnails identical to the original size adaptation when the colors match", async () => {
++  const { renderAgentSvg } = await import("@paperclipai/shared/cliplab/static");
++  const { resolveAgentColors } = await import("@paperclipai/shared");
++  const base = appearanceForPalette("deep-tide");
++  const appearance = { ...base, customColors: resolveAgentColors(base) };
++  const container = document.createElement("div"), root = createRoot(container);
++  try {
++    for (const size of [16, 20, 24, 32, 40, 48] as const) {
++      await act(async () => root.render(<AgentAvatar appearance={appearance} size={size} />));
++      const latest = [...container.querySelectorAll("img")].at(-1)!;
++      expect(decodeURIComponent(latest.getAttribute("src")!).split(",").slice(1).join(",")).toBe(renderAgentSvg(base, size, 1, "rest", false));
++    }
 +  } finally { await act(async () => root.unmount()); }
 +});
 +

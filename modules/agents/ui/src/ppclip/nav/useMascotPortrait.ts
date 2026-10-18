@@ -17,8 +17,8 @@ export function useMascotPortrait(appearance: AgentAppearance, size: AgentAvatar
     renderer ??= import("@paperclipai/shared/cliplab/static");
     void renderer.then(library => {
       if (cancelled) return;
-      // Keep custom body shading at sidebar sizes instead of the flat 16px adaptation.
-      const svg = library.renderAgentSvg(appearance, size < 64 ? 64 : size, 1, pose, muted);
+      // Match the original portrait's size-specific geometry, face and framing.
+      const svg = library.renderAgentSvg(appearance, size, 1, pose, muted);
       setPortrait({ key, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`, failed: false });
     }).catch(() => {
       if (!cancelled) { renderer = undefined; setPortrait({ key, src: null, failed: true }); }
