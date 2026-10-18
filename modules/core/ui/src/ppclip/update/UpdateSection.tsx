@@ -22,10 +22,11 @@ function checkedLabel(value?: string | null) {
   return "Last checked " + new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
 }
 
-function VersionRow({ name, item, compatibility }: {
+function VersionRow({ name, item, compatibility, releaseHref }: {
   name: string;
   item: NonNullable<UpdateStatus["versions"]>["ppclip"];
   compatibility?: "supported" | "waiting" | "unknown";
+  releaseHref?: string;
 }) {
   const newer = item.updateAvailable;
   const label = item.checkFailed ? "Couldn’t check" : newer
@@ -36,7 +37,10 @@ function VersionRow({ name, item, compatibility }: {
     <dd className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
       <span className="flex min-w-0 flex-wrap items-center gap-2 tabular-nums">
         <span>{item.current ?? "Version unavailable"}</span>
-        {newer && item.latest && <><ArrowRight className="size-3" aria-label="New version" /><span className="text-foreground">{item.latest}</span></>}
+        {newer && item.latest && <><ArrowRight className="size-3" aria-label="New version" />{releaseHref
+          ? <a href={releaseHref} target="_blank" rel="noopener noreferrer" aria-label={`View ${name} ${item.latest} release on GitHub (opens in a new tab)`}
+              className="rounded-sm text-foreground underline decoration-muted-foreground/50 underline-offset-4 hover:decoration-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2">{item.latest}</a>
+          : <span className="text-foreground">{item.latest}</span>}</>}
       </span>
       <span>{label}</span>
     </dd>
@@ -165,7 +169,8 @@ export function UpdateSection() {
             <span>Versions</span><ChevronDown aria-hidden className="size-3.5 group-open/versions:rotate-180" />
           </summary>
           <dl className="divide-y divide-border border-t border-border px-4 py-1" aria-label="Installed and available versions" data-testid="ppclip-update-versions">
-            <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility} />
+            <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility}
+              releaseHref={data.versions.paperclip.latest ? `https://github.com/paperclipai/paperclip/releases/tag/v${encodeURIComponent(data.versions.paperclip.latest)}` : undefined} />
             <VersionRow name="ppclip" item={data.versions.ppclip} />
           </dl>
         </details>}

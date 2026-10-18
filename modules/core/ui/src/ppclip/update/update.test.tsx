@@ -84,6 +84,11 @@ describe("UpdateSection", () => {
     await render();
     expect(q("ppclip-update-versions")?.textContent).toMatch(/Paperclip.*1.0.0.*1.1.0.*Waiting for ppclip support.*ppclip.*0.2.0\+45/);
     expect(q("ppclip-update-status")?.textContent).toBe("No compatible updates");
+    const release = q("ppclip-update-versions")?.querySelector<HTMLAnchorElement>("a");
+    expect(release?.getAttribute("href")).toBe("https://github.com/paperclipai/paperclip/releases/tag/v1.1.0");
+    expect(release?.textContent).toBe("1.1.0");
+    expect(release?.target).toBe("_blank");
+    expect(release?.rel).toBe("noopener noreferrer");
     expect(q("ppclip-update-start")).toBeNull();
   });
 
