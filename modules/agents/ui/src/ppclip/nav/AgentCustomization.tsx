@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AGENT_PALETTE_IDS, CHARACTER_STATES, DEFAULT_AGENT_GRADIENT, appearanceForPalette, randomAgentAppearance, resolveAgentAppearance, resolveAgentColors, type Agent, type AgentAppearance, type CharacterState } from "@paperclipai/shared";
+import { AGENT_PALETTE_IDS, CHARACTER_STATES, DEFAULT_AGENT_GRADIENT, appearanceForPalette, resolveAgentAppearance, resolveAgentColors, type Agent, type AgentAppearance, type CharacterState } from "@paperclipai/shared";
 import { Shuffle } from "lucide-react";
 import { agentsApi } from "@/api/agents";
 import { AgentAvatar } from "@/components/AgentAvatar";
@@ -10,7 +10,8 @@ import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { MascotColorField } from "./MascotColorField";
 import { PageActionBar } from "./PageActionBar";
-import { MascotGradientGuide, type MascotGradient } from "./MascotGradientGuide";
+import { clampGradientCenter, MascotGradientGuide, type MascotGradient } from "./MascotGradientGuide";
+import { publishMascotAppearance, randomMascotColors } from "./mascot-appearance-state";
 
 type Identity = Pick<Agent, "id" | "name" | "companyId" | "appearance">;
 const label = (value: string) => value.split("-").map(word => word[0].toUpperCase() + word.slice(1)).join(" ");
@@ -27,7 +28,9 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
   const [draft, setDraft] = useState(saved);
   const [colorInputs, setColorInputs] = useState(() => resolveAgentColors(saved));
   const [pose, setPose] = useState<CharacterState>("idle");
-  const [showGuide, setShowGuide] = useState(false);
+  const [guideMode, setGuideMode] = useState<"center" | "rotate" | null>(null);
+  const showGuide = guideMode !== null;
+  const previewRegion = useRef<HTMLDivElement>(null);
   const gradient = draft.gradient ?? DEFAULT_AGENT_GRADIENT;
   const [savedNotice, setSavedNotice] = useState(false);
   const invalidColors = !Object.values(colorInputs).every(value => /^#[0-9a-fA-F]{6}$/.test(value));
@@ -45,6 +48,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
     onSuccess: updated => {
       const next = resolveAgentAppearance(updated.appearance, agent.id);
       setSaved(next); setDraft(next); setColorInputs(resolveAgentColors(next)); setSavedNotice(true);
+      publishMascotAppearance(client, agent, next);
       void client.invalidateQueries({ queryKey: ["agents"] });
     },
   });
@@ -57,7 +61,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
   function choosePalette(next: AgentAppearance) { choose({ ...next, ...(draft.gradient ? { gradient: draft.gradient } : {}) }); }
   function changeGradient(next: MascotGradient) {
     const { customAvatarAssetId: _avatar, ...appearance } = draft;
-    choose({ ...appearance, gradient: next });
+    choose({ ...appearance, gradient: { ...next, ...clampGradientCenter(next.x, next.y) } });
   }
   function changeColor(key: "a" | "b", value: string) {
     const colors = { ...colorInputs, [key]: value };
@@ -68,9 +72,8 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
     }
   }
   function randomize() {
-    const next = randomAgentAppearance();
-    choosePalette(next.paletteId === draft.paletteId
-      ? appearanceForPalette(AGENT_PALETTE_IDS[(AGENT_PALETTE_IDS.indexOf(draft.paletteId) + 1) % AGENT_PALETTE_IDS.length]) : next);
+    const { customAvatarAssetId: _avatar, ...appearance } = draft;
+    choose({ ...appearance, customColors: randomMascotColors() });
   }
   return <section className="space-y-6" aria-labelledby="agent-customization-title">
     <header className="space-y-1">
@@ -79,10 +82,10 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
     </header>
     <div className="grid items-start gap-8 lg:grid-cols-2">
       <div className="space-y-5 lg:sticky lg:top-6">
-        <div className="flex min-h-72 items-center justify-center rounded-xl border border-border bg-muted/20" aria-label="Mascot preview">
+        <div ref={previewRegion} className="flex min-h-72 items-center justify-center rounded-xl border border-border bg-muted/20" aria-label="Mascot preview">
           <div className={cn("relative size-64", showGuide && "touch-none")}>
-            <AgentCharacter appearance={draft} name={agent.name} size={256} state={showGuide ? "rest" : pose} motion={showGuide ? "still" : "auto"} trackingScope="region" label={`${agent.name} mascot preview`} />
-            {showGuide && <MascotGradientGuide value={gradient} onChange={changeGradient} />}
+            <AgentCharacter appearance={draft} name={agent.name} size={256} state={showGuide ? "rest" : pose} motion={showGuide ? "still" : "auto"} trackingRegion={previewRegion} trackingScope="region" label={`${agent.name} mascot preview`} />
+            {guideMode && <MascotGradientGuide mode={guideMode} value={gradient} onChange={changeGradient} />}
           </div>
         </div>
         <label className="block space-y-2 text-sm font-medium">Preview expression
@@ -109,9 +112,16 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
         <div className="space-y-4 border-t border-border pt-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-medium">Gradient placement</h3>
-            <Button type="button" variant="outline" size="sm" aria-pressed={showGuide} onClick={() => setShowGuide(value => !value)}>{showGuide ? "Hide gradient guide" : "Show gradient guide"}</Button>
           </div>
-          <p className="text-xs text-muted-foreground">Drag the line’s center to move the blend. Drag its end to rotate. The mascot holds still while the guide is visible.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" size="sm" aria-pressed={guideMode === "center"} onClick={() => {
+              const center = clampGradientCenter(gradient.x, gradient.y);
+              if (guideMode !== "center" && (center.x !== gradient.x || center.y !== gradient.y)) changeGradient({ ...gradient, ...center });
+              setGuideMode(value => value === "center" ? null : "center");
+            }}>Adjust center of gradient</Button>
+            <Button type="button" variant="outline" size="sm" aria-pressed={guideMode === "rotate"} onClick={() => setGuideMode(value => value === "rotate" ? null : "rotate")}>Adjust gradient angle</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Move the circle to place the center inside the mascot. Use the line’s end to rotate. The preview holds still while adjusting.</p>
           {([['x', 'Horizontal center', 0, 100, '%'], ['y', 'Vertical center', 0, 100, '%'], ['angle', 'Gradient angle', -180, 180, '°']] as const).map(([key, name, min, max, unit]) => <label key={key} className="block space-y-2 text-xs">
             <span className="flex justify-between gap-2"><span>{name}</span><output className="tabular-nums text-muted-foreground">{gradient[key]}{unit}</output></span>
             <input type="range" aria-label={name} min={min} max={max} step={1} value={gradient[key]} onChange={event => changeGradient({ ...gradient, [key]: Number(event.target.value) })} className="w-full accent-foreground" />

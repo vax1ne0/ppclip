@@ -19,19 +19,25 @@ it("keeps one player while colors change live and stops requesting hidden PNG fa
   });
   player.create.mockImplementation((host: HTMLElement) => { host.appendChild(document.createElement("canvas")); return player; });
   const host = document.createElement("div"), root = createRoot(host);
+  const trackingRegion = { current: document.createElement("div") };
   const appearance = appearanceForPalette("arctic-blue");
+  const header = <AgentCharacter appearance={appearance} motion="still" label="Header" />;
+  const preview = () => host.querySelector('[aria-label="Preview"]')!;
   try {
-    await act(async () => root.render(<AgentCharacter appearance={appearance} />));
-    await vi.waitFor(async () => { await act(async () => {}); expect(player.create).toHaveBeenCalledOnce(); });
+    await import("@paperclipai/shared/cliplab/definition");
+    await act(async () => root.render(<>{header}<AgentCharacter appearance={appearance} trackingRegion={trackingRegion} label="Preview" /></>));
+    await vi.waitFor(async () => { await act(async () => {}); expect(player.create).toHaveBeenCalledOnce(); }, { timeout: 5000 });
     expect(host.querySelector("canvas")).not.toBeNull();
-    expect(host.querySelector("img")).toBeNull();
+    expect(preview().querySelector("img")).toBeNull();
+    expect(host.querySelector('[aria-label="Header"] canvas')).toBeNull();
     for (const color of ["#ff0000", "#00ff00", "#abcdef"]) {
-      await act(async () => root.render(<AgentCharacter appearance={{ ...appearance, customColors: { a: color, b: "#123456" } }} />));
+      await act(async () => root.render(<>{header}<AgentCharacter appearance={{ ...appearance, customColors: { a: color, b: "#123456" } }} trackingRegion={trackingRegion} label="Preview" /></>));
     }
     expect(player.create).toHaveBeenCalledOnce();
+    expect(player.create.mock.calls[0]?.[2].trackingRegion).toBe(trackingRegion.current);
     expect(player.destroy).not.toHaveBeenCalled();
     expect(player.setDefinition.mock.calls.at(-1)?.[0].character).toMatchObject({ color: "#abcdef", color2: "#123456" });
-    expect(host.querySelector("img")).toBeNull();
+    expect(preview().querySelector("img")).toBeNull();
   } finally { await act(async () => root.unmount()); }
   expect(player.destroy).toHaveBeenCalledOnce();
 });

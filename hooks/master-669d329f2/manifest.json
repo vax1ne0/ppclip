@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "889f216e1f8db093fd3ff532f8eefa5833ee5c7aceb9c3def3f7e35d16cb0604",
-  "generatedAt": "2026-10-18T04:13:59.891Z",
+  "hooksSha256": "7cc3f44ec4010436f38dec205c8958c4a68b81f7eaa30581d7955288e233e723",
+  "generatedAt": "2026-10-18T04:25:37.811Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
@@ -72,6 +72,7 @@
     "ui/src/components/task-chat/TaskMessageScroller.tsx",
     "ui/src/components/task-chat/transcript-adapter.test.ts",
     "ui/src/components/task-chat/transcript-adapter.ts",
+    "ui/src/components/ui/tooltip.tsx",
     "ui/src/context/LiveUpdatesProvider.tsx",
     "ui/src/lib/company-routes.ts",
     "ui/src/lib/issue-chat-messages.ts",
@@ -95,7 +96,7 @@
     "providers": 20,
     "run-controls": 15,
     "computer-use": 45,
-    "agents": 23,
+    "agents": 25,
     "task-chat": 3,
     "fixes": 8
   }

@@ -48,6 +48,20 @@ it("opens the same saturation and hue picker used by team role groups", async ()
   expect(document.querySelectorAll('[role="slider"]').length).toBeGreaterThanOrEqual(2);
   expect(mocks.update).not.toHaveBeenCalled();
 });
+it("surprises with editable custom hex values and toggles a separate center circle", async () => {
+  await render();
+  await click("Surprise me");
+  expect(host.querySelector<HTMLInputElement>('#mascot-color-a')!.value).toMatch(/^#[0-9a-f]{6}$/);
+  expect(host.querySelector<HTMLInputElement>('#mascot-color-b')!.value).toMatch(/^#[0-9a-f]{6}$/);
+  expect(host.querySelector('button[aria-pressed="true"]')).toBeNull();
+  expect(mocks.update).not.toHaveBeenCalled();
+  await click("Adjust center of gradient");
+  expect(host.querySelector('circle[data-handle="move"]')).not.toBeNull();
+  expect(host.querySelector('circle[data-handle="rotate"]')).toBeNull();
+  await click("Adjust gradient angle");
+  expect(host.querySelector('circle[data-handle="rotate"]')).not.toBeNull();
+  await click("Discard");
+});
 it("blocks incomplete hex colors and restores saved colors on discard", async () => {
   await render(); await color("a", "#12");
   expect(host.querySelector('#mascot-color-a')?.getAttribute("aria-invalid")).toBe("true");

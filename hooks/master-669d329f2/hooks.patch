@@ -2200,10 +2200,10 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
 diff --git a/ui/src/components/AgentAvatar.test.tsx b/ui/src/components/AgentAvatar.test.tsx
-index c4d5f9ac731eb8008a5655ca1d237ced338669d0..02e1ebcd4fe71ab1b56c8d4254efa365c9a3d3f9 100644
+index c4d5f9ac731eb8008a5655ca1d237ced338669d0..5d22365848242bc23b6e0680cc68ed79842c2ca8 100644
 --- a/ui/src/components/AgentAvatar.test.tsx
 +++ b/ui/src/components/AgentAvatar.test.tsx
-@@ -1,12 +1,51 @@
+@@ -1,12 +1,55 @@
  // @vitest-environment jsdom
  import { act } from "react";
  import { createRoot } from "react-dom/client";
@@ -2231,6 +2231,10 @@ index c4d5f9ac731eb8008a5655ca1d237ced338669d0..02e1ebcd4fe71ab1b56c8d4254efa365
 +    expect(images.at(-1)?.getAttribute("src")).not.toBe(first);
 +    expect(container.querySelector('[aria-label="Loading mascot"]')).not.toBeNull();
 +    expect(container.textContent).not.toContain("FA");
++    await act(async () => root.render(<AgentAvatar appearance={appearance} name="Fathy" size={16} />));
++    const latest = [...container.querySelectorAll("img")].at(-1)!;
++    expect(decodeURIComponent(latest.getAttribute("src")!)).toContain('width="64"');
++    expect(latest.getAttribute("loading")).toBe("eager");
 +  } finally { await act(async () => root.unmount()); }
 +});
 +
@@ -2257,7 +2261,7 @@ index c4d5f9ac731eb8008a5655ca1d237ced338669d0..02e1ebcd4fe71ab1b56c8d4254efa365
    const base = appearanceForPalette("deep-tide");
    const appearance = { ...base, customAvatarAssetId: "22222222-2222-4222-8222-222222222222" };
 diff --git a/ui/src/components/AgentAvatar.tsx b/ui/src/components/AgentAvatar.tsx
-index 0866c2bf4906605f4672007ce353f378d6367b4e..7f0f607d0981e5a6ed9ea99a68a95072b9b43a9c 100644
+index 0866c2bf4906605f4672007ce353f378d6367b4e..a0dd93f66b5e619175497953b92844b2e1d88537 100644
 --- a/ui/src/components/AgentAvatar.tsx
 +++ b/ui/src/components/AgentAvatar.tsx
 @@ -1,8 +1,9 @@
@@ -2298,7 +2302,7 @@ index 0866c2bf4906605f4672007ce353f378d6367b4e..7f0f607d0981e5a6ed9ea99a68a95072
 -          decoding="async" loading="lazy" className="size-full object-contain" onError={() => setFailedUrl(src)} />}
 +      {loadedSrc && loadedSrc !== src && <img src={loadedSrc} alt="" width={size} height={size} className="absolute inset-0 size-full object-contain" />}
 +      {src && !failed && <img key={`${src}:${attempt}`} src={src} srcSet={portrait.local || identity.customAvatarAssetId ? undefined : `${agentAvatarUrl(identity, size, 2, pose, muted)} 2x`} alt="" width={size} height={size}
-+        decoding="async" loading="lazy" className={cn("size-full object-contain", loadedSrc !== src && "opacity-0")} onLoad={() => { setLoadedSrc(src); setFailedUrl(null); }} onError={() => setFailedUrl(src)} />}
++        decoding="async" loading={portrait.local ? "eager" : "lazy"} className={cn("size-full object-contain", loadedSrc !== src && "opacity-0")} onLoad={() => { setLoadedSrc(src); setFailedUrl(null); }} onError={() => setFailedUrl(src)} />}
 +      {(loading || (failed && attempt < 2)) && <span role="status" aria-label={failed ? "Retrying mascot" : "Loading mascot"} className="absolute inset-0 flex items-center justify-center text-muted-foreground"><LoaderCircle aria-hidden="true" className={cn("animate-spin motion-reduce:animate-none", size >= 96 ? "size-8" : "size-4")} /></span>}
 +      {failed && attempt >= 2 && <span title="Mascot unavailable" className="absolute inset-0 flex items-center justify-center text-muted-foreground"><ImageOff aria-hidden="true" className={size >= 96 ? "size-8" : "size-4"} /></span>}
      </span>
@@ -2734,8 +2738,28 @@ index 0fb59e9aaaa69aedba6fcf44dac254b543396458..563f188de279d7bc9f66b3811e514cd9
                              {efforts.length > 0 && (
                                <Field label="Thinking effort">
                                  {brandType === "codex_local" ? <SelectPopover aria-label="Thinking effort" value={effort}
+diff --git a/ui/src/components/ui/tooltip.tsx b/ui/src/components/ui/tooltip.tsx
+index ae0ea03d21cc8a9213b8730d8aede9cf3eb62a16..fe27d5f3d14537428d5528c22e5aa3d21873148e 100644
+--- a/ui/src/components/ui/tooltip.tsx
++++ b/ui/src/components/ui/tooltip.tsx
+@@ -42,13 +42,13 @@ function TooltipContent({
+         data-slot="tooltip-content"
+         sideOffset={sideOffset}
+         className={cn(
+-          "bg-foreground text-background animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-1.5 text-xs text-balance",
++          "border border-border bg-popover text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 z-50 w-fit max-w-sm origin-(--radix-tooltip-content-transform-origin) rounded-md px-3 py-2 text-xs leading-relaxed",
+           className
+         )}
+         {...props}
+       >
+         {children}
+-        <TooltipPrimitive.Arrow className="bg-foreground fill-foreground z-50 size-2.5 translate-y-(--sz-calc-28) rotate-45 rounded-(--rad-2)" />
++        <TooltipPrimitive.Arrow className="fill-popover" />
+       </TooltipPrimitive.Content>
+     </TooltipPrimitive.Portal>
+   )
 diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
-index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..e6ada6c58af3f953c580fdf6d76f50ef238cea9a 100644
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..84815bfb28a041f28aabdc3017c45a7ef2361cec 100644
 --- a/ui/src/pages/AgentDetail.tsx
 +++ b/ui/src/pages/AgentDetail.tsx
 @@ -7,6 +7,9 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
@@ -2764,8 +2788,12 @@ index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..e6ada6c58af3f953c580fdf6d76f50ef
    { value: "instructions", label: "Instructions" },
    { value: "skills", label: "Skills" },
    { value: "configuration", label: "Configuration" },
-@@ -1260,7 +1265,7 @@ export function AgentDetail() {
-             <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status)} size={96} trackingScope="page" />
+@@ -1257,10 +1262,10 @@ export function AgentDetail() {
+       <header className="flex flex-wrap items-center justify-between gap-5 border-b border-border pb-6">
+         <div className="flex min-w-0 items-center gap-4">
+           <div role="img" aria-label={`${agent.name} avatar`} className="shrink-0">
+-            <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status)} size={96} trackingScope="page" />
++            <AgentCharacter agent={agent} state={characterStateForAgent(currentAgent.status)} motion={activeView === "customization" ? "still" : "auto"} size={96} trackingScope="page" />
            </div>
            <div className="min-w-0 space-y-1">
 -            <div className="flex items-center gap-2"><h1 className="truncate text-2xl font-semibold tracking-tight">{agent.name}</h1><PrimaryAgentIndicator agentId={agent.id} companyId={agent.companyId} /></div>
