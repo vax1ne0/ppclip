@@ -18,44 +18,39 @@ describe("noVNC lite viewer input", () => {
 });
 
 describe("viewer toolbar", () => {
-  it("replaces the stock toolbar with accessible, compact controls while retaining its click handler", () => {
+  it("removes the keyboard shortcut control and binding while retaining accessible status", () => {
     const doc = viewerDocument(`<head><style>#top_bar { background: blue; }</style></head>
       <div id="status">Loading</div><div id="sendCtrlAltDelButton">Send CtrlAltDel</div>
-      <script>document.getElementById('sendCtrlAltDelButton').onclick = sendCtrlAltDel;
+      <script>document.getElementById('sendCtrlAltDelButton')
+        .onclick = sendCtrlAltDel;
       document.getElementById('status').textContent = text;</script>`);
     expect(doc).toContain('role="status" aria-live="polite"');
-    expect(doc).toContain('<button type="button" id="sendCtrlAltDelButton"');
-    expect(doc).toContain('disabled>Ctrl+Alt+Del</button>');
-    expect(doc).toContain(".onclick = sendCtrlAltDel;");
-    expect(doc).toContain("window.ppclipSetViewerStatus(text, rfb?.viewOnly ?? true);");
+    expect(doc).not.toContain('sendCtrlAltDelButton');
+    expect(doc).not.toContain('.onclick = sendCtrlAltDel;');
+    expect(doc).toContain("window.ppclipSetViewerStatus(text);");
     expect(doc.indexOf('id="ppclip-viewer-toolbar"')).toBeGreaterThan(doc.indexOf("background: blue"));
   });
 
-  it("reflects connection state, enables input only in control mode, and accepts theme tokens only from the parent", () => {
+  it("reflects connection state and accepts theme tokens only from the parent", () => {
     const root = { dataset: {} as Record<string, string>, style: { setProperty: (key: string, value: string) => { applied[key] = value; } } };
     const status = { textContent: "", title: "" };
-    const button = { disabled: true, title: "" };
     const applied: Record<string, string> = {};
     const parent = {};
     let receive!: (event: { source: unknown; data: unknown }) => void;
     const window = { addEventListener: (_name: string, handler: typeof receive) => { receive = handler; }, ppclipSetViewerStatus: (_text: string, _viewOnly: boolean) => {} };
     vm.runInNewContext(viewerToolbarScript.replace(/<\/?script>/g, ""), {
-      window, parent, document: { documentElement: root, getElementById: (id: string) => id === "status" ? status : button },
+      window, parent, document: { documentElement: root, getElementById: (id: string) => id === "status" ? status : null },
     });
     window.ppclipSetViewerStatus("Connecting", true);
     expect(root.dataset.connection).toBe("connecting");
-    expect(button.disabled).toBe(true);
     window.ppclipSetViewerStatus("Connected to private desktop name", false);
     expect(status.textContent).toBe("Connected");
     expect(status.title).toContain("private desktop name");
     expect(root.dataset.connection).toBe("connected");
-    expect(button.disabled).toBe(false);
     window.ppclipSetViewerStatus("Connected to desktop", true);
-    expect(button.disabled).toBe(true);
     window.ppclipSetViewerStatus("Something went wrong, connection is closed", false);
     expect(status.textContent).toBe("Disconnected");
     expect(root.dataset.connection).toBe("disconnected");
-    expect(button.disabled).toBe(true);
     const data = { type: "ppclip:computer-view-theme", tokens: { background: "#171717", arbitrary: "ignored" } };
     receive({ source: {}, data });
     expect(applied).toEqual({});

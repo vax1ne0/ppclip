@@ -50,16 +50,13 @@ export function AgentComputerPage() {
   const ready = overview.data?.enabled && computer?.enabled;
   return (
     <div className="flex flex-col gap-4" data-testid="agent-computer-page">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h2 className="text-xl font-semibold tracking-tight">Live screen</h2>
-          <p className="text-sm text-muted-foreground">View and control {agent.data.name}’s computer.</p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold tracking-tight">Live screen</h2>
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild size="sm" variant="outline">
+          <Button asChild size="sm" variant="ghost">
             <Link to={liveAgentHref(agent.data.id)}>Live runs</Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
+          <Button asChild size="sm" variant="ghost">
             <Link to={`${agentUrl(agent.data)}/runtime`}>Computer settings</Link>
           </Button>
         </div>

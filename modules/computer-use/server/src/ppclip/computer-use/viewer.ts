@@ -33,15 +33,12 @@ export const viewerToolbarScript = `<script>
       if (typeof value === "string" && value.length < 256) document.documentElement.style.setProperty("--" + token, value);
     }
   });
-  window.ppclipSetViewerStatus = (text, viewOnly) => {
+  window.ppclipSetViewerStatus = (text) => {
     const state = text.startsWith("Connected") ? "connected" : text === "Connecting" ? "connecting" : "disconnected";
     document.documentElement.dataset.connection = state;
     const status = document.getElementById("status");
     status.textContent = state === "connected" ? "Connected" : state === "connecting" ? "Connecting…" : "Disconnected";
     status.title = text;
-    const button = document.getElementById("sendCtrlAltDelButton");
-    button.disabled = state !== "connected" || viewOnly;
-    button.title = viewOnly ? "Take control to send Ctrl+Alt+Delete" : "Send Ctrl+Alt+Delete to the computer";
   };
 })();
 </script>`;
@@ -55,10 +52,6 @@ body { background: var(--background); color: var(--foreground); font-family: Int
 #status::before { content: ""; flex: 0 0 7px; height: 7px; border-radius: 50%; background: var(--status-task-todo); }
 :root[data-connection="connected"] #status::before { background: var(--status-task-done); }
 :root[data-connection="disconnected"] #status::before { background: var(--destructive); }
-#sendCtrlAltDelButton { position: static; flex-shrink: 0; min-height: 24px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--foreground); font: inherit; font-size: 11px; cursor: pointer; }
-#sendCtrlAltDelButton:hover:not(:disabled) { background: var(--accent); }
-#sendCtrlAltDelButton:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
-#sendCtrlAltDelButton:disabled { cursor: default; opacity: .5; }
 #screen { min-height: 0; }
 </style>`;
 
@@ -66,8 +59,10 @@ export function viewerDocument(html: string) {
   return html.replace(/<head(?:\s[^>]*)?>/i, head => head + viewerReconnectScript + viewerToolbarScript)
     .replace(/<\/head>/i, viewerToolbarStyle + "</head>")
     .replace('<div id="status">Loading</div>', '<div id="status" role="status" aria-live="polite">Connecting…</div>')
-    .replace('<div id="sendCtrlAltDelButton">Send CtrlAltDel</div>', '<button type="button" id="sendCtrlAltDelButton" aria-label="Send Ctrl+Alt+Delete" disabled>Ctrl+Alt+Del</button>')
-    .replace("document.getElementById('status').textContent = text;", "window.ppclipSetViewerStatus(text, rfb?.viewOnly ?? true);")
+    // Remove both the stock control and its binding so noVNC still initializes.
+    .replace(/<div id="sendCtrlAltDelButton">[^<]*<\/div>/g, "")
+    .replace(/document\.getElementById\(['"]sendCtrlAltDelButton['"]\)\s*\.onclick\s*=\s*sendCtrlAltDel;/g, "")
+    .replace("document.getElementById('status').textContent = text;", "window.ppclipSetViewerStatus(text);")
     .replace('rfb.addEventListener("disconnect", disconnectedFromServer);',
       'rfb.addEventListener("disconnect", disconnectedFromServer); rfb.addEventListener("disconnect", () => window.ppclipNotifyViewerDisconnected());');
 }

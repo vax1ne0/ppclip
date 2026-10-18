@@ -10,7 +10,7 @@ A sandboxed Linux desktop and Chromium per agent in Docker, with live view, take
 
 The Live screen page keeps a centered stopped-desktop placeholder with one explicit Start action and inline pending/error feedback. Starting computers show a waiting state until the stream is ready; stopped computers never request a viewer ticket.
 
-The live viewer uses the app's theme, a compact connection-status dot, and a keyboard-accessible Ctrl+Alt+Del button. The button is enabled only for a connected control stream.
+The live viewer uses the app's theme and a compact connection-status dot. The Live screen header has one title, quiet navigation links and a single state row; human-control expiry is shown as “Pauses at …”. The stock Ctrl+Alt+Del button and its click binding are removed. Control actions and connection recovery remain available below the screen.
 
 Paused computers show a placeholder rather than opening a stream. Resume or Take control waits for the desktop to become ready before reconnecting; pausing invalidates existing live-view tickets.
 

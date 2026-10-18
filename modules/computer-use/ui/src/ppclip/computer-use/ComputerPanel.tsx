@@ -139,7 +139,7 @@ function LiveView({ companyId, computer, agentName, compact = false }: { company
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" variant="ghost" className={compact ? "h-8 gap-1.5 px-2.5 text-xs" : undefined} onClick={reconnect} disabled={viewer.isFetching}><RefreshCw aria-hidden className={viewer.isFetching ? "motion-safe:animate-spin" : undefined} />Reconnect</Button>
         <p className="text-xs text-muted-foreground">
-          {driving ? "You are in control. Click inside the screen to type. The agent is paused until you release." : "View only."}
+          {driving ? "You’re in control · Agent paused" : "View only"}
         </p>
         {typeof document !== "undefined" && document.fullscreenEnabled ? (
           <Button type="button" size="sm" variant="ghost" className={compact ? "ml-auto h-8 gap-1.5 px-2.5 text-xs" : "ml-auto"} onClick={() => void frameBox.current?.requestFullscreen?.()} data-testid="computer-fullscreen">
@@ -232,10 +232,12 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
       data-testid="computer-panel"
       data-variant={variant}
     >
-      {!chat && <div className="flex items-center gap-2">
-        <Monitor className="size-4 text-muted-foreground" aria-hidden />
-        <span className="text-sm font-medium text-foreground">Computer</span>
-        <Badge variant={stateVariant(computer.state)} className="ml-auto" data-testid="computer-state">{STATE_LABELS[computer.state]}</Badge>
+      {!chat && <div className="flex flex-wrap items-center gap-2">
+        {variant === "card" && <><Monitor className="size-4 text-muted-foreground" aria-hidden /><span className="text-sm font-medium text-foreground">Computer</span></>}
+        <Badge variant={stateVariant(computer.state)} className={variant === "card" ? "ml-auto" : undefined} data-testid="computer-state">{STATE_LABELS[computer.state]}</Badge>
+        {variant === "page" && computer.lease && (computer.state === "human" || computer.state === "human_private") && (
+          <span className="text-xs tabular-nums text-muted-foreground" title="Control expires and the computer pauses unless you release it sooner.">Pauses at {new Date(computer.lease.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+        )}
         {bigScreenHref && variant === "card" ? (
           <Button asChild size="sm" variant="ghost">
             <Link to={bigScreenHref} aria-label={`Open ${agentName}'s computer on a big screen`} data-testid="computer-big-screen">
@@ -251,9 +253,9 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
           {agentName} asked for you: <span className="text-muted-foreground">{computer.request.reason}</span>
         </p>
       ) : null}
-      {computer.lease && (computer.state === "human" || computer.state === "human_private") ? (
-        <p className="text-xs text-muted-foreground">
-          Control returns to paused at {new Date(computer.lease.expiresAt).toLocaleTimeString()} unless you release it sooner.
+      {variant !== "page" && computer.lease && (computer.state === "human" || computer.state === "human_private") ? (
+        <p className="text-xs tabular-nums text-muted-foreground" title="Control expires and the computer pauses unless you release it sooner.">
+          Pauses at {new Date(computer.lease.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
         </p>
       ) : null}
       {(variant === "page" || chat) && computer.state === "starting" ? (
