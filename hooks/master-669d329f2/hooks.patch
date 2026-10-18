@@ -3722,3 +3722,119 @@ index b6da83553849b8ec138960fe74fc49e95f330b9d..e95c0520797818f099ea216d1e63c70a
    overview: "A snapshot of Nova’s work, capabilities, and current setup.",
    instructions: "The files that guide how your agent thinks and works.",
    skills: "Choose the skills your agent brings to each task.",
+diff --git a/ui/src/components/ai-connections/AiConnectionField.test.tsx b/ui/src/components/ai-connections/AiConnectionField.test.tsx
+index 9603e6fd1f5f945da787fb871c5e8e38e1e029f0..588020c069347a8d2c99582c8e0af8f1fed5dcfb 100644
+--- a/ui/src/components/ai-connections/AiConnectionField.test.tsx
++++ b/ui/src/components/ai-connections/AiConnectionField.test.tsx
+@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+ import { afterEach, beforeEach, expect, it, vi } from "vitest";
+ import type { ComponentProps } from "react";
+ import type { AiManagedConnectionSummary } from "@paperclipai/shared";
++import type { AiRuntimeConnectionBinding } from "@paperclipai/shared";
+ import { AiConnectionField } from "./AiConnectionField";
+ import type { AiConnectionCredentialStep } from "./AiConnectionCredentialStep";
+ 
+@@ -37,12 +38,12 @@ async function settle() {
+     flushSync(() => {});
+   }
+ }
+-async function mount(connections: AiManagedConnectionSummary[], canManageConnections = true, preferAdvanced = false) {
++async function mount(connections: AiManagedConnectionSummary[], canManageConnections = true, preferAdvanced = false, value: AiRuntimeConnectionBinding = { provider: "anthropic", method: "subscription", mode: "responsible_user" }, adapterType = "claude_local") {
+   mocks.list.mockResolvedValue({ currentUserId: "owner", connections, canManageConnections });
+   flushSync(() => root.render(<QueryClientProvider client={client}>
+-    <AiConnectionField companyId="company" agentId="agent" agentName="Nova" adapterType="claude_local"
++    <AiConnectionField companyId="company" agentId="agent" agentName="Nova" adapterType={adapterType}
+       preferAdvanced={preferAdvanced}
+-      value={{ provider: "anthropic", method: "subscription", mode: "responsible_user" }} onChange={onChange} />
++      value={value} onChange={onChange} />
+   </QueryClientProvider>));
+   await settle();
+ }
+@@ -72,6 +73,26 @@ beforeEach(() => {
+ });
+ afterEach(() => { flushSync(() => root.unmount()); client.clear(); container.remove(); });
+ 
++it.each([
++  ["openai", "codex_local", "anthropic", "claude_local"],
++  ["anthropic", "claude_local", "openai", "codex_local"],
++] as const)("allows explicitly selecting the new default after switching from %s to %s", async (oldProvider, oldHarness, provider, harness) => {
++  const connections = [account({ provider, status: "connected" })];
++  const binding: AiRuntimeConnectionBinding = { provider: oldProvider, method: "subscription", mode: "responsible_user" };
++  await mount(connections, true, false, binding, oldHarness);
++  await mount(connections, true, false, binding, harness);
++  const trigger = document.querySelector<HTMLElement>('[role="combobox"][aria-label="Connection"]')!;
++  expect(trigger.textContent).toContain("Choose a connection");
++  expect(onChange).not.toHaveBeenCalled();
++  flushSync(() => trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })));
++  await settle();
++  const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find(item => item.textContent?.includes("Responsible user’s default"));
++  expect(option).toBeDefined();
++  flushSync(() => option!.click());
++  await settle();
++  expect(onChange).toHaveBeenCalledWith({ provider, method: "subscription", mode: "responsible_user" });
++});
++
+ it("reconnects the unavailable personal default in place", async () => {
+   await mount([account()]);
+   await click("Reconnect account");
+diff --git a/ui/src/components/ai-connections/AiConnectionField.tsx b/ui/src/components/ai-connections/AiConnectionField.tsx
+index 0af1ab54331773fe8d1ac2935eef3608ed9469c0..722b7f6dca40b4ac1d0f94d61b1deb6a15941996 100644
+--- a/ui/src/components/ai-connections/AiConnectionField.tsx
++++ b/ui/src/components/ai-connections/AiConnectionField.tsx
+@@ -125,8 +125,8 @@ export function AiConnectionField({
+     <div className="space-y-4">
+       {value && value.mode !== "router" && (adapterType !== "opencode_local" || Boolean(model)) && !isAiConnectionCompatible(value, adapterType, model) && (
+         <p role="alert" className="text-sm text-destructive">
+-          This connection does not support the current harness and model. Choose
+-          a compatible connection before saving.
++          Your saved connection does not support this harness and model. Choose
++          a compatible account in Connection below, then save.
+         </p>
+       )}
+       {(compatiblePools.length > 0 || value?.mode === "router") && <label className="block space-y-1 text-sm">
+diff --git a/ui/src/components/ai-connections/AiConnectionSelect.tsx b/ui/src/components/ai-connections/AiConnectionSelect.tsx
+index bb5fbbe04ecb1d8881cb2524b94de1c784f6d030..981e863bdfe9eea2eaa331c249848795b897056d 100644
+--- a/ui/src/components/ai-connections/AiConnectionSelect.tsx
++++ b/ui/src/components/ai-connections/AiConnectionSelect.tsx
+@@ -44,9 +44,13 @@ export function AiConnectionSelect({
+ }: AiConnectionPickerProps & { adapterType: string }) {
+   const selectId = useId();
+   const personal = personalAiDefault(connections, requirement, currentUserId);
++  // A harness switch can leave the previous provider's responsible-user
++  // binding in the draft. Do not display the new provider's default as selected
++  // until the user chooses it (Radix ignores reselecting the same value).
++  const staleDefault = value?.mode === "responsible_user" && value.provider !== requirement.provider;
+   const selected =
+     value?.mode === "responsible_user"
+-      ? personal
++      ? staleDefault ? undefined : personal
+       : connections.find(
+           (c) => c.id === value?.connectionId && c.grantId === value?.grantId,
+         );
+@@ -109,7 +113,7 @@ export function AiConnectionSelect({
+       </label>
+       <Select
+         value={
+-          value?.mode === "responsible_user"
++          staleDefault ? "" : value?.mode === "responsible_user"
+             ? "responsible_user"
+             : (value?.connectionId ?? "")
+         }
+@@ -122,7 +126,7 @@ export function AiConnectionSelect({
+               loading ? "Loading connections…" : "Choose a connection"
+             }
+           >
+-            {selected
++            {staleDefault ? undefined : selected
+               ? <ConnectionLabel connection={selected} label={value?.mode === "responsible_user" ? "Responsible user’s default" : undefined} />
+               : value?.mode === "responsible_user"
+                 ? "Responsible user’s default"
+@@ -169,7 +173,7 @@ export function AiConnectionSelect({
+           </Button>
+         </div>
+       )}
+-      {value?.mode === "responsible_user" && !personal && !loading && !error ? (
++      {value?.mode === "responsible_user" && !staleDefault && !personal && !loading && !error ? (
+         <p role="alert" className="text-sm text-destructive">
+           You have no default account for this provider. Connect an account or choose another connection.
+         </p>
