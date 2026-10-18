@@ -2230,7 +2230,7 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
 diff --git a/ui/src/components/AgentAvatar.test.tsx b/ui/src/components/AgentAvatar.test.tsx
-index c4d5f9ac731eb8008a5655ca1d237ced338669d0..b168352f5522ace91270e217a5db7ad2e24e5671 100644
+index c4d5f9ac731eb8008a5655ca1d237ced338669d0..2ea318056c51bb5ad9af14735b5ae15fd413184c 100644
 --- a/ui/src/components/AgentAvatar.test.tsx
 +++ b/ui/src/components/AgentAvatar.test.tsx
 @@ -1,12 +1,70 @@
@@ -2305,6 +2305,31 @@ index c4d5f9ac731eb8008a5655ca1d237ced338669d0..b168352f5522ace91270e217a5db7ad2
  it("shows the uploaded image in small and animated-character surfaces, then returns to the palette on reset", async () => {
    const base = appearanceForPalette("deep-tide");
    const appearance = { ...base, customAvatarAssetId: "22222222-2222-4222-8222-222222222222" };
+@@ -22,6 +80,23 @@ it("shows the uploaded image in small and animated-character surfaces, then retu
+     expect(container.querySelectorAll("img")).toHaveLength(2);
+     expect(container.querySelector("canvas")).toBeNull();
+     await act(async () => root.render(<AgentAvatar appearance={base} />));
+-    expect(container.querySelector("img")?.getAttribute("src")).toContain("/api/agent-avatars/cap-v1/deep-tide/");
++    expect(container.querySelector("img")?.getAttribute("src")).toMatch(/^data:image\/svg\+xml/);
+   } finally { await act(async () => root.unmount()); }
+ });
++
++it("shares one local thumbnail render across many new preset avatars", async () => {
++  const library = await import("@paperclipai/shared/cliplab/static");
++  const render = vi.spyOn(library, "renderAgentSvg");
++  const base = appearanceForPalette("bubblegum-sky");
++  const host = document.createElement("div"), root = createRoot(host);
++  try {
++    await act(async () => root.render(<>{Array.from({ length: 100 }, (_, i) => <AgentAvatar key={i} appearance={base} size={20} />)}</>));
++    expect(render).toHaveBeenCalledOnce();
++    const images = [...host.querySelectorAll("img")];
++    expect(images).toHaveLength(100);
++    expect(images.every(image => image.src === images[0].src && image.getAttribute("loading") === "eager" && !image.hasAttribute("srcset"))).toBe(true);
++    expect(images[0].src).toMatch(/^data:image\/svg\+xml/);
++    await act(async () => root.render(<AgentAvatar appearance={base} size={20} />));
++    expect(render).toHaveBeenCalledOnce();
++  } finally { await act(async () => root.unmount()); render.mockRestore(); }
++});
 diff --git a/ui/src/components/AgentAvatar.tsx b/ui/src/components/AgentAvatar.tsx
 index 0866c2bf4906605f4672007ce353f378d6367b4e..a0dd93f66b5e619175497953b92844b2e1d88537 100644
 --- a/ui/src/components/AgentAvatar.tsx

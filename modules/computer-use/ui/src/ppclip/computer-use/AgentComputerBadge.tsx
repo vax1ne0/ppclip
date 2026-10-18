@@ -23,9 +23,9 @@ export function AgentComputerBadge({ agentId, size = "default" }: { agentId?: st
     <TooltipTrigger asChild>
       <span role="img" aria-label="Computer use enabled" data-testid="agent-computer-badge" className={cn(
         "inline-flex shrink-0 self-center items-center justify-center rounded-md border border-border/70 bg-muted/40 align-middle leading-none text-muted-foreground",
-        size === "compact" ? "size-4" : size === "heading" ? "size-6" : "size-4.5",
+        size === "compact" ? "size-5" : size === "heading" ? "size-6" : "size-4.5",
       )}>
-        <Monitor aria-hidden="true" strokeWidth={1.75} className={size === "compact" ? "size-2.5" : size === "heading" ? "size-3.5" : "size-3"} />
+        <Monitor aria-hidden="true" strokeWidth={1.75} className={cn("shrink-0", size === "heading" ? "size-3.5" : "size-3")} />
       </span>
     </TooltipTrigger>
     <TooltipContent side="top" sideOffset={6}>Computer use enabled</TooltipContent>

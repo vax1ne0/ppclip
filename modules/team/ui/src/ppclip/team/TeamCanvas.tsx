@@ -326,7 +326,7 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
   };
 
   const onViewportPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || (event.target as HTMLElement).closest("[data-team-card],button,a,[role=button]")) return;
+    if (event.button !== 0 || (event.target as HTMLElement).closest("[data-team-card],[data-team-controls],button,a,[role=button]")) return;
     pan.current = { x: event.clientX, y: event.clientY, left: offset.x, top: offset.y };
     holdView();
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -334,44 +334,6 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
 
   return (
     <section className="flex min-h-0 flex-1 flex-col gap-3" aria-label="Team canvas" data-editing={editing}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {members.length} agent{members.length === 1 ? "" : "s"}
-          {hiddenCount ? ` · ${hiddenCount} hidden` : ""}
-        </p>
-        <div className="flex flex-wrap items-center gap-2">
-          {editing ? (
-            <>
-              <Button size="sm" variant="outline" onClick={() => sort()}>
-                <WandSparkles />
-                Magic sort
-              </Button>
-              <Button size="sm" variant="outline" disabled={!undo} onClick={() => {
-                if (undo) setSettings(undo);
-                setUndo(null);
-                fit();
-                setNotice("Previous layout restored.");
-              }}>
-                <Undo2 />
-                Undo sort
-              </Button>
-            </>
-          ) : null}
-          <Button size="sm" variant={editing ? "secondary" : "outline"} aria-pressed={editing} onClick={toggleEditing}>
-            <Move />
-            Edit mode
-          </Button>
-          <TeamViewSettings
-            settings={settings}
-            update={update}
-            editing={editing}
-            maxDepth={maxDepth}
-            groups={groups}
-            onShowAll={() => { setSettings((old) => ({ ...old, collapsed: [], levels: 0 })); fit(); }}
-            onRestoreDefault={() => sort(true)}
-          />
-        </div>
-      </div>
       {saveError ? (
         <p role="alert" className="text-sm text-destructive">
           Browser storage is unavailable. Your layout works for this visit but will not survive a refresh.
@@ -386,7 +348,7 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
         style={{ touchAction: "none", overscrollBehavior: "contain" }}
         tabIndex={0}
         aria-label="Team workspace"
-        onDoubleClick={(event) => { if (!(event.target as HTMLElement).closest("[data-team-card]")) fit(); }}
+        onDoubleClick={(event) => { if (!(event.target as HTMLElement).closest("[data-team-card],[data-team-controls]")) fit(); }}
         onPointerDown={onViewportPointerDown}
         onPointerMove={(event) => {
           const start = pan.current;
@@ -395,6 +357,44 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
         onPointerUp={() => { pan.current = null; }}
         onPointerCancel={() => { pan.current = null; }}
       >
+        <div data-team-controls className="pointer-events-none absolute inset-x-4 top-4 z-20 flex flex-wrap items-start justify-between gap-3">
+          <p className="rounded-md bg-background/90 px-2 py-1.5 text-xs text-muted-foreground">
+            {members.length} agent{members.length === 1 ? "" : "s"}
+            {hiddenCount ? ` · ${hiddenCount} hidden` : ""}
+          </p>
+          <div className="pointer-events-auto ml-auto flex flex-wrap items-center justify-end gap-2">
+            {editing ? (
+              <>
+                <Button size="sm" variant="outline" onClick={() => sort()}>
+                  <WandSparkles />
+                  Magic sort
+                </Button>
+                <Button size="sm" variant="outline" disabled={!undo} onClick={() => {
+                  if (undo) setSettings(undo);
+                  setUndo(null);
+                  fit();
+                  setNotice("Previous layout restored.");
+                }}>
+                  <Undo2 />
+                  Undo sort
+                </Button>
+              </>
+            ) : null}
+            <Button size="sm" variant={editing ? "secondary" : "outline"} aria-pressed={editing} onClick={toggleEditing}>
+              <Move />
+              Edit mode
+            </Button>
+            <TeamViewSettings
+              settings={settings}
+              update={update}
+              editing={editing}
+              maxDepth={maxDepth}
+              groups={groups}
+              onShowAll={() => { setSettings((old) => ({ ...old, collapsed: [], levels: 0 })); fit(); }}
+              onRestoreDefault={() => sort(true)}
+            />
+          </div>
+        </div>
         <div
           ref={layer}
           data-testid="team-canvas-layer"

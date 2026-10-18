@@ -68,6 +68,7 @@ describe("Edit mode", () => {
     expect(handle("Ada")).toBeNull();
     expect(buttonByText("Magic sort")).toBeUndefined();
     expect(buttonByText("Edit mode")!.getAttribute("aria-pressed")).toBe("false");
+    expect(buttonByText("Edit mode")!.closest('[data-testid="team-canvas-viewport"]')).not.toBeNull();
 
     await act(async () => buttonByText("Edit mode")!.click());
     const grip = handle("Ada")!;
