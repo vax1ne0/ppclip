@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "92bd564098649216c072c79f0de04c20f8b5392637457d8d40cc2e40945d7e2e",
-  "generatedAt": "2026-10-18T02:10:20.529Z",
+  "hooksSha256": "ae25b95c0689e68bc67c7e2a4b1a3b1a8d92a388f793810e5f845cadafad519c",
+  "generatedAt": "2026-10-18T02:51:29.491Z",
   "officialFilesModified": [
     "packages/shared/src/feature-catalog.ts",
     "packages/shared/src/validators/instance.ts",
@@ -65,6 +65,9 @@
     "ui/src/pages/CompanySettings.tsx",
     "ui/src/pages/Dashboard.tsx",
     "ui/src/pages/DashboardLive.tsx",
+    "ui/src/pages/agent-detail-navigation.test.ts",
+    "ui/src/pages/agent-detail-navigation.ts",
+    "ui/storybook/prototypes/agent-settings/AgentSettingsPreview.tsx",
     "ui/vite.config.ts"
   ],
   "modules": {
@@ -74,7 +77,7 @@
     "providers": 20,
     "run-controls": 15,
     "computer-use": 43,
-    "agents": 14,
+    "agents": 16,
     "task-chat": 3,
     "fixes": 8
   }

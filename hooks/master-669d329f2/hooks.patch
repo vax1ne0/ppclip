@@ -590,27 +590,6 @@ index 860327ec39aacd043284ade8092dd56cc1723ac6..0f951264613418594bc832ae02dbf9e4
            <button
              className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
              disabled={duplicateAgent.isPending}
-diff --git a/ui/src/components/AgentContextualSidebar.tsx b/ui/src/components/AgentContextualSidebar.tsx
-index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a2fda63c796e6aac179141e2aa071395da56c3cb 100644
---- a/ui/src/components/AgentContextualSidebar.tsx
-+++ b/ui/src/components/AgentContextualSidebar.tsx
-@@ -20,6 +20,7 @@ import { queryKeys } from "@/lib/queryKeys";
- import { ContextualSidebarFrame } from "./ContextualSidebarFrame";
- import { SidebarNavItem } from "./SidebarNavItem";
- import { contextualSidebarStyles } from "./contextual-sidebar-styles";
-+import { AgentComputerNav } from "@/ppclip/computer-use/AgentComputerNav"; // ppclip: computer use
- import {
-   AGENT_DETAIL_NAVIGATION,
-   agentDetailHref,
-@@ -110,6 +111,8 @@ export function AgentContextualSidebar({
-           </div>
-         ))}
- 
-+        <AgentComputerNav agentRef={agentRef} agentId={resolvedId} /> {/* ppclip: computer use */}
-+
-         <div data-slot="contextual-sidebar-section" className={contextualSidebarStyles.section}>
-           <p
-             data-slot="contextual-sidebar-section-label"
 diff --git a/ui/src/components/AgentConversationsSidebar.tsx b/ui/src/components/AgentConversationsSidebar.tsx
 index bb173be4a17299dbe7aa8ba76e56a69258ad608e..d8b7ab8a0784fb73d518c39d0dc0771d244477bc 100644
 --- a/ui/src/components/AgentConversationsSidebar.tsx
@@ -1294,26 +1273,6 @@ index 6e8dc81d5592abb29ba22ed20be9472a029c6b1d..6d78372046e4e3e1750b006c814fb230
 +    </div>
    );
  }
-diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
-index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..a4999d5df22bd5f4b2e9b7a20df8cda5ab59bea1 100644
---- a/ui/src/pages/AgentDetail.tsx
-+++ b/ui/src/pages/AgentDetail.tsx
-@@ -37,6 +37,7 @@ import { queryKeys } from "../lib/queryKeys";
- import { copyTextToClipboard } from "../lib/clipboard";
- import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
- import { AgentConfigForm } from "../components/AgentConfigForm";
-+import { AgentComputerUseCard } from "../ppclip/computer-use/AgentComputerUseCard"; // ppclip: computer use
- import { agentDisplayAdapterType, getAdapterDisplay } from "../adapters/adapter-display-registry";
- import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
- import { ToggleSwitch } from "@/components/ui/toggle-switch";
-@@ -2123,6 +2124,7 @@ export function ConfigurationTab({
-         sectionTitles={{ adapter: "Adapter", configuration: "Configuration", identity: "Agent identity" }}
-         canConfigureProviderTrace={canConfigureProviderTrace}
-       /> : null}
-+      {content === "runtime" && companyId ? <AgentComputerUseCard agent={agent} companyId={companyId} /> : null} {/* ppclip: computer use card */}
- 
- 
-       {content === "permissions" ? <TrustPresetSection
 diff --git a/ui/src/pages/Agents.test.tsx b/ui/src/pages/Agents.test.tsx
 index aad8e4ae4fbb2a81e9218c2972b7bebfe32a2b53..7e4393f26c1a25621141fa390a7eefffd765b5ba 100644
 --- a/ui/src/pages/Agents.test.tsx
@@ -2027,6 +1986,43 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
+diff --git a/ui/src/components/AgentContextualSidebar.tsx b/ui/src/components/AgentContextualSidebar.tsx
+index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70fa65a3067 100644
+--- a/ui/src/components/AgentContextualSidebar.tsx
++++ b/ui/src/components/AgentContextualSidebar.tsx
+@@ -6,6 +6,7 @@ import {
+   History,
+   KeyRound,
+   Library,
++  Palette,
+   MessageSquare,
+   PlayCircle,
+   ReceiptText,
+@@ -20,6 +21,7 @@ import { queryKeys } from "@/lib/queryKeys";
+ import { ContextualSidebarFrame } from "./ContextualSidebarFrame";
+ import { SidebarNavItem } from "./SidebarNavItem";
+ import { contextualSidebarStyles } from "./contextual-sidebar-styles";
++import { AgentComputerNav } from "@/ppclip/computer-use/AgentComputerNav"; // ppclip: computer use
+ import {
+   AGENT_DETAIL_NAVIGATION,
+   agentDetailHref,
+@@ -29,6 +31,7 @@ import {
+ 
+ const localIcons = {
+   overview: Sparkles,
++  customization: Palette, // ppclip: mascot customization
+   instructions: BookOpenText,
+   skills: Library,
+   runtime: Settings2,
+@@ -110,6 +113,8 @@ export function AgentContextualSidebar({
+           </div>
+         ))}
+ 
++        <AgentComputerNav agentRef={agentRef} agentId={resolvedId} /> {/* ppclip: computer use */}
++
+         <div data-slot="contextual-sidebar-section" className={contextualSidebarStyles.section}>
+           <p
+             data-slot="contextual-sidebar-section-label"
 diff --git a/ui/src/components/new-agent/NewAgentSetup.tsx b/ui/src/components/new-agent/NewAgentSetup.tsx
 index 0fb59e9aaaa69aedba6fcf44dac254b543396458..563f188de279d7bc9f66b3811e514cd94fb04772 100644
 --- a/ui/src/components/new-agent/NewAgentSetup.tsx
@@ -2142,3 +2138,118 @@ index 0fb59e9aaaa69aedba6fcf44dac254b543396458..563f188de279d7bc9f66b3811e514cd9
                              {efforts.length > 0 && (
                                <Field label="Thinking effort">
                                  {brandType === "codex_local" ? <SelectPopover aria-label="Thinking effort" value={effort}
+diff --git a/ui/src/pages/AgentDetail.tsx b/ui/src/pages/AgentDetail.tsx
+index 4fce523e5adaa998ca9b74b333cf9ea2bb7931b0..b8b76f124d7094163dc91ee444e8cb22916d3b37 100644
+--- a/ui/src/pages/AgentDetail.tsx
++++ b/ui/src/pages/AgentDetail.tsx
+@@ -7,6 +7,7 @@ import { AgentConnectionInstructions } from "@/features/connections/ConnectionIn
+ import type { AgentInstructionCandidate, AgentInstructionsBundle } from "@paperclipai/shared";
+ import { InstructionHistory } from "../components/InstructionHistory";
+ import { AgentCharacter } from "../components/AgentCharacter";
++import { AgentCustomization } from "@/ppclip/nav/AgentCustomization"; // ppclip: mascot customization
+ import { characterStateForAgent } from "@paperclipai/shared";
+ import { mergeRunLogChunks, readChunkSeq } from "../lib/run-log-chunks";
+ import { getPageVisibility, usePageVisibility } from "../lib/page-visibility";
+@@ -37,6 +38,7 @@ import { queryKeys } from "../lib/queryKeys";
+ import { copyTextToClipboard } from "../lib/clipboard";
+ import { AgentSkillsTab } from "./agent-skills/AgentSkillsTab";
+ import { AgentConfigForm } from "../components/AgentConfigForm";
++import { AgentComputerUseCard } from "../ppclip/computer-use/AgentComputerUseCard"; // ppclip: computer use
+ import { agentDisplayAdapterType, getAdapterDisplay } from "../adapters/adapter-display-registry";
+ import { adapterLabels, roleLabels, help } from "../components/agent-config-primitives";
+ import { ToggleSwitch } from "@/components/ui/toggle-switch";
+@@ -306,6 +308,7 @@ export const AGENT_DETAIL_TABS = AGENT_DETAIL_NAVIGATION.flatMap((section) => se
+ 
+ const LEGACY_AGENT_DETAIL_TABS = [
+   { value: "dashboard", label: "Dashboard" },
++  { value: "customization", label: "Customization" }, // ppclip: mascot customization
+   { value: "instructions", label: "Instructions" },
+   { value: "skills", label: "Skills" },
+   { value: "configuration", label: "Configuration" },
+@@ -1395,7 +1398,7 @@ export function AgentDetail() {
+         </div>
+       )}
+ 
+-      {activeView !== "run-detail" && activeView !== "channels" && <h2 className="text-xl font-semibold">{activeView === "secrets" ? "Secrets & variables" : AGENT_DETAIL_NAVIGATION.flatMap(section => section.items).find(item => item.value === activeView)?.label}</h2>}
++      {activeView !== "run-detail" && activeView !== "channels" && activeView !== "customization" && <h2 className="text-xl font-semibold">{activeView === "secrets" ? "Secrets & variables" : AGENT_DETAIL_NAVIGATION.flatMap(section => section.items).find(item => item.value === activeView)?.label}</h2>}
+ 
+       {/* View content */}
+       {activeView === "overview" && (
+@@ -1411,6 +1414,8 @@ export function AgentDetail() {
+         />
+       )}
+ 
++      {activeView === "customization" && <AgentCustomization key={agent.id} agent={agent} onDirtyChange={setConfigDirty} onSavingChange={setConfigSaving} />} {/* ppclip: mascot customization */}
++
+       {activeView === "instructions" && (
+         <div><PromptsTab
+           agent={agent}
+@@ -2123,6 +2128,7 @@ export function ConfigurationTab({
+         sectionTitles={{ adapter: "Adapter", configuration: "Configuration", identity: "Agent identity" }}
+         canConfigureProviderTrace={canConfigureProviderTrace}
+       /> : null}
++      {content === "runtime" && companyId ? <AgentComputerUseCard agent={agent} companyId={companyId} /> : null} {/* ppclip: computer use card */}
+ 
+ 
+       {content === "permissions" ? <TrustPresetSection
+diff --git a/ui/src/pages/agent-detail-navigation.test.ts b/ui/src/pages/agent-detail-navigation.test.ts
+index 8003171e1eb8274119e72f4d85f1798d080815b4..460ad08d2b11be3594157bd93d0e1e47112a56a5 100644
+--- a/ui/src/pages/agent-detail-navigation.test.ts
++++ b/ui/src/pages/agent-detail-navigation.test.ts
+@@ -11,6 +11,7 @@ describe("agent detail navigation", () => {
+   it("exposes the complete local information architecture", () => {
+     expect(AGENT_DETAIL_NAVIGATION.flatMap((section) => section.items.map((item) => item.value))).toEqual([
+       "overview",
++      "customization",
+       "instructions",
+       "skills",
+       "runtime",
+@@ -24,6 +25,8 @@ describe("agent detail navigation", () => {
+   });
+ 
+   it("canonicalizes legacy local paths", () => {
++    expect(parseAgentDetailView("customization")).toBe("customization");
++    expect(agentDetailHref("agent", "customization")).toBe("/agents/agent/customization");
+     expect(parseAgentDetailView("dashboard")).toBe("overview");
+     expect(parseAgentDetailView("configuration")).toBe("runtime");
+     expect(parseAgentDetailView("prompts")).toBe("instructions");
+diff --git a/ui/src/pages/agent-detail-navigation.ts b/ui/src/pages/agent-detail-navigation.ts
+index 39308751bf3e95ebab0dd943e13d52697ebd2dd8..39920b3a06a245d3122c3f4c46f25a50b79594b4 100644
+--- a/ui/src/pages/agent-detail-navigation.ts
++++ b/ui/src/pages/agent-detail-navigation.ts
+@@ -2,6 +2,7 @@ import { auditSectionHref, type AuditSection } from "./audit/audit-navigation";
+ 
+ export type AgentDetailView =
+   | "overview"
++  | "customization" // ppclip: mascot customization
+   | "instructions"
+   | "skills"
+   | "runtime"
+@@ -23,6 +24,7 @@ export const AGENT_DETAIL_NAVIGATION: ReadonlyArray<{
+     label: "Agent",
+     items: [
+       { value: "overview", label: "Overview" },
++      { value: "customization", label: "Customization" }, // ppclip: mascot customization
+       { value: "instructions", label: "Instructions" },
+       { value: "skills", label: "Skills" },
+     ],
+@@ -47,6 +49,7 @@ export const AGENT_DETAIL_NAVIGATION: ReadonlyArray<{
+ ] as const;
+ 
+ export function parseAgentDetailView(value: string | null): AgentLocalDetailView {
++  if (value === "customization") return "customization"; // ppclip: mascot customization
+   if (value === "instructions" || value === "prompts") return "instructions";
+   if (value === "skills") return "skills";
+   if (value === "runtime" || value === "configure" || value === "configuration") return "runtime";
+diff --git a/ui/storybook/prototypes/agent-settings/AgentSettingsPreview.tsx b/ui/storybook/prototypes/agent-settings/AgentSettingsPreview.tsx
+index b6da83553849b8ec138960fe74fc49e95f330b9d..e95c0520797818f099ea216d1e63c70a7ff1fb49 100644
+--- a/ui/storybook/prototypes/agent-settings/AgentSettingsPreview.tsx
++++ b/ui/storybook/prototypes/agent-settings/AgentSettingsPreview.tsx
+@@ -45,6 +45,7 @@ import { storybookIssues } from "../../fixtures/paperclipData";
+ import "./settings.css";
+ 
+ const descriptions: Record<AgentLocalDetailView, string> = {
++  customization: "Preview and save your agent’s mascot colors.", // ppclip: mascot customization
+   overview: "A snapshot of Nova’s work, capabilities, and current setup.",
+   instructions: "The files that guide how your agent thinks and works.",
+   skills: "Choose the skills your agent brings to each task.",
