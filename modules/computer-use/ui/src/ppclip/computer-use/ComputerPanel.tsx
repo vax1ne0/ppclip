@@ -56,7 +56,7 @@ function stateVariant(state: AgentComputer["state"]): "default" | "secondary" | 
 }
 
 /** The live desktop, embedded through Paperclip's ticketed proxy in a sandboxed frame. */
-function LiveView({ companyId, computer, agentName }: { companyId: string; computer: AgentComputer; agentName: string }) {
+function LiveView({ companyId, computer, agentName, compact = false }: { companyId: string; computer: AgentComputer; agentName: string; compact?: boolean }) {
   const frameBox = useRef<HTMLDivElement>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   // Tickets are process-local capabilities, not reusable query data. Never
@@ -114,11 +114,11 @@ function LiveView({ companyId, computer, agentName }: { companyId: string; compu
     setConnectionFailed(false);
     void refetch();
   }
-  if (viewer.isError || connectionFailed) return <div className="space-y-2" role="alert">
+  if (viewer.isError || connectionFailed) return <div className={compact ? "flex min-h-56 flex-col items-center justify-center gap-3 px-4 py-8 text-center" : "space-y-2"} role="alert">
     <p className="text-sm text-muted-foreground">The live view could not connect. The computer’s state has not changed.</p>
     <Button type="button" size="sm" variant="outline" onClick={reconnect}><RefreshCw aria-hidden />Reconnect live view</Button>
   </div>;
-  if (!viewer.data) return <p className="text-sm text-muted-foreground" role="status">Connecting to the live view…</p>;
+  if (!viewer.data) return <div className={compact ? "flex min-h-56 items-center justify-center gap-2 text-sm text-muted-foreground" : "flex items-center gap-2 text-sm text-muted-foreground"} role="status"><LoaderCircle className="size-4 motion-safe:animate-spin" aria-hidden />Connecting to the live view…</div>;
   const driving = viewer.data.mode === "control";
   return (
     <div className="flex flex-col gap-2">
@@ -132,17 +132,17 @@ function LiveView({ companyId, computer, agentName }: { companyId: string; compu
         sandbox="allow-scripts"
         referrerPolicy="no-referrer"
         allow="clipboard-read; clipboard-write"
-        className="aspect-video w-full rounded-lg border border-border bg-muted"
+        className={compact ? "h-[clamp(12rem,36vh,28rem)] w-full rounded-md border border-border bg-muted" : "aspect-video w-full rounded-lg border border-border bg-muted"}
         data-testid="computer-live-view"
       />
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" size="sm" variant="ghost" onClick={reconnect} disabled={viewer.isFetching}><RefreshCw aria-hidden className={viewer.isFetching ? "motion-safe:animate-spin" : undefined} />Reconnect</Button>
+        <Button type="button" size="sm" variant="ghost" className={compact ? "h-8 gap-1.5 px-2.5 text-xs" : undefined} onClick={reconnect} disabled={viewer.isFetching}><RefreshCw aria-hidden className={viewer.isFetching ? "motion-safe:animate-spin" : undefined} />Reconnect</Button>
         <p className="text-xs text-muted-foreground">
           {driving ? "You are in control. Click inside the screen to type. The agent is paused until you release." : "View only."}
         </p>
         {typeof document !== "undefined" && document.fullscreenEnabled ? (
-          <Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => void frameBox.current?.requestFullscreen?.()} data-testid="computer-fullscreen">
+          <Button type="button" size="sm" variant="ghost" className={compact ? "ml-auto h-8 gap-1.5 px-2.5 text-xs" : "ml-auto"} onClick={() => void frameBox.current?.requestFullscreen?.()} data-testid="computer-fullscreen">
             <Maximize2 aria-hidden />
             Full screen
           </Button>
@@ -167,7 +167,7 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
   agentName: string;
   liveView: boolean;
   /** "page": the agent's big-screen computer page (no card border, larger heading). */
-  variant?: "card" | "page";
+  variant?: "card" | "page" | "chat";
   /** Shown as a "Big screen" link on cards. */
   bigScreenHref?: string;
 }) {
@@ -190,22 +190,36 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
   }
 
   const live = isLiveState(computer.state);
-  if (variant === "page" && (computer.state === "stopped" || computer.state === "off")) return (
+  const chat = variant === "chat";
+  const controls = <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Computer controls">
+    {availableActions(computer).map((action) => {
+      const Icon = ACTION_ICONS[action];
+      const pending = mutation.isPending && mutation.variables === action;
+      return <Button key={action} type="button" size="sm"
+        variant={action === "revoke" ? "ghost" : ["take-control", "release", "start", "resume"].includes(action) ? "default" : "outline"}
+        className={`${chat ? "h-8 gap-1.5 px-2.5 text-xs" : ""} ${action === "revoke" ? "text-destructive" : ""}`}
+        disabled={mutation.isPending} onClick={() => run(action)}>
+        {pending ? <LoaderCircle className="size-3.5 motion-safe:animate-spin" aria-hidden /> : <Icon className={chat ? "size-3.5" : undefined} aria-hidden />}
+        <span>{ACTION_LABELS[action]}</span>
+      </Button>;
+    })}
+  </div>;
+  if ((variant === "page" || chat) && (computer.state === "stopped" || computer.state === "off")) return (
     <section ref={ref} aria-label={`${agentName}'s computer`} data-testid="computer-panel" data-variant={variant}
-      className="overflow-hidden rounded-xl border border-border bg-background">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
+      className={chat ? "bg-background" : "overflow-hidden rounded-xl border border-border bg-background"}>
+      {!chat && <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
         <span className="inline-flex items-center gap-2 text-sm text-muted-foreground"><Monitor className="size-4" aria-hidden />Desktop</span>
         <Badge variant="outline" data-testid="computer-state">{STATE_LABELS[computer.state]}</Badge>
-      </div>
-      <div className="flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center sm:min-h-96">
-        <Monitor aria-hidden strokeWidth={1.25} className="mb-5 size-10 text-muted-foreground" />
-        <h3 className="text-lg font-semibold tracking-tight">Computer is stopped</h3>
+      </div>}
+      <div className={chat ? "flex min-h-56 flex-col items-center justify-center px-5 py-8 text-center" : "flex min-h-80 flex-col items-center justify-center px-6 py-12 text-center sm:min-h-96"}>
+        <Monitor aria-hidden strokeWidth={1.25} className={chat ? "mb-3 size-8 text-muted-foreground" : "mb-5 size-10 text-muted-foreground"} />
+        <h3 className={chat ? "text-sm font-semibold" : "text-lg font-semibold tracking-tight"}>Computer is stopped</h3>
         <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">Start {agentName}’s computer to open the desktop and browser here.</p>
         <Button type="button" className="mt-6" disabled={mutation.isPending} onClick={() => run("start")}>
           {mutation.isPending ? <LoaderCircle aria-hidden className="motion-safe:animate-spin" /> : <Power aria-hidden />}
           {mutation.isPending ? "Starting…" : "Start computer"}
         </Button>
-        <p role="status" className="mt-3 text-xs text-muted-foreground">{mutation.isPending ? "Preparing the desktop. The live screen will open when it’s ready." : "The screen appears here once the computer is running."}</p>
+        {mutation.isPending && <p role="status" className="mt-3 text-xs text-muted-foreground">Preparing the desktop. The live screen will open when it’s ready.</p>}
         {error ? <p className="mt-4 max-w-md text-sm text-destructive" role="alert">{error}</p> : null}
       </div>
     </section>
@@ -213,12 +227,12 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
   return (
     <section
       ref={ref}
-      className={variant === "page" ? "flex min-w-0 flex-col gap-4" : "flex min-w-0 flex-col gap-3 rounded-lg border border-border p-4"}
+      className={chat ? "flex min-w-0 flex-col gap-3 p-3 sm:p-4" : variant === "page" ? "flex min-w-0 flex-col gap-4" : "flex min-w-0 flex-col gap-3 rounded-lg border border-border p-4"}
       aria-label={`${agentName}'s computer`}
       data-testid="computer-panel"
       data-variant={variant}
     >
-      <div className="flex items-center gap-2">
+      {!chat && <div className="flex items-center gap-2">
         <Monitor className="size-4 text-muted-foreground" aria-hidden />
         <span className="text-sm font-medium text-foreground">Computer</span>
         <Badge variant={stateVariant(computer.state)} className="ml-auto" data-testid="computer-state">{STATE_LABELS[computer.state]}</Badge>
@@ -230,7 +244,8 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
             </Link>
           </Button>
         ) : null}
-      </div>
+      </div>}
+      {chat && controls}
       {computer.state === "waiting_for_human" && computer.request ? (
         <p className="text-sm text-foreground" data-testid="computer-request">
           {agentName} asked for you: <span className="text-muted-foreground">{computer.request.reason}</span>
@@ -241,39 +256,21 @@ function ComputerPanelContent({ companyId, computer, agentName, liveView, varian
           Control returns to paused at {new Date(computer.lease.expiresAt).toLocaleTimeString()} unless you release it sooner.
         </p>
       ) : null}
-      {variant === "page" && computer.state === "starting" ? (
-        <div className="flex min-h-80 flex-col items-center justify-center gap-3 rounded-xl border border-border px-6 py-12 text-center sm:min-h-96" role="status">
+      {(variant === "page" || chat) && computer.state === "starting" ? (
+        <div className={chat ? "flex min-h-56 flex-col items-center justify-center gap-3 px-5 py-8 text-center" : "flex min-h-80 flex-col items-center justify-center gap-3 rounded-xl border border-border px-6 py-12 text-center sm:min-h-96"} role="status">
           <LoaderCircle aria-hidden className="size-6 text-muted-foreground motion-safe:animate-spin" />
           <h3 className="text-lg font-semibold">Starting computer…</h3>
           <p className="max-w-sm text-sm text-muted-foreground">The live screen will appear when the desktop is ready.</p>
         </div>
       ) : computer.state === "paused" ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-8 text-center" role="status">
+        <div className={chat ? "flex min-h-56 flex-col items-center justify-center gap-2 px-4 py-8 text-center" : "flex flex-col items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 px-4 py-8 text-center"} role="status">
           <Pause className="size-5 text-muted-foreground" aria-hidden />
           <p className="text-sm font-medium">Computer paused</p>
           <p className="text-xs text-muted-foreground">Resume to let the agent continue, or take control to use the computer yourself.</p>
         </div>
-      ) : live && liveView && seen && computer.state !== "starting" ? <LiveView companyId={companyId} computer={computer} agentName={agentName} /> : null}
+      ) : live && liveView && seen && computer.state !== "starting" ? <LiveView compact={chat} companyId={companyId} computer={computer} agentName={agentName} /> : null}
       {live && !liveView ? <p className="text-sm text-muted-foreground">This provider has no live view.</p> : null}
-      <div className="flex flex-wrap gap-2">
-        {availableActions(computer).map((action) => {
-          const Icon = ACTION_ICONS[action];
-          return (
-            <Button
-              key={action}
-              type="button"
-              size="sm"
-              variant={action === "revoke" ? "ghost" : action === "take-control" || action === "release" || action === "start" ? "default" : "outline"}
-              className={action === "revoke" ? "text-destructive" : undefined}
-              disabled={mutation.isPending}
-              onClick={() => run(action)}
-            >
-              <Icon aria-hidden />
-              {ACTION_LABELS[action]}
-            </Button>
-          );
-        })}
-      </div>
+      {!chat && controls}
       {error ? <p className="text-xs text-destructive" role="alert">{error}</p> : null}
     </section>
   );

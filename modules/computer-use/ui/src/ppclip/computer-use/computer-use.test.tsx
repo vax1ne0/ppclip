@@ -207,6 +207,18 @@ describe("ComputerPanel", () => {
     expect(availableActions({ state: "human_private" })).not.toContain("take-control");
     expect(availableActions({ state: "agent" })).not.toContain("release");
   });
+  it.each(["starting", "paused", "human_private"] as const)("keeps chat controls legible in the %s state without duplicate headings", async state => {
+    await render(<ComputerPanel companyId={companyId} computer={computer({ state })} agentName="Robin" liveView variant="chat" />);
+    expect(container.querySelector('[data-testid="computer-state"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Computer controls"]')).not.toBeNull();
+    if (state === "human_private") {
+      expect(button("Release to agent")).toBeTruthy();
+      expect(button("Take control")).toBeFalsy();
+    } else {
+      expect(mockApi.viewer).not.toHaveBeenCalled();
+      expect(container.textContent).toContain(state === "starting" ? "Starting computer…" : "Computer paused");
+    }
+  });
 });
 
 describe("ComputerUseSettingsSection", () => {

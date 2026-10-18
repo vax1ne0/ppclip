@@ -86,7 +86,7 @@ describe("AgentComputerPage (big screen)", () => {
     mockApi.overview.mockResolvedValue(overview());
     await render(<AgentComputerPage />);
     expect(agentsApi.get).toHaveBeenCalledWith("robin", "company-1");
-    expect(container.textContent).toMatch(/Robin's computer/);
+    expect(container.querySelector('[aria-label="Robin\'s computer"]')).not.toBeNull();
     expect(q("computer-panel")?.getAttribute("data-variant")).toBe("page");
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(q("computer-live-view")).not.toBeNull();
@@ -139,12 +139,14 @@ describe("AgentChatComputerBar (agent chat)", () => {
   it("shows the state, opens the screen in place and links to the big screen", async () => {
     mockApi.overview.mockResolvedValue(overview({ agents: [computer({ lastActivityAt: new Date().toISOString() })] }));
     await render(<AgentChatComputerBar agent={robin} />);
-    expect(q("chat-computer-bar")?.textContent).toMatch(/Robin's computer[\s\S]*Using its computer/);
+    expect(q("chat-computer-bar")?.textContent).toMatch(/Robin's computer[\s\S]*Agent driving/);
     expect(q("chat-computer-big-screen")?.getAttribute("href")).toBe("/agents/robin/computer");
     expect(q("computer-panel")).toBeNull();
     await act(async () => { q("chat-computer-toggle")!.click(); });
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(q("computer-panel")).not.toBeNull();
+    expect(q("computer-panel")?.getAttribute("data-variant")).toBe("chat");
+    expect(q("chat-computer-toggle")?.getAttribute("aria-controls")).toBe(q("computer-panel")?.parentElement?.id);
     expect(q("computer-live-view")).not.toBeNull();
     // The choice is remembered for this agent.
     expect(window.localStorage.getItem("ppclip.chat-computer-open:agent-1")).toBe("1");
@@ -154,6 +156,30 @@ describe("AgentChatComputerBar (agent chat)", () => {
     mockApi.overview.mockResolvedValue(overview({ agents: [computer({ enabled: false })] }));
     await render(<AgentChatComputerBar agent={robin} />);
     expect(q("chat-computer-bar")).toBeNull();
+  });
+  it("remembers screen expansion separately when changing chat agents", async () => {
+    mockApi.overview.mockResolvedValue(overview({ agents: [computer({ state: "stopped" }), computer({ agentId: "agent-2", state: "stopped" })] }));
+    await render(<AgentChatComputerBar agent={robin} />);
+    await act(async () => { q("chat-computer-toggle")!.click(); });
+    expect(q("computer-panel")).not.toBeNull();
+    await render(<AgentChatComputerBar agent={{ ...robin, id: "agent-2", name: "Other agent" }} />);
+    expect(q("computer-panel")).toBeNull();
+    await render(<AgentChatComputerBar agent={robin} />);
+    expect(q("computer-panel")).not.toBeNull();
+    expect(mockApi.act).not.toHaveBeenCalled();
+  });
+  it("opens a stopped screen without starting it and exposes one explicit Start action", async () => {
+    mockApi.overview.mockResolvedValue(overview({ agents: [computer({ state: "stopped" })] }));
+    await render(<AgentChatComputerBar agent={robin} />);
+    expect(q("chat-computer-bar")?.textContent).toContain("Stopped");
+    expect(q("computer-panel")).toBeNull();
+    await act(async () => { q("chat-computer-toggle")!.click(); });
+    expect(q("computer-panel")?.textContent).toContain("Computer is stopped");
+    expect(q("computer-panel")?.querySelectorAll("button")).toHaveLength(1);
+    expect(mockApi.viewer).not.toHaveBeenCalled();
+    expect(mockApi.act).not.toHaveBeenCalled();
+    await act(async () => { q("computer-panel")!.querySelector("button")!.click(); });
+    expect(mockApi.act).toHaveBeenCalledWith("company-1", "agent-1", "start");
   });
 });
 

@@ -1362,26 +1362,6 @@ index 138d60bc1f8a0b3c4472f3dc7b6fa70457bf517c..f9e20f155b29e2fe16c176c4a1bb9353
      enableCombinedInboxTasks: false,
      enableConferenceRoomChat: false,
      enableClassicTaskInterface: false,
-diff --git a/ui/src/components/AgentConversationSidebar.tsx b/ui/src/components/AgentConversationSidebar.tsx
-index a500d2e863d45f7f3c0b674176cf9f96889e6506..0a82f6e6291e6c882760879f965ae168556ae9ff 100644
---- a/ui/src/components/AgentConversationSidebar.tsx
-+++ b/ui/src/components/AgentConversationSidebar.tsx
-@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
- import { Input } from "@/components/ui/input";
- import { Link, useNavigate } from "@/lib/router";
- import { agentRouteRef, cn } from "@/lib/utils";
-+import { AgentChatModel } from "@/ppclip/nav/AgentChatModel"; // ppclip: model in chat navigation
- 
- export interface AgentConversationSidebarProps {
-   agents: Agent[];
-@@ -81,6 +82,7 @@ export function AgentConversationSidebar({ agents, existingChatAgentIds, availab
-           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-             <span className="truncate text-sm font-medium">{agent.name}</span>
-             <span className="truncate text-xs text-muted-foreground">{agent.status === "terminated" ? "Terminated" : agent.status === "paused" ? "Paused" : previews[agent.id] ?? agent.title ?? "Start a conversation"}</span>
-+            <AgentChatModel agent={agent} />
-           </span>
-         </Link>)}
-       </nav> : !agents.length && (historyLoading || historyError) ? null : <div className="flex flex-col items-start gap-2 px-2 py-6">
 diff --git a/ui/src/components/ConfigureBuiltInAgentModal.tsx b/ui/src/components/ConfigureBuiltInAgentModal.tsx
 index 8e6e63176bbfbc1967296e40be644cc95265d6b4..6377767649e3d5e6247d32d7a14423f102491534 100644
 --- a/ui/src/components/ConfigureBuiltInAgentModal.tsx
@@ -2688,6 +2668,30 @@ index 14ab6a27afcf11fbdc89a7d41529652ab9b4d4e2..a3963c9e53ce322648271b260bfaa70f
          <div data-slot="contextual-sidebar-section" className={contextualSidebarStyles.section}>
            <p
              data-slot="contextual-sidebar-section-label"
+diff --git a/ui/src/components/AgentConversationSidebar.tsx b/ui/src/components/AgentConversationSidebar.tsx
+index a500d2e863d45f7f3c0b674176cf9f96889e6506..215ee610bbabe1c71f3abd49cdc8890ca74f397f 100644
+--- a/ui/src/components/AgentConversationSidebar.tsx
++++ b/ui/src/components/AgentConversationSidebar.tsx
+@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
+ import { Input } from "@/components/ui/input";
+ import { Link, useNavigate } from "@/lib/router";
+ import { agentRouteRef, cn } from "@/lib/utils";
++import { AgentChatModel } from "@/ppclip/nav/AgentChatModel"; // ppclip: model in chat navigation
++import { AgentComputerBadge } from "@/ppclip/computer-use/AgentComputerBadge";
+ 
+ export interface AgentConversationSidebarProps {
+   agents: Agent[];
+@@ -79,8 +81,9 @@ export function AgentConversationSidebar({ agents, existingChatAgentIds, availab
+           className={cn("flex min-w-0 items-center gap-3 rounded-md px-2 py-3 text-left transition-colors hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring", activeId === agent.id && "bg-accent text-accent-foreground")}>
+           <AgentAvatar agent={agent} size={32} />
+           <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+-            <span className="truncate text-sm font-medium">{agent.name}</span>
++            <span className="flex min-w-0 items-center gap-2"><span className="truncate text-sm font-medium">{agent.name}</span><AgentComputerBadge agentId={agent.id} size="compact" /></span>
+             <span className="truncate text-xs text-muted-foreground">{agent.status === "terminated" ? "Terminated" : agent.status === "paused" ? "Paused" : previews[agent.id] ?? agent.title ?? "Start a conversation"}</span>
++            <AgentChatModel agent={agent} />
+           </span>
+         </Link>)}
+       </nav> : !agents.length && (historyLoading || historyError) ? null : <div className="flex flex-col items-start gap-2 px-2 py-6">
 diff --git a/ui/src/components/AgentIdentity.tsx b/ui/src/components/AgentIdentity.tsx
 index 86f7e38d117900618a37f8ae0f8837f18a5cd8da..47ce81a47c2d6e5e8728a354d20518fb947cd00e 100644
 --- a/ui/src/components/AgentIdentity.tsx

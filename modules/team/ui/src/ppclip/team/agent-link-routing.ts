@@ -43,9 +43,9 @@ export function routeReportingBranches(
       const nearest = direction === 1 ? Math.min(...siblings.map(s => s.end.y)) : Math.max(...siblings.map(s => s.end.y));
       const low = Math.min(start.y, nearest) + 16;
       const high = Math.max(start.y, nearest) - 16;
-      // Average the individual midpoint heights, then constrain to the common gap.
-      const average = start.y / 2 + siblings.reduce((sum, s) => sum + s.end.y, 0) / siblings.length / 2;
-      const ideal = Math.max(low, Math.min(high, average));
+      // Center the shared gap, not the children: a distant child must not
+      // push the branch against a nearer card's top edge.
+      const ideal = (start.y + nearest) / 2;
       const candidates = [...new Set([ideal, low, high, ...cards.flatMap(c => [c.y - 16, c.y + c.h + 16])])]
         .filter(y => y >= low && y <= high)
         .sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal) || a - b);

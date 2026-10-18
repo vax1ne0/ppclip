@@ -230,12 +230,12 @@ describe('shared reporting branches', () => {
     ['c', { x: 800, y: 360, w: 200, h: 200 }],
   ]);
   const edges = ['a', 'b', 'c'].map(to => ({ id: to, from: 'manager', to }));
-  it('shares the average branch height with separate arrows and no card crossings', () => {
+  it('centers the common gap with separate arrows and no card crossings', () => {
     const routes = routeReportingBranches(edges, boxes);
     expect(routes.size).toBe(3);
     const heights = [...routes.values()].map(path => path[1].y);
     expect(new Set(heights).size).toBe(1);
-    expect(heights[0]).toBeCloseTo(273.3333);
+    expect(heights[0]).toBe(270);
     for (const [id, path] of routes) {
       expect(path.at(-1)).toEqual({ x: boxes.get(id)!.x + 100, y: boxes.get(id)!.y });
       for (let i = 1; i < path.length; i++) for (const card of boxes.values()) expect(crossesCard(path[i-1], path[i], card)).toBe(false);
@@ -245,6 +245,13 @@ describe('shared reporting branches', () => {
   it('falls back when an obstacle blocks the common trunk', () => {
     const blocked = new Map(boxes).set('obstacle', { x: 550, y: 210, w: 100, h: 120 });
     expect(routeReportingBranches(edges, blocked).size).toBe(0);
+  });
+  it('keeps comfortable clearance above near cards when another child is far below', () => {
+    const moved = new Map(boxes).set('c', { x: 800, y: 1200, w: 200, h: 200 });
+    const routes = routeReportingBranches(edges, moved);
+    expect(routes.size).toBe(3);
+    expect(routes.get('a')![1].y).toBe(270);
+    expect(moved.get('a')!.y - routes.get('a')![1].y).toBe(70);
   });
   it('never combines different managers or hidden reports', () => {
     expect(routeReportingBranches([edges[0], { ...edges[1], from: 'other' }, { id: 'hidden', from: 'manager', to: 'hidden' }], boxes).size).toBe(0);

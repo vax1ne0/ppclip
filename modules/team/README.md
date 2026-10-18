@@ -10,6 +10,8 @@ Reporting lines favor entering a lower child from above (and an upper child from
 
 After routing, opposing reporting elbows at the same agent port prefer one horizontal height. This local adjustment preserves endpoints, existing same-height junctions, and vertical directions; it stays between the two original heights and checks all visible cards. If no clear common height exists, both original paths remain. Same-side branches, unrelated trunks and work arrows keep their original routes.
 
+Shared branch heights center the clear gap between the manager and its nearest report. A farther-away sibling cannot pull the horizontal line against the nearer cards; obstacle routing still uses tighter gaps when necessary.
+
 **Settings → ppclip switch:** Pages → Team page
 
 Files here sit at the same paths they get inside Paperclip (`ui/src/ppclip/team/`). Edits to official files that wire this module in live in `hooks/<version>/hooks.patch`, marked `// ppclip:`.
