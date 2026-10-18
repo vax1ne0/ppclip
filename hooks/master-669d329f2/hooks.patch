@@ -2393,9 +2393,15 @@ index 0866c2bf4906605f4672007ce353f378d6367b4e..a0dd93f66b5e619175497953b92844b2
    );
  }
 diff --git a/ui/src/components/AgentCharacter.tsx b/ui/src/components/AgentCharacter.tsx
-index 7b2673332200f11b83cdfc77f95818134dffa318..9f1b0614a5a40c12949f14f41c2be5240d22b08c 100644
+index 7b2673332200f11b83cdfc77f95818134dffa318..66bc6b158186b12c2098c8211db5646cebf14764 100644
 --- a/ui/src/components/AgentCharacter.tsx
 +++ b/ui/src/components/AgentCharacter.tsx
+@@ -1,4 +1,4 @@
+-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
++import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+ import { resolveAgentAppearance, type CharacterState } from "@paperclipai/shared";
+ import { cn } from "@/lib/utils";
+ import { characterSlot } from "@/lib/agent-character-slot";
 @@ -9,55 +9,70 @@ type Player = ReturnType<typeof createCharacter>;
  export interface AgentCharacterProps extends Omit<AgentAvatarProps, "pose"> {
    state?: CharacterState;
@@ -2460,19 +2466,20 @@ index 7b2673332200f11b83cdfc77f95818134dffa318..9f1b0614a5a40c12949f14f41c2be524
      }).catch(() => { if (!disposed) setFailed(true); });
      return () => { disposed = true; player.current?.destroy(); player.current = null; setReady(false); };
 -  }, [active, owner, trackingRegion, trackingScope, size, followCursor, followRotation]);
-+  }, [active, dedicated ? null : owner, trackingRegion, trackingScope, size, followCursor, followRotation]);
-   useEffect(() => {
+-  useEffect(() => {
 -    if (!player.current) return;
 -    void import("@paperclipai/shared/cliplab/definition").then(library => {
 -      player.current?.setDefinition(library.characterDefinition(identity, muted));
 -      player.current?.setAnimation(library.animationId(state));
 -    });
 -  }, [identity, muted, state, ready]);
++  }, [active, dedicated ? null : owner, trackingRegion, trackingScope, size, followCursor, followRotation]);
++  useLayoutEffect(() => {
 +    if (!player.current || !libraryRef.current) return;
 +    const library = libraryRef.current;
 +    player.current.setDefinition(library.characterDefinition(identity, muted));
 +  }, [identity, muted, ready]);
-+  useEffect(() => {
++  useLayoutEffect(() => {
 +    if (!player.current || !libraryRef.current) return;
 +    const library = libraryRef.current;
 +    player.current.setStill(paused);

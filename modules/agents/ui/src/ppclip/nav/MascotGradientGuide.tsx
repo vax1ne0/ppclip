@@ -1,10 +1,20 @@
-import { useEffect, useRef, type PointerEvent } from "react";
+import { useEffect, useId, useRef, type PointerEvent } from "react";
 import type { AgentAppearance } from "@paperclipai/shared";
 
 export type MascotGradient = NonNullable<AgentAppearance["gradient"]>;
 const clamp = (value: number) => Math.round(Math.max(0, Math.min(100, value)));
 // The cap's unit body occupies 1 / (2 * .72) of the still portrait's camera view.
 const bodySpan = 100 / 1.44, inset = (100 - bodySpan) / 2;
+const silhouette = "M50 0 A50 50 0 0 1 100 50 L100 93 A7 7 0 0 1 93 100 L7 100 A7 7 0 0 1 0 93 L0 50 A50 50 0 0 1 50 0 Z";
+/** Match the renderer's linear-light 50/50 color, rather than averaging encoded hex bytes. */
+export function gradientMidpointColor(a: string, b: string) {
+  const linear = (value: number) => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4;
+  const encoded = (value: number) => value <= .0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - .055;
+  return `#${[1, 3, 5].map(start => {
+    const value = (linear(parseInt(a.slice(start, start + 2), 16) / 255) + linear(parseInt(b.slice(start, start + 2), 16) / 255)) / 2;
+    return Math.round(encoded(value) * 255).toString(16).padStart(2, "0");
+  }).join("")}`;
+}
 /** Keep the whole circular handle inside the cap, including its rounded dome. */
 export function clampGradientCenter(x: number, y: number) {
   // The handle radius is 7.2% of the body; an 8% inset also clears its 7% bottom corners.
@@ -29,7 +39,8 @@ export function gradientFromPointer(mode: "move" | "rotate", x: number, y: numbe
 }
 
 /** Visual handles have matching native range controls for keyboard and touch access. */
-export function MascotGradientGuide({ value, onChange, mode: guideMode = "rotate" }: { value: MascotGradient; onChange: (value: MascotGradient) => void; mode?: "center" | "rotate" }) {
+export function MascotGradientGuide({ value, onChange, mode: guideMode = "rotate", colors }: { value: MascotGradient; onChange: (value: MascotGradient) => void; mode?: "center" | "rotate"; colors?: { a: string; b: string } }) {
+  const clipId = useId();
   const svg = useRef<SVGSVGElement>(null);
   const mode = useRef<"move" | "rotate" | null>(null);
   const frame = useRef<number | null>(null), pending = useRef<MascotGradient | null>(null);
@@ -60,10 +71,15 @@ export function MascotGradientGuide({ value, onChange, mode: guideMode = "rotate
       update(event);
     }}>
     {guideMode === "center" ? <>
-      <g transform={`translate(${inset} ${inset}) scale(${bodySpan / 100})`}>
-        <path data-handle="move" d="M50 0 A50 50 0 0 1 100 50 L100 93 A7 7 0 0 1 93 100 L7 100 A7 7 0 0 1 0 93 L0 50 A50 50 0 0 1 50 0 Z" fill="transparent" className="pointer-events-auto cursor-crosshair" />
+      <defs><clipPath id={clipId}><path d={silhouette} transform={`translate(${inset} ${inset}) scale(${bodySpan / 100})`} /></clipPath></defs>
+      <g clipPath={`url(#${clipId})`}>
+        <line x1={cx - dx * 4} y1={cy - dy * 4} x2={cx + dx * 4} y2={cy + dy * 4} stroke="var(--background)" strokeWidth="1.2" opacity="0.65" />
+        <line x1={cx - dx * 4} y1={cy - dy * 4} x2={cx + dx * 4} y2={cy + dy * 4} stroke="var(--foreground)" strokeWidth="0.4" strokeDasharray="1 1.5" />
       </g>
-      <circle cx={cx} cy={cy} r="4.5" fill="var(--popover)" stroke="var(--background)" strokeWidth="2" />
+      <g transform={`translate(${inset} ${inset}) scale(${bodySpan / 100})`}>
+        <path data-handle="move" d={silhouette} fill="transparent" className="pointer-events-auto cursor-crosshair" />
+      </g>
+      <circle cx={cx} cy={cy} r="4.5" fill={colors ? gradientMidpointColor(colors.a, colors.b) : "var(--popover)"} stroke="var(--background)" strokeWidth="2" />
       <circle cx={cx} cy={cy} r="4.5" fill="none" stroke="var(--foreground)" strokeWidth="0.65" />
       <path d={`M${cx - 2} ${cy}h4 M${cx} ${cy - 2}v4`} stroke="var(--foreground)" strokeWidth="0.65" strokeLinecap="round" />
       <circle data-handle="move" cx={cx} cy={cy} r="8" fill="transparent" className={handle} />

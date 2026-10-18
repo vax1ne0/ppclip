@@ -85,7 +85,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
         <div ref={previewRegion} className="flex min-h-72 items-center justify-center rounded-xl border border-border bg-muted/20" aria-label="Mascot preview">
           <div className={cn("relative size-64", showGuide && "touch-none")}>
             <AgentCharacter appearance={draft} name={agent.name} size={256} rendering="dedicated" state={showGuide ? "rest" : pose} motion={showGuide ? "still" : "auto"} trackingRegion={previewRegion} trackingScope="region" label={`${agent.name} mascot preview`} />
-            {guideMode && <MascotGradientGuide mode={guideMode} value={gradient} onChange={changeGradient} />}
+            {guideMode && <MascotGradientGuide mode={guideMode} value={gradient} colors={resolveAgentColors(draft)} onChange={changeGradient} />}
           </div>
         </div>
         <label className="block space-y-2 text-sm font-medium">Preview expression
@@ -121,7 +121,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
             }}>Adjust center of gradient</Button>
             <Button type="button" variant="outline" size="sm" aria-pressed={guideMode === "rotate"} onClick={() => setGuideMode(value => value === "rotate" ? null : "rotate")}>Adjust gradient angle</Button>
           </div>
-          <p className="text-xs text-muted-foreground">Drag the center target or the angle handle. Colors update live as you move; the mascot holds its pose for precise adjustments.</p>
+          <p className="text-xs text-muted-foreground">The target marks the 50/50 color blend; the dashed line follows that midpoint across the mascot. Drag the target to move the blend, or use the angle handle to rotate it.</p>
           {([['x', 'Horizontal center', 0, 100, '%'], ['y', 'Vertical center', 0, 100, '%'], ['angle', 'Gradient angle', -180, 180, '°']] as const).map(([key, name, min, max, unit]) => <label key={key} className="block space-y-2 text-xs">
             <span className="flex justify-between gap-2"><span>{name}</span><output className="tabular-nums text-muted-foreground">{gradient[key]}{unit}</output></span>
             <input type="range" aria-label={name} min={min} max={max} step={1} value={gradient[key]} onChange={event => changeGradient({ ...gradient, [key]: Number(event.target.value) })} className="w-full accent-foreground" />
