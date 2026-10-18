@@ -1,4 +1,5 @@
 import { memo, useRef, useState } from "react";
+import { AgentComputerBadge } from "@/ppclip/computer-use/AgentComputerBadge";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Square, ExternalLink } from "lucide-react";
 import { AGENT_ROLE_LABELS, characterStateForAgent, type CharacterState, type Issue } from "@paperclipai/shared";
@@ -206,8 +207,8 @@ export const LiveStationCard = memo(function LiveStationCard({
           <AgentAvatar agent={agent} size={96} pose={pose} name={agent.name} className="relative" />
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <Link to={agentUrl(agent)} className="truncate text-lg font-semibold text-foreground hover:underline" title={agent.name}>
-            {agent.name}
+          <Link to={agentUrl(agent)} className="inline-flex min-w-0 items-center gap-1.5 truncate text-lg font-semibold text-foreground hover:underline" title={agent.name}>
+            {agent.name}<AgentComputerBadge agentId={agent.id} />
           </Link>
           <p className="truncate text-sm text-muted-foreground" title={role}>{role}</p>
           <p className="truncate font-mono text-xs text-muted-foreground" title={`Provider: ${provider} · Model: ${model ?? "provider default"}`}>

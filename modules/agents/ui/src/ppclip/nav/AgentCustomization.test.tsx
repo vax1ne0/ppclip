@@ -57,6 +57,23 @@ it("blocks incomplete hex colors and restores saved colors on discard", async ()
   expect(host.querySelector<HTMLInputElement>('#mascot-color-a')!.value).toMatch(/^#[a-f0-9]{6}$/);
   expect(host.querySelector('#mascot-color-a')?.getAttribute("aria-invalid")).toBe("false");
 });
+it("previews gradient position and rotation locally, saves them, and discards later changes", async () => {
+  await render();
+  async function range(name: string, value: string) {
+    const input = host.querySelector<HTMLInputElement>(`input[aria-label="${name}"]`)!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+  await range("Horizontal center", "30"); await range("Vertical center", "70"); await range("Gradient angle", "90");
+  expect(mocks.update).not.toHaveBeenCalled();
+  const appearance = { ...identity.appearance!, gradient: { x: 30, y: 70, angle: 90 } };
+  mocks.update.mockResolvedValue({ ...identity, appearance }); await click("Save appearance");
+  expect(mocks.update).toHaveBeenCalledWith(identity.id, { appearance }, identity.companyId);
+  await range("Gradient angle", "-30"); await click("Discard");
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Gradient angle"]')?.value).toBe("90");
+});
 
 it("previews and discards palette changes without writing", async () => {
   await render(); await click("Arctic Blue");

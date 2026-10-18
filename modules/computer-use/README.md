@@ -1,5 +1,7 @@
 # Computer use
 
+Enabled agents have a small monitor badge next to their names in the sidebar, team canvas, dashboard identities and agent pages. The badge follows the company/module and agent enable switches, including enabled computers that are stopped. All badges share one company overview subscription; they do not probe or start individual computers.
+
 A sandboxed Linux desktop and Chromium per agent in Docker, with live view, takeover and agent tools over MCP.
 
 The live viewer uses the app's theme, a compact connection-status dot, and a keyboard-accessible Ctrl+Alt+Del button. The button is enabled only for a connected control stream.

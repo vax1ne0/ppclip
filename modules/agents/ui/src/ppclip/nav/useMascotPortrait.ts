@@ -5,7 +5,7 @@ let renderer: Promise<typeof import("@paperclipai/shared/cliplab/static")> | und
 
 /** Custom stills render locally; picker drags never flood the server's PNG pool. */
 export function useMascotPortrait(appearance: AgentAppearance, size: AgentAvatarSize, pose: CharacterState, muted: boolean, imageUrl: string) {
-  const local = Boolean(appearance.customColors && !appearance.customAvatarAssetId && !muted);
+  const local = Boolean((appearance.customColors || appearance.gradient) && !appearance.customAvatarAssetId && !muted);
   // Preserve the host's URL resolver (Storybook supplies packaged portraits).
   const key = local ? agentAvatarUrl(appearance, size, 1, pose, muted) : imageUrl;
   const [portrait, setPortrait] = useState<{ key: string; src: string | null; failed: boolean } | null>(null);

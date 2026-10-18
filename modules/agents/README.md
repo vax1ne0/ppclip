@@ -8,6 +8,10 @@ For an agent using an uploaded avatar, saving body colors switches it back to th
 
 Body-color swatches open the same `react-colorful` saturation/hue picker used by team role groups. Changes update the active mascot player immediately without recreating it. Custom-color still portraits render locally as SVGs, including reduced-motion previews, so dragging never queues server PNG renders. A loading spinner covers missing portraits; the previous loaded image stays visible during replacement. Failed image loads retry twice before showing an unavailable icon, rather than agent initials.
 
+**Gradient placement** adds a draggable center line and rotation handle over a still preview, plus horizontal/vertical center and angle sliders. Placement is saved as optional `gradient: { x, y, angle }` (integer percentages 0–100, degrees −180–180). Reset restores the original centered 20° gradient. Changing colors preserves placement. Both GPU and SVG renderers honor it; PNG URLs and cache keys distinguish transforms. Muted portraits retain their original appearance.
+
+Agent edit forms use the layout’s action dock outside the scrolling content. Customization, instructions and configuration share this dock so page padding cannot leave visible content below the save bar.
+
 Agent chat sidebar rows also show the configured model with a provider mark. An unset model is labeled “Model not set”; the full model and harness are available on hover. This follows the Agents page extras switch. Agent model pickers require an explicit choice and do not offer a default-model option.
 
 New-agent setup shows the same model picker on both **Connect** and **Configure**, preserving the selection between steps. Choose the model before testing a saved subscription, API key or new sign-in. If model discovery fails, an explicit model ID can be entered manually.

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AgentComputerBadge } from "@/ppclip/computer-use/AgentComputerBadge";
 import { HoverCard as HoverCardPrimitive } from "radix-ui";
 import { useQuery } from "@tanstack/react-query";
 import type { Agent, Issue } from "@paperclipai/shared";
@@ -56,7 +57,7 @@ function TaskList({ agent }: { agent: Pick<Agent, "id" | "companyId" | "name"> }
  */
 /** ppclip module switch (Settings → ppclip): rosterExtras. */
 export function AgentTaskHoverCard(props: Parameters<typeof AgentTaskHoverCardContent>[0]) {
-  return usePpclipFeature("rosterExtras") ? <AgentTaskHoverCardContent {...props} /> : <span className="truncate">{props.agent.name}</span>;
+  return <span className="inline-flex min-w-0 items-center gap-1.5">{usePpclipFeature("rosterExtras") ? <AgentTaskHoverCardContent {...props} /> : <span className="truncate">{props.agent.name}</span>}<AgentComputerBadge agentId={props.agent.id} /></span>;
 }
 
 function AgentTaskHoverCardContent({ agent }: { agent: Pick<Agent, "id" | "companyId" | "name"> }) {

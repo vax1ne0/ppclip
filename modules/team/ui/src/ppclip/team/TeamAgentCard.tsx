@@ -10,6 +10,7 @@ import { StatusIcon } from "@/components/StatusIcon";
 import type { AgentComputer } from "@/ppclip/computer-use/api";
 import { ComputerStateChip } from "@/ppclip/computer-use/ComputerStateChip";
 import { agentComputerHref } from "@/ppclip/computer-use/links";
+import { AgentComputerBadge } from "@/ppclip/computer-use/AgentComputerBadge";
 
 /** What the canvas tells each card about its place on the board. */
 export type TeamCardPresentation = {
@@ -69,6 +70,7 @@ export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled,
           <Link to={url} className="min-w-0 truncate text-sm font-semibold text-foreground hover:underline" title={agent.name}>
             {agent.name}
           </Link>
+          <AgentComputerBadge agentId={agent.id} />
           {presentation.showLabels ? (
             <span className="flex shrink-0 items-center gap-0.5" role="img" aria-label={depthLabel} title={depthLabel}>
               {Array.from({ length: presentation.level }, (_, index) => (

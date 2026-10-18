@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AGENT_PALETTE_IDS, CHARACTER_STATES, appearanceForPalette, randomAgentAppearance, resolveAgentAppearance, resolveAgentColors, type Agent, type AgentAppearance, type CharacterState } from "@paperclipai/shared";
+import { AGENT_PALETTE_IDS, CHARACTER_STATES, DEFAULT_AGENT_GRADIENT, appearanceForPalette, randomAgentAppearance, resolveAgentAppearance, resolveAgentColors, type Agent, type AgentAppearance, type CharacterState } from "@paperclipai/shared";
 import { Shuffle } from "lucide-react";
 import { agentsApi } from "@/api/agents";
 import { AgentAvatar } from "@/components/AgentAvatar";
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { MascotColorField } from "./MascotColorField";
+import { PageActionBar } from "./PageActionBar";
+import { MascotGradientGuide, type MascotGradient } from "./MascotGradientGuide";
 
 type Identity = Pick<Agent, "id" | "name" | "companyId" | "appearance">;
 const label = (value: string) => value.split("-").map(word => word[0].toUpperCase() + word.slice(1)).join(" ");
@@ -25,6 +27,8 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
   const [draft, setDraft] = useState(saved);
   const [colorInputs, setColorInputs] = useState(() => resolveAgentColors(saved));
   const [pose, setPose] = useState<CharacterState>("idle");
+  const [showGuide, setShowGuide] = useState(false);
+  const gradient = draft.gradient ?? DEFAULT_AGENT_GRADIENT;
   const [savedNotice, setSavedNotice] = useState(false);
   const invalidColors = !Object.values(colorInputs).every(value => /^#[0-9a-fA-F]{6}$/.test(value));
   const dirty = !same(draft, saved) || invalidColors;
@@ -50,6 +54,11 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
   useEffect(() => () => { onSavingChange?.(false); }, [onSavingChange]);
 
   function choose(next: AgentAppearance) { setDraft(next); setColorInputs(resolveAgentColors(next)); setSavedNotice(false); save.reset(); }
+  function choosePalette(next: AgentAppearance) { choose({ ...next, ...(draft.gradient ? { gradient: draft.gradient } : {}) }); }
+  function changeGradient(next: MascotGradient) {
+    const { customAvatarAssetId: _avatar, ...appearance } = draft;
+    choose({ ...appearance, gradient: next });
+  }
   function changeColor(key: "a" | "b", value: string) {
     const colors = { ...colorInputs, [key]: value };
     setColorInputs(colors); setSavedNotice(false); save.reset();
@@ -60,7 +69,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
   }
   function randomize() {
     const next = randomAgentAppearance();
-    choose(next.paletteId === draft.paletteId
+    choosePalette(next.paletteId === draft.paletteId
       ? appearanceForPalette(AGENT_PALETTE_IDS[(AGENT_PALETTE_IDS.indexOf(draft.paletteId) + 1) % AGENT_PALETTE_IDS.length]) : next);
   }
   return <section className="space-y-6" aria-labelledby="agent-customization-title">
@@ -71,10 +80,13 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
     <div className="grid items-start gap-8 lg:grid-cols-2">
       <div className="space-y-5 lg:sticky lg:top-6">
         <div className="flex min-h-72 items-center justify-center rounded-xl border border-border bg-muted/20" aria-label="Mascot preview">
-          <AgentCharacter appearance={draft} name={agent.name} size={256} state={pose} trackingScope="region" label={`${agent.name} mascot preview`} />
+          <div className={cn("relative size-64", showGuide && "touch-none")}>
+            <AgentCharacter appearance={draft} name={agent.name} size={256} state={showGuide ? "rest" : pose} motion={showGuide ? "still" : "auto"} trackingScope="region" label={`${agent.name} mascot preview`} />
+            {showGuide && <MascotGradientGuide value={gradient} onChange={changeGradient} />}
+          </div>
         </div>
         <label className="block space-y-2 text-sm font-medium">Preview expression
-          <NativeSelect aria-label="Preview expression" value={pose} onChange={event => setPose(event.target.value as CharacterState)}>
+          <NativeSelect aria-label="Preview expression" value={pose} disabled={showGuide} onChange={event => setPose(event.target.value as CharacterState)}>
             {CHARACTER_STATES.map(state => <option key={state} value={state}>{label(state)}</option>)}
           </NativeSelect>
         </label>
@@ -94,6 +106,18 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
           const { customAvatarAssetId: _avatar, ...appearance } = draft;
           choose({ ...appearance, customColors: { a: colorInputs.b.toLowerCase(), b: colorInputs.a.toLowerCase() } });
         }}>Swap colors</Button>
+        <div className="space-y-4 border-t border-border pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-medium">Gradient placement</h3>
+            <Button type="button" variant="outline" size="sm" aria-pressed={showGuide} onClick={() => setShowGuide(value => !value)}>{showGuide ? "Hide gradient guide" : "Show gradient guide"}</Button>
+          </div>
+          <p className="text-xs text-muted-foreground">Drag the line’s center to move the blend. Drag its end to rotate. The mascot holds still while the guide is visible.</p>
+          {([['x', 'Horizontal center', 0, 100, '%'], ['y', 'Vertical center', 0, 100, '%'], ['angle', 'Gradient angle', -180, 180, '°']] as const).map(([key, name, min, max, unit]) => <label key={key} className="block space-y-2 text-xs">
+            <span className="flex justify-between gap-2"><span>{name}</span><output className="tabular-nums text-muted-foreground">{gradient[key]}{unit}</output></span>
+            <input type="range" aria-label={name} min={min} max={max} step={1} value={gradient[key]} onChange={event => changeGradient({ ...gradient, [key]: Number(event.target.value) })} className="w-full accent-foreground" />
+          </label>)}
+          <Button type="button" variant="ghost" size="sm" onClick={() => { const { gradient: _gradient, ...appearance } = draft; choose(appearance); }}>Reset gradient placement</Button>
+        </div>
         {saved.customAvatarAssetId && <p className="text-xs text-muted-foreground">This agent currently uses an uploaded image. Saving a palette switches back to the animated mascot.</p>}
         <details>
         <summary className="cursor-pointer py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Preset starting points</summary>
@@ -101,7 +125,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
           {AGENT_PALETTE_IDS.map(palette => {
             const selected = !draft.customAvatarAssetId && !draft.customColors && draft.paletteId === palette;
             return <button key={palette} type="button" aria-label={label(palette)} aria-pressed={selected}
-              onClick={() => choose(appearanceForPalette(palette))}
+              onClick={() => choosePalette(appearanceForPalette(palette))}
               className={cn("flex min-w-0 flex-col items-center gap-1 rounded-lg border p-3 text-center text-xs transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background", selected ? "border-foreground bg-accent" : "border-border")}>
               <AgentAvatar appearance={appearanceForPalette(palette)} size={64} />
               <span>{label(palette)}</span>
@@ -112,7 +136,7 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
         </details>
       </fieldset>
     </div>
-    <footer className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 border-t border-border bg-background py-4">
+    <PageActionBar>
       <p role={save.isError ? "alert" : "status"} className={cn("text-sm", save.isError ? "text-destructive" : "text-muted-foreground")}>
         {save.isError ? (save.error instanceof Error ? save.error.message : "Could not save appearance. Try again.") : save.isPending ? "Saving appearance…" : invalidColors ? "Fix the color values before saving." : dirty ? "Preview only. Save to apply this appearance." : savedNotice ? "Appearance saved." : "Edit the colors or choose a preset to preview."}
       </p>
@@ -120,6 +144,6 @@ export function AgentCustomization({ agent, onDirtyChange, onSavingChange }: {
         <Button type="button" variant="ghost" disabled={!dirty || save.isPending} onClick={() => choose(saved)}>Discard</Button>
         <Button type="button" disabled={!dirty || invalidColors || save.isPending} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save appearance"}</Button>
       </div>
-    </footer>
+    </PageActionBar>
   </section>;
 }
