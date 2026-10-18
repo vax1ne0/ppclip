@@ -47,6 +47,19 @@ afterEach(() => {
 });
 
 describe("ppclip update service", () => {
+  it("reports real check completion and never marks a failed check complete", async () => {
+    const { app, pkg, home } = layout();
+    const service = updateService({ paths: { app, home, packageDir: pkg } });
+    const checked = service.check();
+    expect(service.checkProgress()).toMatchObject({ id: 1, state: "checking", completed: 0, total: 4 });
+    await checked;
+    expect(service.checkProgress()).toMatchObject({ state: "complete", completed: 4 });
+    git(pkg, "remote", "set-url", "origin", path.join(root, "missing.git"));
+    const failed = service.check();
+    expect(service.checkProgress()).toMatchObject({ id: 2, state: "checking", completed: 0 });
+    expect((await failed).checkError).not.toBeNull();
+    expect(service.checkProgress()).toMatchObject({ state: "failed", completed: 0 });
+  });
   it("finds the one ppclip folder next to Paperclip", () => {
     const { app, pkg } = layout();
     expect(findPackageDir(app, {})).toBe(pkg);

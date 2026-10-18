@@ -32,6 +32,11 @@ export function ppclipUpdateRoutes(db: Db, deps: UpdateDeps = {}) {
     res.json(await service.check());
   });
 
+  router.get("/ppclip/update/check-progress", (req, res) => {
+    assertBoardOrgAccess(req);
+    res.set("cache-control", "no-store").json(service.checkProgress());
+  });
+
   router.post("/ppclip/update", validate(startSchema), async (req, res) => {
     assertInstanceAdmin(req);
     const actor = getActorInfo(req);

@@ -48,6 +48,9 @@ export function UpdateSection() {
   const queryClient = useQueryClient();
   const [updating, setUpdating] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [checkAttempt, setCheckAttempt] = useState(0);
+  const [checkSteps, setCheckSteps] = useState({ completed: 0, total: 4, label: "Checking ppclip…" });
+  const activeCheck = useRef<number | null>(null);
   const startedAt = useRef<number | null>(null);
   const status = useQuery({
     queryKey: statusKey,
@@ -57,8 +60,31 @@ export function UpdateSection() {
   });
   const check = useMutation({
     mutationFn: ppclipUpdateApi.check,
+    onMutate: () => {
+      activeCheck.current = null;
+      setCheckAttempt(value => value + 1);
+      setCheckSteps({ completed: 0, total: 4, label: "Checking ppclip…" });
+    },
     onSuccess: (data) => queryClient.setQueryData(statusKey, data),
   });
+  const progress = useQuery({
+    queryKey: ["ppclip", "update", "check-progress", checkAttempt],
+    queryFn: ppclipUpdateApi.progress,
+    enabled: check.isPending,
+    refetchInterval: check.isPending ? 400 : false,
+    gcTime: 0,
+    retry: 1,
+    refetchOnWindowFocus: false,
+  });
+  useEffect(() => {
+    const next = progress.data;
+    if (!check.isPending || !next) return;
+    // Ignore the previous check's completed result if polling beats the POST.
+    if (activeCheck.current === null && next.state === "checking") activeCheck.current = next.id;
+    if (activeCheck.current !== next.id) return;
+    setCheckSteps(previous => next.completed === previous.completed && next.label === previous.label ? previous
+      : { completed: Math.max(previous.completed, next.completed), total: next.total, label: next.label });
+  }, [progress.data, check.isPending]);
   const start = useMutation({
     mutationFn: () => ppclipUpdateApi.start(),
     onSuccess: () => {
@@ -120,7 +146,7 @@ export function UpdateSection() {
             <StatusIcon aria-hidden className={"mt-0.5 size-4 shrink-0 " + (busy ? "motion-safe:animate-spin " : "") + (needsAttention ? "text-muted-foreground" : "text-foreground")} />
             <div className="min-w-0 space-y-1">
               <h3 className="text-sm font-semibold" data-testid="ppclip-update-status" aria-live="polite">{statusLabel}</h3>
-              <p className="text-xs leading-relaxed text-muted-foreground">{needsAttention ? "Check your connection and try again." : !busy && available ? "A new version of ppclip is ready to install." : checkedLabel(data?.checkedAt)}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground">{check.isPending ? checkSteps.label : needsAttention ? "Check your connection and try again." : !busy && available ? "A new version of ppclip is ready to install." : checkedLabel(data?.checkedAt)}</p>
             </div>
           </div>
           {!updating && <div className="flex shrink-0 flex-wrap gap-2">
@@ -131,7 +157,9 @@ export function UpdateSection() {
             {available && !data?.blocked && !needsAttention && <Button type="button" size="sm" disabled={busy} onClick={confirmAndStart} data-testid="ppclip-update-start"><Download aria-hidden />Update and restart</Button>}
           </div>}
         </div>
-        {busy && <progress aria-label={updating || start.isPending ? "Updating ppclip" : "Checking for updates"} className="block h-1.5 w-full accent-primary" />}
+        {busy && <progress aria-label={updating || start.isPending ? "Updating ppclip" : "Checking for updates"}
+          {...(check.isPending ? { value: checkSteps.completed, max: checkSteps.total, "aria-valuetext": checkSteps.label } : {})}
+          className="block h-1.5 w-full accent-primary" />}
         {data?.versions && <details className="group/versions border-t border-border" data-testid="ppclip-update-version-details">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/40 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-[-2px] [&::-webkit-details-marker]:hidden">
             <span>Versions</span><ChevronDown aria-hidden className="size-3.5 group-open/versions:rotate-180" />

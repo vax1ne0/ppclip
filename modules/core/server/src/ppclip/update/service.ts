@@ -47,6 +47,14 @@ export type UpdateStatus = {
 
 export type UpdatePaths = { app: string; home: string | null; packageDir: string | null };
 
+export type CheckProgress = {
+  id: number;
+  state: "idle" | "checking" | "complete" | "failed";
+  completed: number;
+  total: number;
+  label: string;
+};
+
 /** The Paperclip checkout this server runs from (…/server/src/ppclip/update → four levels up). */
 export function appRoot(from = path.dirname(fileURLToPath(import.meta.url))) {
   let dir = from;
@@ -108,6 +116,8 @@ export function updateService(deps: UpdateDeps = {}) {
   let lastCheck = checkFile ? readJson<Check>(checkFile) : null;
   let checking: Promise<void> | null = null;
   let starting = false;
+  let progress: CheckProgress = { id: 0, state: "idle", completed: 0, total: 4, label: "Ready" };
+  const advance = (completed: number, label: string) => { progress = { ...progress, completed, label }; };
 
   const statusFile = () => (paths.home ? path.join(paths.home, "ppclip-update.json") : null);
 
@@ -149,6 +159,8 @@ export function updateService(deps: UpdateDeps = {}) {
 
   return {
     paths,
+    /** Memory-only: frequent progress reads do no Git, filesystem or network work. */
+    checkProgress: () => ({ ...progress }),
 
     async status(): Promise<UpdateStatus> {
       let current: UpdateStatus["current"] = null;
@@ -187,20 +199,25 @@ export function updateService(deps: UpdateDeps = {}) {
     /** Fetches the ppclip repo and lists the commits that an update would bring. */
     async check() {
       if (!checking) checking = (async () => {
+        progress = { id: progress.id + 1, state: "checking", completed: 0, total: 4, label: "Checking ppclip…" };
         try {
           if (!paths.packageDir) throw new Error("The ppclip folder wasn't found.");
           await git(paths.packageDir, ["fetch", "--quiet"], 120_000);
           const out = await git(paths.packageDir, ["log", "--format=%h %s", "HEAD..@{u}"]);
-          const versions = await checkVersions(paths, git);
+          advance(1, "Checking Paperclip…");
+          const versions = await checkVersions(paths, git, undefined, () => advance(2, "Checking compatibility…"));
+          advance(3, "Finishing check…");
           versions.ppclip.updateAvailable = Boolean(out);
           lastCheck = { available: out ? out.split("\n") : [], checkedAt: new Date().toISOString(), error: null, versions,
             packageHead: await git(paths.packageDir, ["rev-parse", "--short", "HEAD"]) };
         } catch (err) {
+          progress = { ...progress, state: "failed", label: "Couldn’t check for updates" };
           lastCheck = { available: [], checkedAt: new Date().toISOString(), error: err instanceof Error ? err.message.split("\n")[0]! : "git fetch failed" };
         }
         if (checkFile) {
           try { fs.writeFileSync(checkFile, JSON.stringify(lastCheck)); } catch { /* Read-only data folder: checks still work. */ }
         }
+        if (progress.state === "checking") progress = { ...progress, state: "complete", completed: 4, label: "Check complete" };
       })().finally(() => { checking = null; });
       await checking;
       return this.status();

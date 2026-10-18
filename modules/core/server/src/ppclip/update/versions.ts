@@ -69,7 +69,7 @@ export async function installedVersions(paths: UpdatePaths, git: Git): Promise<U
 }
 
 /** Network work runs only on explicit checks, never the recurring status poll. */
-export async function checkVersions(paths: UpdatePaths, git: Git, getTree = officialCommitTree): Promise<UpdateVersions> {
+export async function checkVersions(paths: UpdatePaths, git: Git, getTree = officialCommitTree, onPaperclipChecked?: () => void): Promise<UpdateVersions> {
   const installed = await installedVersions(paths, git);
   if (paths.packageDir) installed.ppclip.latest = await versionLabel(paths.packageDir, "@{u}", git);
   if (!installed.paperclip.current || !paths.packageDir) return installed;
@@ -80,6 +80,7 @@ export async function checkVersions(paths: UpdatePaths, git: Git, getTree = offi
     const [label, commit] = latest;
     installed.paperclip.latest = label;
     installed.paperclip.updateAvailable = compareVersions(label, installed.paperclip.current) > 0;
+    onPaperclipChecked?.();
     const files = (await git(paths.packageDir, ["ls-tree", "-r", "--name-only", "@{u}", "--", "hooks/"])).split("\n").filter(file => /^hooks\/[^/]+\/manifest\.json$/.test(file));
     if (!files.length || files.length > 100) throw new Error("Support information unavailable");
     const manifests = await Promise.all(files.map(async file => JSON.parse(await git(paths.packageDir!, ["show", `@{u}:${file}`])) as Manifest));

@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { UpdateStatus } from "./api";
 
-const mockApi = vi.hoisted(() => ({ status: vi.fn(), check: vi.fn(), start: vi.fn() }));
+const mockApi = vi.hoisted(() => ({ status: vi.fn(), check: vi.fn(), start: vi.fn(), progress: vi.fn() }));
 vi.mock("./api", () => ({ ppclipUpdateApi: mockApi }));
 
 import { UpdateSection } from "./UpdateSection";
@@ -42,6 +42,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   for (const fn of Object.values(mockApi)) fn.mockReset();
+  mockApi.progress.mockResolvedValue({ id: 0, state: "idle", completed: 0, total: 4, label: "Ready" });
   reload.mockReset();
   Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, reload } });
 });
@@ -53,6 +54,28 @@ afterEach(() => {
 });
 
 describe("UpdateSection", () => {
+  it("advances only when the server reports completed check stages", async () => {
+    mockApi.status.mockResolvedValue(status());
+    let finish!: (value: UpdateStatus) => void;
+    mockApi.check.mockImplementation(() => new Promise<UpdateStatus>(resolve => { finish = resolve; }));
+    let stage = { id: 1, state: "checking", completed: 1, total: 4, label: "Checking Paperclip…" };
+    mockApi.progress.mockImplementation(async () => ({ ...stage }));
+    await render();
+    await act(async () => { q("ppclip-update-check")!.click(); });
+    await flush();
+    expect(container.querySelector("progress")?.value).toBe(1);
+    expect(container.querySelector("progress")?.max).toBe(4);
+    expect(container.textContent).toContain("Checking Paperclip…");
+    // Time alone must not advance the bar.
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 450)); });
+    expect(container.querySelector("progress")?.value).toBe(1);
+    stage = { ...stage, completed: 3, label: "Finishing check…" };
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 450)); });
+    expect(container.querySelector("progress")?.value).toBe(3);
+    await act(async () => { finish(status({ checkedAt: new Date().toISOString() })); });
+    await flush();
+    expect(container.querySelector("progress")).toBeNull();
+  });
   it("shows both installed versions and waits for ppclip support for a newer Paperclip", async () => {
     mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", versions: {
       paperclip: { current: "1.0.0", latest: "1.1.0", updateAvailable: true, compatibility: "waiting" },
@@ -140,14 +163,15 @@ describe("UpdateSection", () => {
     expect(container.querySelector("progress")).toBeNull();
   });
 
-  it("shows an indeterminate bar during checks and an out-of-date result", async () => {
+  it("starts check progress at zero and shows an out-of-date result", async () => {
     mockApi.status.mockResolvedValue(status());
     let finish!: (value: UpdateStatus) => void;
     mockApi.check.mockImplementation(() => new Promise<UpdateStatus>(resolve => { finish = resolve; }));
     await render();
     await act(async () => { q("ppclip-update-check")!.click(); });
     await flush();
-    expect(container.querySelector("progress")?.hasAttribute("value")).toBe(false);
+    expect(container.querySelector("progress")?.value).toBe(0);
+    expect(container.querySelector("progress")?.max).toBe(4);
     expect(q("ppclip-update-status")?.textContent).toBe("Checking…");
     await act(async () => { finish(status({ checkedAt: "2026-10-18T10:00:00Z", available: ["abc Fix"] })); });
     await flush();

@@ -39,7 +39,16 @@ type ProductVersion = {
 };
 
 export const ppclipUpdateApi = {
+  progress: () => api.get<CheckProgress>("/ppclip/update/check-progress"),
   status: () => api.get<UpdateStatus>("/ppclip/update"),
   check: () => api.post<UpdateStatus>("/ppclip/update/check", {}),
   start: (force = false) => api.post<{ started: boolean }>("/ppclip/update", force ? { force } : {}),
+};
+
+export type CheckProgress = {
+  id: number;
+  state: "idle" | "checking" | "complete" | "failed";
+  completed: number;
+  total: number;
+  label: string;
 };
