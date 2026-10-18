@@ -3,7 +3,7 @@
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
   "hooksSha256": "b039f7ddfb5ceb7616338b86fcbeff0944f6f0e302f9148eecf6828e4227f8d5",
-  "generatedAt": "2026-10-18T06:36:28.036Z",
+  "generatedAt": "2026-10-18T07:03:23.185Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
@@ -101,7 +101,7 @@
     "live-runs": 11,
     "providers": 20,
     "run-controls": 15,
-    "computer-use": 45,
+    "computer-use": 46,
     "agents": 28,
     "task-chat": 3,
     "fixes": 8

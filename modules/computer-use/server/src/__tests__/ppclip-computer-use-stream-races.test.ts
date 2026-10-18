@@ -39,6 +39,8 @@ describe("computer stream token concurrency", () => {
       const docker = new DockerApi();
       vi.spyOn(docker, "request").mockResolvedValue(undefined);
       const provider = new DockerComputerProvider({ docker });
+      vi.spyOn(provider as unknown as { endpoint(id: string): Promise<unknown> }, "endpoint").mockResolvedValue({ host: "127.0.0.1", streamPort: 6080 });
+      const screen = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ready"));
       const health = vi.spyOn(provider as unknown as { daemon(id: string, path: string, body?: unknown, timeout?: number): Promise<unknown> }, "daemon")
         .mockRejectedValueOnce(new ProviderError("unavailable", "Ports not ready yet"))
         .mockResolvedValue({ ok: true });
@@ -50,7 +52,27 @@ describe("computer stream token concurrency", () => {
       await thaw;
       expect(ready).toBe(true);
       expect(health).toHaveBeenCalledTimes(2);
-    } finally { vi.useRealTimers(); }
+      expect(screen).toHaveBeenCalledTimes(1);
+    } finally { vi.restoreAllMocks(); vi.useRealTimers(); }
+  });
+  it("does not finish startup while only the control daemon is ready", async () => {
+    vi.useFakeTimers();
+    try {
+      const docker = new DockerApi();
+      vi.spyOn(docker, "request").mockResolvedValue(undefined);
+      const provider = new DockerComputerProvider({ docker });
+      const internals = provider as unknown as { endpoint(id: string): Promise<unknown>; daemon(id: string, path: string): Promise<unknown> };
+      vi.spyOn(internals, "endpoint").mockResolvedValue({ host: "127.0.0.1", streamPort: 6080 });
+      vi.spyOn(internals, "daemon").mockResolvedValue({ ok: true });
+      vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(new TypeError("fetch failed")).mockResolvedValue(new Response("screen ready"));
+      let ready = false;
+      const thaw = provider.thaw("agent-1").then(() => { ready = true; });
+      await vi.advanceTimersByTimeAsync(749);
+      expect(ready).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await thaw;
+      expect(ready).toBe(true);
+    } finally { vi.restoreAllMocks(); vi.useRealTimers(); }
   });
   it.each(["view", "control"] as const)("keeps both tokens when %s registration finishes last", async (last) => {
     const provider = new DockerComputerProvider();

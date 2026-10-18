@@ -108,7 +108,17 @@ export function ppclipComputerUseRoutes(db: Db, service: ComputerUseService = pp
     const splat = (req.params as Record<string, unknown>).splat;
     const file = Array.isArray(splat) ? splat.join("/") : String(splat ?? "");
     if (!VIEW_FILE.test(file) || file.includes("..")) return res.status(400).json({ error: "bad path" });
-    const upstream = await service.supervisor.streamFile(ticket.agentId, ticket.mode, file, "");
+    const reconnect = (status: number) => res.status(status).set("cache-control", "no-store").type("html").send(expiredViewerDocument());
+    let upstream: Response;
+    try {
+      upstream = await service.supervisor.streamFile(ticket.agentId, ticket.mode, file, "");
+    } catch (error) {
+      if (file !== "vnc_lite.html") throw error;
+      return reconnect(503);
+    }
+    // A failed iframe document cannot load the normal disconnect bridge.
+    // Give the parent its existing bounded reconnect signal instead of JSON.
+    if (file === "vnc_lite.html" && !upstream.ok) return reconnect(upstream.status);
     res.status(upstream.status);
     res.setHeader("content-type", upstream.headers.get("content-type") ?? "application/octet-stream");
     res.setHeader("cache-control", "no-store");

@@ -1,5 +1,7 @@
 # Computer use
 
+Start and resume wait for both the control daemon and live-screen HTTP service. Screen-file reads retry transport resets and temporary server failures up to three times, with a 3-second timeout per attempt; control actions are never retried. Failed iframe documents send the existing bounded reconnect signal instead of showing raw JSON. These readiness probes run only during startup/resume, not on recurring overview polls.
+
 Experimental agent chats use a single bordered computer panel with a compact status header, consistent screen controls and a computer badge beside enabled agents in the conversation sidebar. Expanding the screen does not start or claim the computer. Stopped and starting screens show centered feedback; running chat screens keep the control actions above the viewer and use a bounded height so the conversation remains usable. Expansion is remembered separately per agent. Private control, release, pause and revoke retain their existing API and confirmation behavior.
 
 Enabled agents have a small monitor badge next to their names in the sidebar, team canvas, dashboard identities and agent pages. A shared neutral, outlined badge centers the monitor in compact sidebar, regular name-row and larger heading sizes. Its tooltip uses the site’s popover theme. It represents capability, not connection status. The badge follows the company/module and agent enable switches, including enabled computers that are stopped. All badges share one company overview subscription; they do not probe or start individual computers.

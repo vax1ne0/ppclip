@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { DockerApi, DockerApiError } from "./docker-api.js";
+import { readScreenFile } from "./screen-http.js";
 import {
   ProviderError,
   type ActOptions,
@@ -196,6 +197,11 @@ export class DockerComputerProvider implements ComputerProvider {
     while (Date.now() < deadline) {
       try {
         await this.daemon(agentId, "/health", {}, 3000);
+        // The control daemon can be healthy before websockify is listening.
+        // Probe only during start/resume, not on recurring overview requests.
+        const ep = await this.endpoint(agentId);
+        const screen = await readScreenFile(() => `http://${ep.host}:${ep.streamPort}/vnc_lite.html`, 1);
+        if (screen.status !== 200) throw new ProviderError("unavailable", "The live screen is still starting.");
         return;
       } catch (err) {
         last = err instanceof Error ? err.message : String(err);

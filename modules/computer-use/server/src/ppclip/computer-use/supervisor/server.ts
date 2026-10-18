@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { WebSocket, WebSocketServer } from "ws";
 import { ProviderError, parseActions, type ComputerProvider, type PageAction } from "./provider.js";
 import { DEFAULT_SUPERVISOR_PORT } from "./config.js";
+import { readScreenFile } from "./screen-http.js";
 
 /**
  * ppclip computer supervisor: the only process that talks to Docker (or the
@@ -121,14 +122,16 @@ export function createSupervisorServer(opts: SupervisorOptions) {
 
   async function proxyStatic(agentId: string, mode: "view" | "control", file: string, search: string, res: ServerResponse) {
     if (!STATIC_FILE.test(file) || file.includes("..")) return send(res, 400, { error: "bad path" });
-    const upstream = await provider.streamUpstream(agentId, mode);
-    if (!upstream) return send(res, 409, { error: mode === "control" ? "No one holds control." : "This provider has no live view." });
-    const up = await fetch(`http://${upstream.host}:${upstream.port}/${file}${search}`, { signal: AbortSignal.timeout(15_000) });
+    const up = await readScreenFile(async () => {
+      const upstream = await provider.streamUpstream(agentId, mode);
+      if (!upstream) throw new ProviderError("unavailable", mode === "control" ? "No one holds control." : "This provider has no live view.", 409);
+      return `http://${upstream.host}:${upstream.port}/${file}${search}`;
+    });
     res.writeHead(up.status, {
-      "content-type": up.headers.get("content-type") ?? "application/octet-stream",
+      "content-type": up.contentType,
       "cache-control": "no-store",
     });
-    res.end(Buffer.from(await up.arrayBuffer()));
+    res.end(up.body);
   }
 
   const server = http.createServer((req, res) => {

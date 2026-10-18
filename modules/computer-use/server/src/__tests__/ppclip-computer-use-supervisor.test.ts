@@ -1,8 +1,10 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import http from "node:http";
 import { WebSocket } from "ws";
 import { createSupervisorServer } from "../ppclip/computer-use/supervisor/server.ts";
 import { FakeComputerProvider } from "../ppclip/computer-use/supervisor/fake-provider.ts";
 import { httpSupervisorClient, SupervisorError } from "../ppclip/computer-use/supervisor-client.ts";
+import type { ComputerProvider } from "../ppclip/computer-use/supervisor/provider.ts";
 
 const TOKEN = "t".repeat(48);
 
@@ -58,6 +60,29 @@ describe("ppclip computer supervisor", () => {
     expect(await offline.health()).toMatchObject({ ok: false });
     const untokened = httpSupervisorClient({ url: base, token: () => null });
     await expect(untokened.inspect("a")).rejects.toThrow(/isn.t running/);
+  });
+  it.each([false, true])("recovers a transient screen reset or returns a clear bounded failure (persistent=%s)", async persistent => {
+    let requests = 0;
+    const screen = http.createServer((req, res) => {
+      requests++;
+      if (persistent || requests === 1) { req.socket.destroy(); return; }
+      res.writeHead(200, { "content-type": "text/html" });
+      res.end("<html>Desktop ready</html>");
+    });
+    await new Promise<void>(resolve => screen.listen(0, "127.0.0.1", resolve));
+    const port = (screen.address() as import("node:net").AddressInfo).port;
+    const stream = vi.spyOn(provider as ComputerProvider, "streamUpstream").mockResolvedValue({ host: "127.0.0.1", port, token: "test-stream-token" });
+    try {
+      const result = await fetch(`${base}/computers/agent-1/stream/view/vnc_lite.html`, { headers: { authorization: `Bearer ${TOKEN}` } });
+      expect(result.status).toBe(persistent ? 502 : 200);
+      const body = await result.text();
+      expect(body).not.toContain("fetch failed");
+      expect(body).toContain(persistent ? "temporarily unavailable" : "Desktop ready");
+      expect(requests).toBe(persistent ? 3 : 2);
+    } finally {
+      stream.mockRestore();
+      await new Promise<void>(resolve => screen.close(() => resolve()));
+    }
   });
   it("does not report a healthy supervisor when its provider is unavailable", async () => {
     const offlineProvider = new FakeComputerProvider() as FakeComputerProvider & { health: () => Promise<void> };

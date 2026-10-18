@@ -73,5 +73,5 @@ export function viewerDocument(html: string) {
 }
 
 export function expiredViewerDocument() {
-  return `<!doctype html><html data-expired="true"><head><meta charset="utf-8"></head><body><p>Reconnecting to the live view…</p>${viewerReconnectScript}</body></html>`;
+  return `<!doctype html><html data-expired="true"><head><meta charset="utf-8">${viewerToolbarStyle}</head><body><p role="status">Reconnecting to the live view…</p>${viewerReconnectScript}</body></html>`;
 }
