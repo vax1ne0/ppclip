@@ -76,6 +76,7 @@ function TeamPageContent() {
                 showAssign={false}
                 showRun={false}
                 showStatus={false}
+                showLifecycleControls={false}
                 navigateToRunOnInvoke={false}
                 className="flex items-center gap-1"
               />

@@ -131,26 +131,27 @@ export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled,
         )}
       </section>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="flex flex-wrap items-center gap-2">
+      <div className="grid min-h-8 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
+        <span aria-hidden="true" />
+        <span className="flex items-center justify-center gap-2">
           {chatEnabled ? (
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className={computer ? "w-24 justify-center gap-1.5 px-2" : "min-w-28 justify-center"}>
               <Link to={`/chats/${agentRouteRef(agent)}`} aria-label={`Chat with ${agent.name}`}>
-                <MessageCircle />
+                <MessageCircle className="size-3.5" />
                 Chat
               </Link>
             </Button>
           ) : null}
           {computer ? (
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className={chatEnabled ? "w-24 justify-center gap-1.5 px-2" : "min-w-28 justify-center"}>
               <Link to={agentComputerHref(agent)} aria-label={`Open ${agent.name}'s computer`} data-testid="team-computer-link">
-                <Monitor />
+                <Monitor className="size-3.5" />
                 Computer
               </Link>
             </Button>
           ) : null}
         </span>
-        {actions}
+        <span className="flex items-center justify-self-end">{actions}</span>
       </div>
       {presentation.reportsToggle}
     </div>

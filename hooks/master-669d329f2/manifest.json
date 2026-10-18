@@ -2,8 +2,8 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "4ca5060cfac9bca69fa17f7569bec7759e25c0c4ca003c741209925b094ce6cd",
-  "generatedAt": "2026-10-18T05:23:41.409Z",
+  "hooksSha256": "46bf30a3de871ee24a5273ec90e7e7914f9261e85417bc554fecfa3b426e5dcf",
+  "generatedAt": "2026-10-18T05:41:06.482Z",
   "officialFilesModified": [
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
@@ -38,6 +38,7 @@
     "ui/package.json",
     "ui/src/App.tsx",
     "ui/src/components/ActiveAgentsPanel.tsx",
+    "ui/src/components/AgentActionButtons.test.tsx",
     "ui/src/components/AgentActionButtons.tsx",
     "ui/src/components/AgentAvatar.test.tsx",
     "ui/src/components/AgentAvatar.tsx",

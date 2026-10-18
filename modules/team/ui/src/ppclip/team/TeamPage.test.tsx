@@ -28,7 +28,7 @@ vi.mock("@/api/instanceSettings", () => ({ instanceSettingsApi: { getExperimenta
 vi.mock("@/components/AgentActionButtons", () => ({
   AgentActionButtons: (props: Record<string, unknown>) => {
     mocks.actionProps.push(props);
-    return <button type="button">Pause</button>;
+    return <button type="button">{props.showLifecycleControls === false ? "More actions" : "Pause"}</button>;
   },
 }));
 
@@ -93,7 +93,8 @@ describe("Team page", () => {
     expect(work).toEqual(["/issues/T-1", "/issues/T-2"]);
     expect(eng.querySelector("[aria-label='Chat with Engineer']")?.getAttribute("href")).toBe("/chats/engineer");
     expect(eng.textContent).toContain("running");
-    expect(mocks.actionProps.at(-1)).toMatchObject({ showAssign: false, showRun: false, showStatus: false });
+    expect(mocks.actionProps.at(-1)).toMatchObject({ showAssign: false, showRun: false, showStatus: false, showLifecycleControls: false });
+    expect(container.textContent).not.toContain("Pause");
 
     // Reporting line plus the waiting arrow derived from the blocked task.
     expect(container.querySelector("path[data-kind=report]")).not.toBeNull();

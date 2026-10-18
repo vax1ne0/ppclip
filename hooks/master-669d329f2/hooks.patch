@@ -523,73 +523,6 @@ index b3aaf50a2d77efeac06ca909217323b0cbf331da..be65ad4184340a9218ce3e4812542e79
        </h3>
        {runs.length === 0 ? (
          <div className="rounded-xl border border-border p-4">
-diff --git a/ui/src/components/AgentActionButtons.tsx b/ui/src/components/AgentActionButtons.tsx
-index 860327ec39aacd043284ade8092dd56cc1723ac6..0f951264613418594bc832ae02dbf9e4623b0bef 100644
---- a/ui/src/components/AgentActionButtons.tsx
-+++ b/ui/src/components/AgentActionButtons.tsx
-@@ -29,7 +29,8 @@ import {
-   AlertDialogHeader,
-   AlertDialogTitle,
- } from "@/components/ui/alert-dialog";
--import { AgentStatusBadge } from "./StatusBadge";
-+import { AgentAttentionBadge } from "@/ppclip/attention/AgentAttentionBadge"; // ppclip: NAV-2
-+import { DrainAfterMenuItem } from "@/ppclip/run-controls/DrainAfterMenuItem";
- import { agentsApi } from "../api/agents";
- import { ApiError } from "../api/client";
- import { queryKeys } from "../lib/queryKeys";
-@@ -163,6 +164,7 @@ export function AgentActionButtons({
-   runLabel = "Run now",
-   showStatus = true,
-   showRun = true,
-+  showAssign = true, // ppclip: TEAM-1 Team cards hide Assign task
-   actionsDisabled = false,
-   workActionsDisabled = false,
-   workActionsDisabledReason,
-@@ -184,6 +186,8 @@ export function AgentActionButtons({
-   runLabel?: string;
-   showStatus?: boolean;
-   showRun?: boolean;
-+  /** ppclip: TEAM-1 — hide the Assign task button (compact Team cards). */
-+  showAssign?: boolean;
-   actionsDisabled?: boolean;
-   workActionsDisabled?: boolean;
-   workActionsDisabledReason?: string;
-@@ -393,7 +397,7 @@ export function AgentActionButtons({
-           Raw tracing on
-         </span>
-       ) : null}
--      <Button
-+      {showAssign && <Button /* ppclip: TEAM-1 */
-         variant="outline"
-         size={size}
-         onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
-@@ -402,7 +406,7 @@ export function AgentActionButtons({
-       >
-         <Plus className="h-3.5 w-3.5 sm:mr-1" />
-         <span className="hidden sm:inline">{assignLabel}</span>
--      </Button>
-+      </Button>}
-       {showRun && <RunButton
-         onClick={() => {
-           if (navigateToRunOnInvoke && !confirmNavigationStart(agentActionStartedDirtyRef)) return;
-@@ -462,7 +466,7 @@ export function AgentActionButtons({
-       )}
-       {showStatus && (
-         <span className="hidden sm:inline">
--          <AgentStatusBadge status={agent.status} />
-+          <AgentAttentionBadge agent={agent} />{/* ppclip: NAV-2 attention-aware status */}
-         </span>
-       )}
-       {children}
-@@ -473,6 +477,8 @@ export function AgentActionButtons({
-           </Button>
-         </PopoverTrigger>
-         <PopoverContent className="w-44 p-1" align="end">
-+          {/* ppclip: RUN-2 drain after next run (hidden while run controls are off) */}
-+          <DrainAfterMenuItem agent={agent} onDone={() => setMoreOpen(false)} onError={reportError} />
-           <button
-             className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
-             disabled={duplicateAgent.isPending}
 diff --git a/ui/src/components/AgentConversationsSidebar.tsx b/ui/src/components/AgentConversationsSidebar.tsx
 index bb173be4a17299dbe7aa8ba76e56a69258ad608e..d8b7ab8a0784fb73d518c39d0dc0771d244477bc 100644
 --- a/ui/src/components/AgentConversationsSidebar.tsx
@@ -2229,6 +2162,113 @@ index c860d2a8e283ecf904a1067d6dc5f0cdba39ee47..ecda5e65ce6b4a601bd280ed48b88a72
        const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
        if (runtimeTools && runtimeToolDelivery === "invocation_context") {
          adapterContext.paperclipRuntimeTools = runtimeTools;
+diff --git a/ui/src/components/AgentActionButtons.test.tsx b/ui/src/components/AgentActionButtons.test.tsx
+index 322f673181cc45b2832d650f40a7d754b0ae5dad..e69700b797add356e09cefff6149f2e6298fbb83 100644
+--- a/ui/src/components/AgentActionButtons.test.tsx
++++ b/ui/src/components/AgentActionButtons.test.tsx
+@@ -192,6 +192,14 @@ describe("AgentActionButtons", () => {
+     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ["heartbeats", "company-1", "agent-1"] });
+   });
+ 
++  it("keeps only the more-actions menu in compact navigation mode", async () => {
++    render(makeAgent(), { showLifecycleControls: false, showAssign: false, showRun: false, showStatus: false });
++    await flushReact();
++    const buttons = [...container.querySelectorAll("button")];
++    expect(buttons).toHaveLength(1);
++    expect(buttons[0].getAttribute("aria-label")).toBe("Open actions for Alpha Agent");
++  });
++
+   it("keeps the normal pause action for non-error agents", async () => {
+     render(makeAgent({ status: "active" }));
+     await flushReact();
+diff --git a/ui/src/components/AgentActionButtons.tsx b/ui/src/components/AgentActionButtons.tsx
+index 860327ec39aacd043284ade8092dd56cc1723ac6..355b89c1edd6d18f712ecbbdbe834b25ed4379a9 100644
+--- a/ui/src/components/AgentActionButtons.tsx
++++ b/ui/src/components/AgentActionButtons.tsx
+@@ -29,7 +29,8 @@ import {
+   AlertDialogHeader,
+   AlertDialogTitle,
+ } from "@/components/ui/alert-dialog";
+-import { AgentStatusBadge } from "./StatusBadge";
++import { AgentAttentionBadge } from "@/ppclip/attention/AgentAttentionBadge"; // ppclip: NAV-2
++import { DrainAfterMenuItem } from "@/ppclip/run-controls/DrainAfterMenuItem";
+ import { agentsApi } from "../api/agents";
+ import { ApiError } from "../api/client";
+ import { queryKeys } from "../lib/queryKeys";
+@@ -163,6 +164,8 @@ export function AgentActionButtons({
+   runLabel = "Run now",
+   showStatus = true,
+   showRun = true,
++  showAssign = true, // ppclip: TEAM-1 Team cards hide Assign task
++  showLifecycleControls = true,
+   actionsDisabled = false,
+   workActionsDisabled = false,
+   workActionsDisabledReason,
+@@ -184,6 +187,10 @@ export function AgentActionButtons({
+   runLabel?: string;
+   showStatus?: boolean;
+   showRun?: boolean;
++  /** ppclip: TEAM-1 — hide the Assign task button (compact Team cards). */
++  showAssign?: boolean;
++  /** Compact navigation cards keep lifecycle controls on the agent page. */
++  showLifecycleControls?: boolean;
+   actionsDisabled?: boolean;
+   workActionsDisabled?: boolean;
+   workActionsDisabledReason?: string;
+@@ -393,7 +400,7 @@ export function AgentActionButtons({
+           Raw tracing on
+         </span>
+       ) : null}
+-      <Button
++      {showAssign && <Button /* ppclip: TEAM-1 */
+         variant="outline"
+         size={size}
+         onClick={() => openNewIssue({ assigneeAgentId: agent.id })}
+@@ -402,7 +409,7 @@ export function AgentActionButtons({
+       >
+         <Plus className="h-3.5 w-3.5 sm:mr-1" />
+         <span className="hidden sm:inline">{assignLabel}</span>
+-      </Button>
++      </Button>}
+       {showRun && <RunButton
+         onClick={() => {
+           if (navigateToRunOnInvoke && !confirmNavigationStart(agentActionStartedDirtyRef)) return;
+@@ -427,7 +434,7 @@ export function AgentActionButtons({
+           <span className="hidden sm:inline">Run with provider trace</span>
+         </Button>
+       )}
+-      {isError ? (
++      {showLifecycleControls && (isError ? (
+         <ClearErrorButton
+           onClick={() => agentAction.mutate("clear_error")}
+           disabled={clearErrorDisabled}
+@@ -441,7 +448,7 @@ export function AgentActionButtons({
+           disabled={pauseResumeDisabled}
+           size={size}
+         />
+-      )}
++      ))}
+       {pauseConfirm && (
+         <AlertDialog open={pauseConfirmOpen} onOpenChange={setPauseConfirmOpen}>
+           <AlertDialogContent>
+@@ -462,7 +469,7 @@ export function AgentActionButtons({
+       )}
+       {showStatus && (
+         <span className="hidden sm:inline">
+-          <AgentStatusBadge status={agent.status} />
++          <AgentAttentionBadge agent={agent} />{/* ppclip: NAV-2 attention-aware status */}
+         </span>
+       )}
+       {children}
+@@ -473,6 +480,8 @@ export function AgentActionButtons({
+           </Button>
+         </PopoverTrigger>
+         <PopoverContent className="w-44 p-1" align="end">
++          {/* ppclip: RUN-2 drain after next run (hidden while run controls are off) */}
++          <DrainAfterMenuItem agent={agent} onDone={() => setMoreOpen(false)} onError={reportError} />
+           <button
+             className="flex items-center gap-2 w-full px-2 py-1.5 text-xs rounded hover:bg-accent/50"
+             disabled={duplicateAgent.isPending}
 diff --git a/ui/src/components/AgentAvatar.test.tsx b/ui/src/components/AgentAvatar.test.tsx
 index c4d5f9ac731eb8008a5655ca1d237ced338669d0..2ea318056c51bb5ad9af14735b5ae15fd413184c 100644
 --- a/ui/src/components/AgentAvatar.test.tsx
