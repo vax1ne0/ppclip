@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { checkVersions, installedVersions, type UpdateVersions } from "./versions.js";
 
 const run = promisify(execFile);
 
@@ -28,6 +29,7 @@ export type UpdateJob = {
 };
 
 export type UpdateStatus = {
+  versions?: UpdateVersions;
   localChanges?: string[];
   installation?: { installedAt: string; paperclipVersion: string } | null;
   packageDir: string | null;
@@ -101,7 +103,7 @@ export type UpdateDeps = {
 
 export function updateService(deps: UpdateDeps = {}) {
   const paths = deps.paths ?? defaultUpdatePaths();
-  type Check = { available: string[]; checkedAt: string; error: string | null };
+  type Check = { available: string[]; checkedAt: string; error: string | null; versions?: UpdateVersions; packageHead?: string };
   const checkFile = paths.home ? path.join(paths.home, "ppclip-update-check.json") : null;
   let lastCheck = checkFile ? readJson<Check>(checkFile) : null;
   let checking: Promise<void> | null = null;
@@ -159,13 +161,21 @@ export function updateService(deps: UpdateDeps = {}) {
         }
       }
       const installed = readJson<{ installedAt: string; paperclipVersion: string }>(path.join(paths.app, ".ppclip-overlay.json"));
+      const localVersions = await installedVersions(paths, git);
+      const stale = Boolean((lastCheck?.packageHead && lastCheck.packageHead !== current?.commit)
+        || (lastCheck?.versions && lastCheck.versions.paperclip.current !== localVersions.paperclip.current));
+      const versions = !stale && lastCheck?.versions ? {
+        paperclip: { ...lastCheck.versions.paperclip, current: localVersions.paperclip.current },
+        ppclip: { ...lastCheck.versions.ppclip, current: localVersions.ppclip.current },
+      } : localVersions;
       return {
+        versions,
         localChanges: paths.packageDir ? (await git(paths.packageDir, ["status", "--porcelain", "--untracked-files=normal"]).catch(() => "")).split("\n").filter(Boolean) : [],
         installation: installed ? { installedAt: installed.installedAt, paperclipVersion: installed.paperclipVersion } : null,
         packageDir: paths.packageDir,
         current,
-        available: lastCheck?.available ?? [],
-        checkedAt: lastCheck?.checkedAt ?? null,
+        available: stale ? [] : lastCheck?.available ?? [],
+        checkedAt: stale ? null : lastCheck?.checkedAt ?? null,
         checkError: lastCheck?.error ?? null,
         blocked: await blocked(),
         runningRuns: deps.countRunningRuns ? await deps.countRunningRuns() : 0,
@@ -181,7 +191,10 @@ export function updateService(deps: UpdateDeps = {}) {
           if (!paths.packageDir) throw new Error("The ppclip folder wasn't found.");
           await git(paths.packageDir, ["fetch", "--quiet"], 120_000);
           const out = await git(paths.packageDir, ["log", "--format=%h %s", "HEAD..@{u}"]);
-          lastCheck = { available: out ? out.split("\n") : [], checkedAt: new Date().toISOString(), error: null };
+          const versions = await checkVersions(paths, git);
+          versions.ppclip.updateAvailable = Boolean(out);
+          lastCheck = { available: out ? out.split("\n") : [], checkedAt: new Date().toISOString(), error: null, versions,
+            packageHead: await git(paths.packageDir, ["rev-parse", "--short", "HEAD"]) };
         } catch (err) {
           lastCheck = { available: [], checkedAt: new Date().toISOString(), error: err instanceof Error ? err.message.split("\n")[0]! : "git fetch failed" };
         }

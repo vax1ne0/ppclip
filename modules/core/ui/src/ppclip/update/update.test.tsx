@@ -53,6 +53,48 @@ afterEach(() => {
 });
 
 describe("UpdateSection", () => {
+  it("shows both installed versions and waits for ppclip support for a newer Paperclip", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", versions: {
+      paperclip: { current: "1.0.0", latest: "1.1.0", updateAvailable: true, compatibility: "waiting" },
+      ppclip: { current: "0.2.0+45", latest: "0.2.0+45", updateAvailable: false },
+    } }));
+    await render();
+    expect(q("ppclip-update-versions")?.textContent).toMatch(/Paperclip.*1.0.0.*1.1.0.*Waiting for ppclip support.*ppclip.*0.2.0\+45/);
+    expect(q("ppclip-update-status")?.textContent).toBe("No compatible updates");
+    expect(q("ppclip-update-start")).toBeNull();
+  });
+
+  it("offers the compatible Paperclip update even if ppclip itself has no new commits", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", versions: {
+      paperclip: { current: "1.0.0", latest: "1.1.0", updateAvailable: true, compatibility: "supported" },
+      ppclip: { current: "0.2.0", latest: "0.2.0", updateAvailable: false },
+    } }));
+    await render();
+    expect(q("ppclip-update-start")).not.toBeNull();
+    expect(q("ppclip-update-status")?.textContent).toBe("Update available");
+  });
+
+  it("can update ppclip while a newer Paperclip is waiting, and shows ppclip’s new version", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", available: ["abc Update"], versions: {
+      paperclip: { current: "1.0.0", latest: "1.1.0", updateAvailable: true, compatibility: "waiting" },
+      ppclip: { current: "0.2.0", latest: "0.3.0", updateAvailable: true },
+    } }));
+    await render();
+    expect(q("ppclip-update-start")).not.toBeNull();
+    expect(q("ppclip-update-versions")?.textContent).toContain("0.3.0");
+    expect(q("ppclip-update-versions")?.textContent).toContain("Waiting for ppclip support");
+  });
+
+  it("shows a partial release-check failure without claiming Paperclip is unsupported", async () => {
+    mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", versions: {
+      paperclip: { current: "1.0.0", latest: null, updateAvailable: null, compatibility: "unknown", checkFailed: true },
+      ppclip: { current: "0.2.0", latest: "0.2.0", updateAvailable: false },
+    } }));
+    await render();
+    expect(q("ppclip-update-versions")?.textContent).toContain("Couldn’t check");
+    expect(q("ppclip-update-versions")?.textContent).not.toContain("Waiting for ppclip support");
+  });
+
   it("shows a friendly failed-check message without exposing the raw error", async () => {
     mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", checkError: "git fetch failed: C:/private/repo" }));
     await render();

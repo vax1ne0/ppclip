@@ -86,6 +86,18 @@ describe("ppclip update service", () => {
     expect(result.available).toHaveLength(1);
     expect(result.localChanges?.join("\n")).toMatch(/notes.txt/);
     expect(result.localChanges?.join("\n")).toMatch(/modules.json/);
+    // Replacing Paperclip also invalidates compatibility measured for its old version.
+    git(app, "init", "-q", "-b", "main");
+    git(app, "commit", "--allow-empty", "-q", "-m", "Paperclip version");
+    git(app, "tag", "v1.0.0");
+    expect((await updateService({ paths }).status()).checkedAt).toBeNull();
+    await updateService({ paths }).check();
+    // A new local package build must not inherit the previous build's result.
+    git(pkg, "add", "-A");
+    git(pkg, "commit", "-q", "-m", "local build");
+    const refreshed = await updateService({ paths }).status();
+    expect(refreshed.checkedAt).toBeNull();
+    expect(refreshed.available).toEqual([]);
   });
 
   it("records spawn failure, keeps the server running and permits a retry", async () => {

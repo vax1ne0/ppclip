@@ -47,9 +47,9 @@ Each module explains what changes when it is disabled. This example has Approved
 
 ### Update settings
 
-Settings → ppclip → Updates shows whether ppclip is up to date, with a check button and clear installation progress.
+Settings → ppclip → Updates shows installed and newer Paperclip and ppclip versions, compatibility status, and clear installation progress. If a newer Paperclip needs a ppclip update first, the section says so.
 
-![Compact Updates section in ppclip settings with Up to date status and Check for updates](docs/images/updates.jpg)
+![Compact Updates section with Paperclip and ppclip versions, compatibility status, and Check for updates](docs/images/updates.jpg)
 
 </details>
 

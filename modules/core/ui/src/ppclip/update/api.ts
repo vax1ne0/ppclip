@@ -14,6 +14,10 @@ export type UpdateJob = {
 };
 
 export type UpdateStatus = {
+  versions?: {
+    paperclip: ProductVersion & { compatibility: "supported" | "waiting" | "unknown" };
+    ppclip: ProductVersion;
+  };
   localChanges?: string[];
   installation?: { installedAt: string; paperclipVersion: string } | null;
   packageDir: string | null;
@@ -25,6 +29,13 @@ export type UpdateStatus = {
   runningRuns: number;
   job: UpdateJob | null;
   logTail: string[];
+};
+
+type ProductVersion = {
+  current: string | null;
+  latest: string | null;
+  updateAvailable: boolean | null;
+  checkFailed?: boolean;
 };
 
 export const ppclipUpdateApi = {

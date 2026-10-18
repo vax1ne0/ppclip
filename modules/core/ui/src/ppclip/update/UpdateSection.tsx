@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertCircle, CheckCircle2, Download, RefreshCw } from "lucide-react";
+import { AlertCircle, ArrowRight, CheckCircle2, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ppclipUpdateApi, type UpdateStatus } from "./api";
@@ -20,6 +20,27 @@ function progressLabel(step?: string) {
 function checkedLabel(value?: string | null) {
   if (!value || Number.isNaN(Date.parse(value))) return "Check for the latest version of ppclip.";
   return "Last checked " + new Date(value).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
+}
+
+function VersionRow({ name, item, compatibility }: {
+  name: string;
+  item: NonNullable<UpdateStatus["versions"]>["ppclip"];
+  compatibility?: "supported" | "waiting" | "unknown";
+}) {
+  const newer = item.updateAvailable;
+  const label = item.checkFailed ? "Couldn’t check" : newer
+    ? compatibility === "waiting" ? "Waiting for ppclip support" : compatibility === "unknown" ? "Support not confirmed" : "Update available"
+    : item.updateAvailable === null ? "Not checked" : "Up to date";
+  return <div className="flex items-start gap-3 py-2">
+    <dt className="w-16 shrink-0 text-xs font-medium">{name}</dt>
+    <dd className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      <span className="flex min-w-0 flex-wrap items-center gap-2 tabular-nums">
+        <span>{item.current ?? "Version unavailable"}</span>
+        {newer && item.latest && <><ArrowRight className="size-3" aria-label="New version" /><span className="text-foreground">{item.latest}</span></>}
+      </span>
+      <span>{label}</span>
+    </dd>
+  </div>;
 }
 
 /** Compact Settings → ppclip updates. Diagnostics stay in the updater's records. */
@@ -83,10 +104,12 @@ export function UpdateSection() {
     if (window.confirm(message)) start.mutate();
   }
 
-  const available = Boolean(data?.available.length);
+  const paperclip = data?.versions?.paperclip;
+  const paperclipUpgrade = paperclip?.updateAvailable && paperclip.compatibility === "supported";
+  const available = Boolean(data?.available.length || paperclipUpgrade);
   const needsAttention = Boolean(data?.checkError || check.isError || status.isError);
   const busy = updating || start.isPending || check.isPending || status.isLoading;
-  const statusLabel = updating || start.isPending ? "Updating…" : check.isPending ? "Checking…" : status.isLoading ? "Loading…" : needsAttention ? "Couldn’t check for updates" : !data?.checkedAt ? "Check for updates" : available ? "Update available" : "Up to date";
+  const statusLabel = updating || start.isPending ? "Updating…" : check.isPending ? "Checking…" : status.isLoading ? "Loading…" : needsAttention ? "Couldn’t check for updates" : !data?.checkedAt ? "Check for updates" : available ? "Update available" : paperclip?.updateAvailable ? "No compatible updates" : "Up to date";
   const StatusIcon = busy ? RefreshCw : needsAttention ? AlertCircle : data?.checkedAt && !available ? CheckCircle2 : Download;
   return (
     <section className="space-y-3" aria-labelledby="ppclip-updates" data-testid="ppclip-update-section">
@@ -109,6 +132,10 @@ export function UpdateSection() {
           </div>}
         </div>
         {busy && <progress aria-label={updating || start.isPending ? "Updating ppclip" : "Checking for updates"} className="block h-1.5 w-full accent-primary" />}
+        {data?.versions && <dl className="divide-y divide-border border-t border-border px-4 py-1" aria-label="Installed and available versions" data-testid="ppclip-update-versions">
+          <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility} />
+          <VersionRow name="ppclip" item={data.versions.ppclip} />
+        </dl>}
         {!busy && available && data?.blocked && <p className="px-5 pb-5 text-sm leading-relaxed text-muted-foreground" data-testid="ppclip-update-blocked">Automatic updates aren’t available right now. Contact the person who set up this installation to help update it.</p>}
         {updating && <div role="status" aria-live="polite" className="space-y-2 px-5 pb-5" data-testid="ppclip-update-progress">
           <p className="text-sm font-medium">{status.isError || !job ? "Restarting Paperclip…" : job.state === "done" ? "Updated. Reloading…" : progressLabel(job.step)}</p>
