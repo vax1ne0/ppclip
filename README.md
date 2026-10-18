@@ -8,7 +8,7 @@ You keep the official repository. ppclip adds its own modules and marked integra
 
 [Install](#quick-start) · [Features](#features) · [Screenshots](#screenshots) · [Updates](#updates-and-removal) · [Documentation](#documentation)
 
-![Team canvas showing two agents, assigned work, a reporting relationship, and chat and computer shortcuts](docs/images/team.jpg)
+![Team canvas showing seven agents, reporting routes, role colours, and chat and computer shortcuts](docs/images/team.jpg)
 
 ## Features
 
@@ -34,9 +34,9 @@ Actual captures from a local installation. Names, usage values, and switch state
 
 ### Computer controls
 
-Watch an agent's desktop, take control, pause it, or stop it. The paused state below keeps the next actions visible instead of trying to load an unavailable stream.
+Watch an agent's desktop, take control, pause it, or stop it. The connected desktop below shows the compact status row and control expiry.
 
-![A paused computer with Resume, Take control, Stop, and Revoke access controls](docs/images/computer.jpg)
+![Connected agent desktop with the simplified Live screen header, control status, and expiry time](docs/images/computer.jpg)
 
 <details>
 <summary><strong>Module settings and updates</strong></summary>

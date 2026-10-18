@@ -1,11 +1,11 @@
 # README screenshots
 
-These are real UI captures from a local ppclip installation on 2026-10-18, at 1536 × 798 pixels, using its dark theme.
+These are real UI captures from a local ppclip installation on 2026-10-18, using its dark theme. Team, computer and updates were refreshed at 1536 × 742 pixels; the module-settings capture is 1536 × 798 pixels.
 
 | File | View |
 |---|---|
-| `team.jpg` | Team canvas with two agents and a reporting relationship. |
-| `computer.jpg` | Agent computer page during pause/resume verification earlier that day. The paused state is intentional. |
+| `team.jpg` | Team canvas fitted to all seven agents, showing four reporting relationships, role colours and aligned action buttons. |
+| `computer.jpg` | Connected Live screen page with the simplified header, human-control state and expiry, and Chromium showing Google's signed-out home page. |
 | `modules.jpg` | Settings → ppclip, scrolled to Providers. Approved models is disabled in this instance; the module defaults to on. |
 | `updates.jpg` | Settings → ppclip, showing compact update status and collapsed diagnostics. The revision and cached check result reflect the capture. |
 
