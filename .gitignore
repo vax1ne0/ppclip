@@ -3,3 +3,12 @@ __pycache__/
 *.py[cod]
 .DS_Store
 Thumbs.db
+
+# Local instance state and credentials belong outside the source package.
+.ppclip-runtime/
+.ppclip-overlay.json
+.env
+.env.*
+!.env.example
+*.log
+*.tmp

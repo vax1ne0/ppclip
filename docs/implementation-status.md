@@ -18,7 +18,7 @@ This is a code inventory, not a claim that every scenario has passed a fresh end
 | Stable Paperclip installation | `hooks/v2026.1012.0` with shared modules | Ported to stable v2026.1012.0. Separate hooks preserve the existing canary base. |
 | Existing canary → older stable data migration | Requires separate database compatibility verification | Not implemented. Stable support is for a separate installation; the running canary and its data are retained. |
 
-The former local handoff referred to Paperclip v2026.1012.0 and a removed `tools/build-patch.mjs`; it was obsolete and has been moved outside the package. Installation and export instructions now live in the maintained guides. Research recommendations do not become shipped features merely by appearing in a document.
+Installation and export instructions live in the maintained guides. Research recommendations are not shipped features unless listed as implemented above.
 
 The package adds two npm dependencies through its hooks: `react-colorful` for team/mascot color pickers and optional `@lydell/node-pty` for Windows ConPTY sign-in. Both have live imports. Paperclip's other dependencies belong to upstream; removing them based only on ppclip imports would break the host application. Docker packages are separately declared in the computer image's Dockerfile.
 

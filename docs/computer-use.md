@@ -11,7 +11,7 @@ Computer use gives a Paperclip agent its own sandboxed Linux desktop with a Chro
 It is **off by default**. The quickest path:
 
 1. **Start the supervisor** once per session: `node scripts/ppclip/start-local.mjs --with-computer` starts Paperclip and the supervisor together. Or run `node scripts/ppclip/computer-supervisor.mjs` next to your own Paperclip. Build the sandbox image once first (see [Running it](#running-it)).
-2. **Turn it on for the agent:** open the agent, go to **Configuration**, then the **Computer use** card. Press **Turn on computer use** if the company switch is still off, then switch on **Give this agent a computer**. The card also shows whether the supervisor is connected, and holds the shell, allowed-sites and delete-profile controls.
+2. **Turn it on for the agent:** open the agent, go to **Harness / Runtime**, then the **Computer use** card. Press **Turn on computer use** if the company switch is still off, then switch on **Give this agent a computer**. The card also shows whether the supervisor is connected, and holds the shell, allowed-sites and delete-profile controls.
 3. **Watch it:** press **Watch live** on that card, or open **Live runs**. On the agent's card, press **Start computer**.
 4. **Ask the agent in plain words,** for example "open example.com with your computer and tell me the page title". Claude Code and Codex local agents get the computer tools automatically.
 
@@ -20,7 +20,7 @@ It is **off by default**. The quickest path:
 - **Team page:** agents with a computer get a **Computer** button that opens the big screen, and a state chip while it runs.
 - **Agent chats:** a slim bar above the chat shows the computer's state. **Show screen** opens it in place, and **Big screen** jumps to the big screen.
 - **Live runs:** every agent's card shows its screen side by side with the others. **Big screen** on a card opens that agent's.
-- **Configuration card:** it has **Open big screen** and **Watch live**.
+- **Computer use card in Harness / Runtime:** it has **Open big screen** and **Watch live**.
 
 While the agent works, its Live runs card shows **Using its computer** next to its status. When it asks for help, the card shows **Needs you** with its reason; press **Take control**. Company Settings has the same switch and every agent's controls in one list.
 
@@ -182,7 +182,7 @@ To try the UI without Docker, run `node scripts/ppclip/computer-supervisor.mjs -
 
 To test the real Docker provider:
 1. Build the image and start the supervisor as above.
-2. Start Paperclip, or use `start-local.mjs --with-computer` for steps 1 and 2 together. Open a Claude Code or Codex agent, then **Configuration**, then **Computer use**. Press **Turn on computer use**, check the supervisor line says "connected", and switch on **Give this agent a computer**.
+2. Start Paperclip, or use `start-local.mjs --with-computer` for steps 1 and 2 together. Open a Claude Code or Codex agent, then **Harness / Runtime**, then **Computer use**. Press **Turn on computer use**, check the supervisor line says "connected", and switch on **Give this agent a computer**.
 3. Press **Open on Live runs**. On the agent's card, press **Start computer**. The desktop appears view-only within a minute, and the agent card's button changes to **Watch live**.
 4. Press **Take control**. Click into the screen, type into the browser's address bar and open a site. Then **Release to agent**.
 5. Ask the agent (Claude or Codex local adapter) to "open example.com with your computer and tell me the page title". The card shows it working, and the Activity page shows `ppclip.computer_use.tool` rows.
