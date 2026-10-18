@@ -78,7 +78,7 @@ function TeamPageContent() {
                 showStatus={false}
                 showLifecycleControls={false}
                 navigateToRunOnInvoke={false}
-                className="flex items-center gap-1"
+                className="flex items-center [&>button]:size-9 [&>button]:rounded-md [&>button]:border [&>button]:border-input [&>button]:bg-background [&>button]:shadow-xs"
               />
             )}
           />

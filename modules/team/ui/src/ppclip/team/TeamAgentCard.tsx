@@ -131,26 +131,25 @@ export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled,
         )}
       </section>
 
-      <div className="grid min-h-8 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
-        <span aria-hidden="true" />
-        <span className="flex items-center justify-center gap-2">
+      <div className="grid min-h-9 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+        <div className={chatEnabled && computer ? "grid min-w-0 grid-cols-2 gap-2" : "flex min-w-0 justify-center pl-11"}>
           {chatEnabled ? (
-            <Button asChild size="sm" variant="outline" className={computer ? "w-24 justify-center gap-1.5 px-2" : "min-w-28 justify-center"}>
+            <Button asChild size="sm" variant="outline" className={computer ? "w-full min-w-0 gap-2 px-3" : "min-w-28 gap-2"}>
               <Link to={`/chats/${agentRouteRef(agent)}`} aria-label={`Chat with ${agent.name}`}>
-                <MessageCircle className="size-3.5" />
-                Chat
+                <MessageCircle className="size-4" aria-hidden="true" />
+                <span className="leading-none">Chat</span>
               </Link>
             </Button>
           ) : null}
           {computer ? (
-            <Button asChild size="sm" variant="outline" className={chatEnabled ? "w-24 justify-center gap-1.5 px-2" : "min-w-28 justify-center"}>
+            <Button asChild size="sm" variant="outline" className={chatEnabled ? "w-full min-w-0 gap-2 px-3" : "min-w-28 gap-2"}>
               <Link to={agentComputerHref(agent)} aria-label={`Open ${agent.name}'s computer`} data-testid="team-computer-link">
-                <Monitor className="size-3.5" />
-                Computer
+                <Monitor className="size-4" aria-hidden="true" />
+                <span className="leading-none">Computer</span>
               </Link>
             </Button>
           ) : null}
-        </span>
+        </div>
         <span className="flex items-center justify-self-end">{actions}</span>
       </div>
       {presentation.reportsToggle}

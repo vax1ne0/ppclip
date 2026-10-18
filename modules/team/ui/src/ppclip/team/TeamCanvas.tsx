@@ -443,7 +443,7 @@ export function TeamCanvas({ companyId, agents, links, renderCard, evidenceStatu
                 <Button
                   size="xs"
                   variant="ghost"
-                  className="self-start text-muted-foreground"
+                  className="-ml-2 self-start text-muted-foreground"
                   aria-expanded={!collapsed}
                   onClick={() => update("collapsed", collapsed ? settings.collapsed.filter((id) => id !== member.id) : [...settings.collapsed, member.id])}
                 >
