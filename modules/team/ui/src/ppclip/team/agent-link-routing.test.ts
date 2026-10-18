@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { alignOpposingReportingJunctions, routeReportingBranches, routeAgentLink, crossesCard, type RouteBox } from './agent-link-routing';
+import { alignOpposingReportingJunctions, routeReportingBranches, routeAgentLink, routeHasClearance, ROUTE_CARD_CLEARANCE, crossesCard, type RouteBox } from './agent-link-routing';
 const ahmed = { x: 0, y: 0, w: 260, h: 200 };
 const cards: RouteBox[] = [ahmed, { x: 292, y: 32, w: 260, h: 200 }, { x: 584, y: 32, w: 260, h: 200 }, { x: 380, y: 320, w: 260, h: 190 }, { x: 656, y: 320, w: 260, h: 190 }, { x: 380, y: 526, w: 260, h: 190 }, { x: 656, y: 526, w: 260, h: 190 }];
 describe('agent link routing', () => {
@@ -40,7 +40,8 @@ describe('group corridors', () => {
     const advisor={x:240,y:0,w:200,h:180};
     const group={x:240,y:260,w:220,h:220};
     const target={x:250,y:280,w:200,h:180,group,name:{x:340,y:320}};
-    const route=routeAgentLink(lead,target,[lead,advisor,target]);
+    // Block the open left approach so this fixture exercises the row corridor.
+    const route=routeAgentLink(lead,target,[lead,advisor,target,{x:40,y:270,w:160,h:160}]);
     expect(route).toContainEqual({x:340,y:220});
   });
 });
@@ -81,6 +82,59 @@ it('uses a single clear elbow between a top exit and a right entrance', () => {
   for(let i=1;i<route.length;i++) for(const card of [from,to]) expect(crossesCard(route[i-1],route[i],card)).toBe(false);
 });
 
+
+describe('card clearance', () => {
+  it('takes the open top-to-side elbow instead of squeezing through a saved 20px side gap', () => {
+    const from = { x: 0, y: 240, w: 200, h: 240 };
+    const to = { x: 220, y: 0, w: 200, h: 200 };
+    const route = routeAgentLink(from, to, [from, to], { preferredPorts: { from: 'right', to: 'left' } });
+    expect(route).toEqual([{ x: 100, y: 240 }, { x: 100, y: 100 }, { x: 220, y: 100 }]);
+    expect(routeHasClearance(route, from, to, [from, to])).toBe(true);
+  });
+  it.each([0, 1, 2, 3])('keeps the padding from a card border after rotation %s', turns => {
+    const rotatePoint = (p: { x: number; y: number }) => {
+      for (let i = 0; i < turns; i++) p = { x: -p.y, y: p.x };
+      return p;
+    };
+    const rotateBox = (box: RouteBox) => {
+      const corners = [rotatePoint({ x: box.x, y: box.y }), rotatePoint({ x: box.x + box.w, y: box.y + box.h })];
+      return { x: Math.min(...corners.map(p => p.x)), y: Math.min(...corners.map(p => p.y)), w: Math.abs(corners[1].x - corners[0].x), h: Math.abs(corners[1].y - corners[0].y) };
+    };
+    const from = rotateBox({ x: 0, y: 0, w: 80, h: 80 });
+    const to = rotateBox({ x: 600, y: 0, w: 80, h: 80 });
+    const blocker = rotateBox({ x: 280, y: 40, w: 80, h: 80 });
+    const route = routeAgentLink(from, to, [from, to, blocker]);
+    expect(route.length).toBeGreaterThan(1);
+    expect(routeHasClearance(route, from, to, [from, to, blocker])).toBe(true);
+    const padding = { x: blocker.x - ROUTE_CARD_CLEARANCE, y: blocker.y - ROUTE_CARD_CLEARANCE, w: blocker.w + 2 * ROUTE_CARD_CLEARANCE, h: blocker.h + 2 * ROUTE_CARD_CLEARANCE };
+    for (let i = 1; i < route.length; i++) expect(crossesCard(route[i - 1], route[i], padding)).toBe(false);
+  });
+  it('allows normal terminal connections but rejects a turn inside their padding', () => {
+    const from = { x: 0, y: 0, w: 200, h: 200 }, to = { x: 400, y: 300, w: 200, h: 200 };
+    expect(routeHasClearance([{ x: 100, y: 200 }, { x: 100, y: 210 }, { x: 500, y: 210 }, { x: 500, y: 300 }], from, to, [from, to])).toBe(false);
+    expect(routeHasClearance([{ x: 100, y: 200 }, { x: 100, y: 250 }, { x: 500, y: 250 }, { x: 500, y: 300 }], from, to, [from, to])).toBe(true);
+  });
+  it('keeps shared branches clear of nearby unrelated cards', () => {
+    const boxes = new Map([
+      ['manager', { x: 400, y: 0, w: 200, h: 200 }],
+      ['a', { x: 0, y: 400, w: 200, h: 200 }],
+      ['b', { x: 800, y: 400, w: 200, h: 200 }],
+      ['blocker', { x: 200, y: 220, w: 180, h: 80 }],
+    ]);
+    const edges = ['a', 'b'].map(to => ({ id: to, from: 'manager', to }));
+    const result = routeReportingBranches(edges, boxes);
+    expect(result.size).toBe(2);
+    for (const edge of edges) expect(routeHasClearance(result.get(edge.id)!, boxes.get('manager')!, boxes.get(edge.to)!, [...boxes.values()])).toBe(true);
+  });
+  it('does not fall back to touching cards when every exit is sealed', () => {
+    const from = { x: 0, y: 0, w: 100, h: 100 }, to = { x: 400, y: 400, w: 100, h: 100 };
+    const blockers = [
+      { x: -60, y: 0, w: 40, h: 100 }, { x: 120, y: 0, w: 40, h: 100 },
+      { x: 0, y: -60, w: 100, h: 40 }, { x: 0, y: 120, w: 100, h: 40 },
+    ];
+    expect(routeAgentLink(from, to, [from, to, ...blockers], { preferredPorts: { from: 'right', to: 'left' } })).toEqual([]);
+  });
+});
 
 describe('adaptive saved connection sides', () => {
   const source = { x: 0, y: 0, w: 200, h: 200 };
@@ -182,7 +236,7 @@ describe('opposing reporting junctions', () => {
     expect(alignOpposingReportingJunctions(routes.map(route => ({ ...route, points: result.get(route.id)! })), cards)).toEqual(result);
   });
   it('uses another clear common height when the midpoint is blocked', () => {
-    const obstacles = [...cards, { x: -120, y: 110, w: 40, h: 20 }];
+    const obstacles = [...cards, { x: -120, y: 130, w: 40, h: 20 }];
     const result = alignOpposingReportingJunctions(routes, obstacles);
     expect(result.get('left')![1].y).toBe(100);
     expect(result.get('right')![1].y).toBe(100);
@@ -190,8 +244,8 @@ describe('opposing reporting junctions', () => {
   });
   it('leaves both original routes alone when no common height clears the cards', () => {
     const obstacles = [...cards,
-      { x: -120, y: 110, w: 40, h: 50 },
-      { x: 80, y: 90, w: 40, h: 40 },
+      { x: -120, y: 130, w: 40, h: 50 },
+      { x: 80, y: 60, w: 40, h: 50 },
     ];
     const result = alignOpposingReportingJunctions(routes, obstacles);
     expect([...result.values()]).toEqual(routes.map(route => route.points));
@@ -209,7 +263,7 @@ describe('opposing reporting junctions', () => {
   });
   it('preserves an existing same-height branch group when joining the opposite arm', () => {
     const extra = { ...left, id: 'extra', to: 'c', points: left.points.map(point => ({ ...point, x: point.x < 0 ? point.x - 100 : point.x })) };
-    const result = alignOpposingReportingJunctions([...routes, extra], cards);
+    const result = alignOpposingReportingJunctions([...routes, extra], [...cards, { x: -320, y: 200, w: 40, h: 40 }]);
     expect(new Set([...result.values()].map(path => path[1].y)).size).toBe(1);
     assertClear(result);
   });

@@ -67,7 +67,7 @@ export function TeamAgentCard({ agent, tasks, workState, retryWork, chatEnabled,
       <AgentAvatar agent={agent} size={40} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
-          <Link to={url} className="min-w-0 truncate text-sm font-semibold text-foreground hover:underline" title={agent.name}>
+          <Link to={url} className="min-w-0 truncate text-sm font-semibold text-foreground no-underline hover:no-underline" title={agent.name}>
             {agent.name}
           </Link>
           <AgentComputerBadge agentId={agent.id} />

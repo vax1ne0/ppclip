@@ -13,6 +13,30 @@ export const crossesCard = (a: RoutePoint, b: RoutePoint, c: RouteBox) => a.x ==
   ? a.x > c.x && a.x < c.x + c.w && Math.max(a.y, b.y) > c.y && Math.min(a.y, b.y) < c.y + c.h
   : a.y > c.y && a.y < c.y + c.h && Math.max(a.x, b.x) > c.x && Math.min(a.x, b.x) < c.x + c.w;
 
+export const ROUTE_CARD_CLEARANCE = 24;
+const padded = (box: RouteBox): RouteBox => ({ x: box.x - ROUTE_CARD_CLEARANCE, y: box.y - ROUTE_CARD_CLEARANCE, w: box.w + ROUTE_CARD_CLEARANCE * 2, h: box.h + ROUTE_CARD_CLEARANCE * 2 });
+const sameBox = (a: RouteBox, b: RouteBox) => a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h;
+const normalExit = (port: RoutePoint, next: RoutePoint, box: RouteBox) =>
+  (port.x === box.x && next.x < port.x && next.y === port.y)
+  || (port.x === box.x + box.w && next.x > port.x && next.y === port.y)
+  || (port.y === box.y && next.y < port.y && next.x === port.x)
+  || (port.y === box.y + box.h && next.y > port.y && next.x === port.x);
+
+/** Only a normal terminal connection may cross its own card's clearance area. */
+export function routeHasClearance(path: RoutePoint[], from: RouteCard, to: RouteCard, cards: readonly RouteCard[]): boolean {
+  if (path.length < 2) return false;
+  const obstacles = cards.flatMap(card => card.group ? [card, card.group] : [card]);
+  return path.slice(1).every((b, i) => {
+    const a = path[i];
+    if (a.x !== b.x && a.y !== b.y) return false;
+    return obstacles.every(card => {
+      if (i === 0 && (sameBox(card, from) || sameBox(card, from.group ?? from)) && normalExit(a, b, from)) return true;
+      if (i === path.length - 2 && (sameBox(card, to) || sameBox(card, to.group ?? to)) && normalExit(b, a, to)) return true;
+      return !crossesCard(a, b, padded(card));
+    });
+  });
+}
+
 /** Share a horizontal branch among visible siblings in a clear vertical gap.
  * Missing entries deliberately fall back to the adaptive individual router.
  */
@@ -37,21 +61,21 @@ export function routeReportingBranches(
         const child = boxes.get(edge.to);
         if (!child) return [];
         const end = { x: child.x + child.w / 2, y: direction === 1 ? child.y : child.y + child.h };
-        return (end.y - start.y) * direction >= 32 ? [{ edge, end }] : [];
+        return (end.y - start.y) * direction >= ROUTE_CARD_CLEARANCE * 2 ? [{ edge, end }] : [];
       });
       if (siblings.length < 2) continue;
       const nearest = direction === 1 ? Math.min(...siblings.map(s => s.end.y)) : Math.max(...siblings.map(s => s.end.y));
-      const low = Math.min(start.y, nearest) + 16;
-      const high = Math.max(start.y, nearest) - 16;
+      const low = Math.min(start.y, nearest) + ROUTE_CARD_CLEARANCE;
+      const high = Math.max(start.y, nearest) - ROUTE_CARD_CLEARANCE;
       // Center the shared gap, not the children: a distant child must not
       // push the branch against a nearer card's top edge.
       const ideal = (start.y + nearest) / 2;
-      const candidates = [...new Set([ideal, low, high, ...cards.flatMap(c => [c.y - 16, c.y + c.h + 16])])]
+      const candidates = [...new Set([ideal, low, high, ...cards.flatMap(c => [c.y - ROUTE_CARD_CLEARANCE, c.y + c.h + ROUTE_CARD_CLEARANCE])])]
         .filter(y => y >= low && y <= high)
         .sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal) || a - b);
       for (const y of candidates) {
         const paths = siblings.map(({ end }) => [start, { x: start.x, y }, { x: end.x, y }, end]);
-        if (paths.some(path => path.slice(1).some((point, i) => cards.some(card => crossesCard(path[i], point, card))))) continue;
+        if (paths.some((path, i) => !routeHasClearance(path, parent, boxes.get(siblings[i].edge.to)!, cards))) continue;
         siblings.forEach(({ edge }, i) => result.set(edge.id, paths[i].filter((p, j, path) =>
           j === 0 || p.x !== path[j - 1].x || p.y !== path[j - 1].y)));
         break;
@@ -72,6 +96,8 @@ export function alignOpposingReportingJunctions(
   type Arm = { id: string; segment: number; side: number; low: number; high: number };
   type Junction = { trunk: string; y: number; arms: Arm[] };
   const originals = new Map(routes.map(route => [route.id, route.points]));
+  const endpointCard = (point: RoutePoint) => cards.find(card =>
+    point.x >= card.x && point.x <= card.x + card.w && point.y >= card.y && point.y <= card.y + card.h);
   const result = new Map(routes.map(route => [route.id, route.points.map(point => ({ ...point }))]));
   const junctions = new Map<string, Junction>();
   for (const { id, from, to, points } of routes) {
@@ -129,6 +155,10 @@ export function alignOpposingReportingJunctions(
           || Math.abs(point.y - path[i].y) < Math.min(16, Math.abs(dy))))
           || cards.some(card => crossesCard(path[i], point, card));
       }))) continue;
+      if (updates.some(({ path }) => {
+        const from = endpointCard(path[0]), to = endpointCard(path.at(-1)!);
+        return from && to ? !routeHasClearance(path, from, to, cards) : path.slice(1).some((point, i) => cards.some(card => crossesCard(path[i], point, padded(card))));
+      })) continue;
       for (const { arm, path } of updates) {
         result.set(arm.id, path);
         settled.add(keyOf(arm));
@@ -202,7 +232,7 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
           if(route.length<2) continue;
           const next=route[1],prev=route[route.length-2];
           if((next.x-start.x)*outward.x+(next.y-start.y)*outward.y<=0 || (prev.x-end.x)*inward.x+(prev.y-end.y)*inward.y<=0) continue;
-          if(route.slice(1).some((p,i)=>cards.some(card=>crossesCard(route[i],p,card)))) continue;
+          if(!routeHasClearance(route, from, to, cards)) continue;
           if(cost(route)<cost(bestRoute)) bestRoute=route;
         }
       }
@@ -219,9 +249,10 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
       : Math.abs(ay - by) < 0.01 && (from.x + from.w <= to.x || to.x + to.w <= from.x)
         ? [{ x: ax < bx ? from.x + from.w : from.x, y: ay }, { x: ax < bx ? to.x : to.x + to.w, y: by }]
         : null;
-    if (direct && !cards.some(card => crossesCard(direct[0], direct[1], card))) return direct;
+    if (direct && routeHasClearance(direct, from, to, cards)) return direct;
   }
-  const obstacles = [...new Map(cards.map(c => { const g = c.group ?? c; return [JSON.stringify([g.x,g.y,g.w,g.h]), g]; })).values()];
+  const rawObstacles = [...new Map(cards.map(c => { const g = c.group ?? c; return [JSON.stringify([g.x,g.y,g.w,g.h]), g]; })).values()];
+  const obstacles = rawObstacles.map(padded);
   const fromX = from.x+from.w/2, toX = to.x+to.w/2;
   const divider = (fromX+toX)/2;
   const between = obstacles.filter(b => b.x < Math.max(fromX,toX) && b.x+b.w > Math.min(fromX,toX)
@@ -253,18 +284,19 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
     return candidates.flatMap(({port,edge,axis,direction}, index) => {
       if (options.ports && ["top", "bottom", "left", "right"][index] !== options.ports[target ? "to" : "from"]) return [];
       // A side facing another member of this group is not an entrance or exit.
-      if (cards.some(c => c !== b && crossesCard(port,edge,c))) return [];
-      const others = obstacles.filter(c => c !== g);
+      if (cards.some(c => c !== b && !sameBox(c, b) && crossesCard(port,edge,padded(c)))) return [];
+      const others = rawObstacles.filter(c => !sameBox(c, g)).map(padded);
       let coordinate: number;
       if (axis === 'x') {
         const facing = others.filter(c => edge.y > c.y && edge.y < c.y+c.h);
         const near = direction < 0 ? Math.max(-Infinity,...facing.filter(c=>c.x+c.w<=edge.x).map(c=>c.x+c.w)) : Math.min(Infinity,...facing.filter(c=>c.x>=edge.x).map(c=>c.x));
-        coordinate = (options.ports || options.shortLeads) ? edge.x + direction * Math.min(24, Number.isFinite(near) ? Math.abs(near-edge.x)/2 : 24) : Number.isFinite(near) ? (edge.x+near)/2 : direction < 0 ? left : right;
+        coordinate = (options.ports || options.shortLeads) ? edge.x + direction * Math.min(24, Number.isFinite(near) ? Math.abs(near-edge.x)/2 : 24) : Number.isFinite(near) ? (edge.x+near)/2 : edge.x + direction * ROUTE_CARD_CLEARANCE;
       } else {
         const facing = others.filter(c => edge.x > c.x && edge.x < c.x+c.w);
         const near = direction < 0 ? Math.max(-Infinity,...facing.filter(c=>c.y+c.h<=edge.y).map(c=>c.y+c.h)) : Math.min(Infinity,...facing.filter(c=>c.y>=edge.y).map(c=>c.y));
-        coordinate = (options.ports || options.shortLeads) ? edge.y + direction * Math.min(24, Number.isFinite(near) ? Math.abs(near-edge.y)/2 : 24) : Number.isFinite(near) ? (edge.y+near)/2 : direction < 0 ? top : bottom;
+        coordinate = (options.ports || options.shortLeads) ? edge.y + direction * Math.min(24, Number.isFinite(near) ? Math.abs(near-edge.y)/2 : 24) : Number.isFinite(near) ? (edge.y+near)/2 : edge.y + direction * ROUTE_CARD_CLEARANCE;
       }
+      coordinate = axis === 'x' ? edge.x + direction * Math.max(ROUTE_CARD_CLEARANCE, Math.abs(coordinate - edge.x)) : edge.y + direction * Math.max(ROUTE_CARD_CLEARANCE, Math.abs(coordinate - edge.y));
       const outside = axis === 'x' ? { x:coordinate,y:edge.y } : { x:edge.x,y:coordinate };
       if (!allowed(port,outside) || others.some(c=>crossesCard(port,outside,c))) return [];
       return [[port,outside]];
@@ -346,9 +378,9 @@ export function routeAgentLink(from: RouteCard, to: RouteCard, cards: RouteCard[
       const next = path[1], prev = path[path.length-2];
       if ((next.x-start.x)*(a.x-start.x)+(next.y-start.y)*(a.y-start.y) <= 0 ||
           (prev.x-end.x)*(b.x-end.x)+(prev.y-end.y)*(b.y-end.y) <= 0) continue;
-      if (path.slice(1).some((p,i) => !allowed(path[i],p) || obstacles.some(card => crossesCard(path[i],p,card)))) continue;
+      if (!routeHasClearance(path, from, to, cards) || path.slice(1).some((p,i) => !allowed(path[i],p))) continue;
       if (score(path) < score(chosen)) chosen = path;
     }
   }
-  return chosen;
+  return routeHasClearance(chosen, from, to, cards) ? chosen : [];
 }

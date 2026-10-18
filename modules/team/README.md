@@ -12,6 +12,8 @@ After routing, opposing reporting elbows at the same agent port prefer one horiz
 
 Shared branch heights center the clear gap between the manager and its nearest report. A farther-away sibling cannot pull the horizontal line against the nearer cards; obstacle routing still uses tighter gaps when necessary.
 
+All routes keep a 24px clearance around all four sides of cards and group outlines. Only the normal terminal connection may cross its own card’s clearance area. Grid search, saved-side shortcuts, shared branches and opposing-junction adjustments use the same rule, so narrow passages cannot bypass it. Open exits replace saved tight-side routes; layouts with no safe exit retain the existing “no clear route” annotation instead of drawing through or along a card. Team card names remain clickable without a hover underline.
+
 **Settings → ppclip switch:** Pages → Team page
 
 Files here sit at the same paths they get inside Paperclip (`ui/src/ppclip/team/`). Edits to official files that wire this module in live in `hooks/<version>/hooks.patch`, marked `// ppclip:`.
