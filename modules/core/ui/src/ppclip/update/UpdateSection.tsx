@@ -170,7 +170,9 @@ export function UpdateSection() {
           </summary>
           <dl className="divide-y divide-border border-t border-border px-4 py-1" aria-label="Installed and available versions" data-testid="ppclip-update-versions">
             <VersionRow name="Paperclip" item={data.versions.paperclip} compatibility={data.versions.paperclip.compatibility}
-              releaseHref={data.versions.paperclip.latest ? `https://github.com/paperclipai/paperclip/releases/tag/v${encodeURIComponent(data.versions.paperclip.latest)}` : undefined} />
+              releaseHref={data.versions.paperclip.latestTag
+                ? `https://github.com/paperclipai/paperclip/releases/tag/${encodeURIComponent(data.versions.paperclip.latestTag)}`
+                : "https://github.com/paperclipai/paperclip/releases"} />
             <VersionRow name="ppclip" item={data.versions.ppclip} />
           </dl>
         </details>}

@@ -38,14 +38,16 @@ describe("update version compatibility", () => {
   it("uses semantic ordering and peeled tag commits, respecting the installed channel", () => {
     const a = "a".repeat(40), b = "b".repeat(40), c = "c".repeat(40);
     const tags = `${a}\trefs/tags/v1.9.0\n${a}\trefs/tags/v1.10.0\n${b}\trefs/tags/v1.10.0^{}\n${c}\trefs/tags/canary/v1.11.0-canary.12`;
-    expect(latestPaperclipTag(tags, false)).toEqual(["1.10.0", b]);
-    expect(latestPaperclipTag(tags, true)).toEqual(["1.11.0-canary.12", c]);
+    expect(latestPaperclipTag(tags, false)).toEqual({ version: "1.10.0", commit: b, tag: "v1.10.0" });
+    expect(latestPaperclipTag(tags, true)).toEqual({ version: "1.11.0-canary.12", commit: c, tag: "canary/v1.11.0-canary.12" });
+    expect(latestPaperclipTag(`${c}\trefs/tags/nightly/v2026.1018.0-nightly.0`, true))
+      .toEqual({ version: "2026.1018.0-nightly.0", commit: c, tag: "nightly/v2026.1018.0-nightly.0" });
   });
 
   it("verifies supported releases against the fetched ppclip manifests using real Git", async () => {
     const paths = await fixture(true);
     const result = await checkVersions(paths, git);
-    expect(result.paperclip).toMatchObject({ current: "1.0.0", latest: "1.1.0", updateAvailable: true, compatibility: "supported" });
+    expect(result.paperclip).toMatchObject({ current: "1.0.0", latest: "1.1.0", latestTag: "v1.1.0", updateAvailable: true, compatibility: "supported" });
     expect(result.ppclip).toMatchObject({ current: "0.2.0", latest: "0.2.0" });
   });
 

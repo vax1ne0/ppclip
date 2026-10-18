@@ -3,6 +3,7 @@ import type { UpdatePaths } from "./service.js";
 export type ProductVersion = {
   current: string | null;
   latest: string | null;
+  latestTag?: string;
   updateAvailable: boolean | null;
   checkFailed?: boolean;
 };
@@ -36,16 +37,16 @@ export function compareVersions(a: string, b: string) {
 }
 
 export function latestPaperclipTag(output: string, prereleases: boolean) {
-  const tags = new Map<string, string>();
+  const tags = new Map<string, { version: string; commit: string; tag: string }>();
   for (const line of output.split("\n")) {
     const match = line.match(/^([a-f0-9]{40})\s+refs\/tags\/(.+?)(\^\{\})?$/);
     if (!match) continue;
     const name = version(match[2]!);
     if (!name || (!prereleases && name.includes("-"))) continue;
     // ls-remote lists annotated tags before their peeled commit.
-    tags.set(name, match[1]!);
+    tags.set(name, { version: name, commit: match[1]!, tag: match[2]! });
   }
-  return [...tags].sort(([a], [b]) => compareVersions(b, a))[0] ?? null;
+  return [...tags.values()].sort((a, b) => compareVersions(b.version, a.version))[0] ?? null;
 }
 
 /** ppclip has no package.json version: use its release tag plus build count. */
@@ -77,8 +78,9 @@ export async function checkVersions(paths: UpdatePaths, git: Git, getTree = offi
     const remote = await git(paths.app, ["ls-remote", "--tags", "origin"], 20_000);
     const latest = latestPaperclipTag(remote, installed.paperclip.current.includes("-"));
     if (!latest) throw new Error("No release tags");
-    const [label, commit] = latest;
+    const { version: label, commit, tag } = latest;
     installed.paperclip.latest = label;
+    installed.paperclip.latestTag = tag;
     installed.paperclip.updateAvailable = compareVersions(label, installed.paperclip.current) > 0;
     onPaperclipChecked?.();
     const files = (await git(paths.packageDir, ["ls-tree", "-r", "--name-only", "@{u}", "--", "hooks/"])).split("\n").filter(file => /^hooks\/[^/]+\/manifest\.json$/.test(file));

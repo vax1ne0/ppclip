@@ -34,6 +34,7 @@ export type UpdateStatus = {
 type ProductVersion = {
   current: string | null;
   latest: string | null;
+  latestTag?: string;
   updateAvailable: boolean | null;
   checkFailed?: boolean;
 };

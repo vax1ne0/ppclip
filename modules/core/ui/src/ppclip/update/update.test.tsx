@@ -78,14 +78,14 @@ describe("UpdateSection", () => {
   });
   it("shows both installed versions and waits for ppclip support for a newer Paperclip", async () => {
     mockApi.status.mockResolvedValue(status({ checkedAt: "2026-10-18T10:00:00Z", versions: {
-      paperclip: { current: "1.0.0", latest: "1.1.0", updateAvailable: true, compatibility: "waiting" },
+      paperclip: { current: "1.0.0", latest: "1.1.0", latestTag: "nightly/v1.1.0", updateAvailable: true, compatibility: "waiting" },
       ppclip: { current: "0.2.0+45", latest: "0.2.0+45", updateAvailable: false },
     } }));
     await render();
     expect(q("ppclip-update-versions")?.textContent).toMatch(/Paperclip.*1.0.0.*1.1.0.*Waiting for ppclip support.*ppclip.*0.2.0\+45/);
     expect(q("ppclip-update-status")?.textContent).toBe("No compatible updates");
     const release = q("ppclip-update-versions")?.querySelector<HTMLAnchorElement>("a");
-    expect(release?.getAttribute("href")).toBe("https://github.com/paperclipai/paperclip/releases/tag/v1.1.0");
+    expect(release?.getAttribute("href")).toBe("https://github.com/paperclipai/paperclip/releases/tag/nightly%2Fv1.1.0");
     expect(release?.textContent).toBe("1.1.0");
     expect(release?.target).toBe("_blank");
     expect(release?.rel).toBe("noopener noreferrer");
@@ -100,6 +100,9 @@ describe("UpdateSection", () => {
     await render();
     expect(q("ppclip-update-start")).not.toBeNull();
     expect(q("ppclip-update-status")?.textContent).toBe("Update available");
+    // Old persisted checks have no exact tag; never invent a release URL.
+    expect(q("ppclip-update-versions")?.querySelector("a")?.getAttribute("href"))
+      .toBe("https://github.com/paperclipai/paperclip/releases");
   });
 
   it("can update ppclip while a newer Paperclip is waiting, and shows ppclip’s new version", async () => {
