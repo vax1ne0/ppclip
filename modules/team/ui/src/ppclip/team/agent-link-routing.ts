@@ -49,13 +49,23 @@ export function routeReportingBranches(
       const candidates = [...new Set([ideal, low, high, ...cards.flatMap(c => [c.y - 16, c.y + c.h + 16])])]
         .filter(y => y >= low && y <= high)
         .sort((a, b) => Math.abs(a - ideal) - Math.abs(b - ideal) || a - b);
+      let best: { edge: typeof edges[number]; path: RoutePoint[] }[] = [];
       for (const y of candidates) {
         const paths = siblings.map(({ end }) => [start, { x: start.x, y }, { x: end.x, y }, end]);
-        if (paths.some(path => path.slice(1).some((point, i) => cards.some(card => crossesCard(path[i], point, card))))) continue;
-        siblings.forEach(({ edge }, i) => result.set(edge.id, paths[i].filter((p, j, path) =>
-          j === 0 || p.x !== path[j - 1].x || p.y !== path[j - 1].y)));
-        break;
+        const clear = siblings.flatMap(({ edge }, i) => {
+          const path = paths[i];
+          return path.slice(1).some((point, j) => cards.some(card => crossesCard(path[j], point, card)))
+            ? [] : [{ edge, path }];
+        });
+        // Prefer the height that aligns the most clear branches, then the
+        // closest to the shared midpoint. One blocked child must not split
+        // every other sibling onto independently chosen horizontal levels.
+        if (clear.length > best.length) best = clear;
+        if (best.length === siblings.length) break;
       }
+      if (best.length < 2) continue;
+      best.forEach(({ edge, path }) => result.set(edge.id, path.filter((p, j) =>
+        j === 0 || p.x !== path[j - 1].x || p.y !== path[j - 1].y)));
     }
   }
   return result;
