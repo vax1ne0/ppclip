@@ -1857,6 +1857,120 @@ index 0363a08af95fe7b6ffb112fe8be835a8cc54c50b..628ce136ae541ba31b02d3c67ea9c26c
      expect(result.container.textContent).not.toContain("Cannot read properties of undefined");
    });
  
+diff --git a/packages/shared/src/agent-appearance.test.ts b/packages/shared/src/agent-appearance.test.ts
+index 95cb8b22a18bd68932d618bb97ddde24d0f8ee23..f20e05071283a132cd34eb36583e7e44d6b28ee4 100644
+--- a/packages/shared/src/agent-appearance.test.ts
++++ b/packages/shared/src/agent-appearance.test.ts
+@@ -1,8 +1,22 @@
+ import { describe, expect, it } from "vitest";
+ import { AGENT_PALETTE_IDS, agentAppearanceSchema, appearanceForPalette, legacyAgentAppearance, randomAgentAppearance, resolveAgentAppearance, agentAvatarUrl } from "./agent-appearance.js";
+ import { renderAgentSvg } from "./cliplab/static.js";
++import { characterDefinition } from "./cliplab/definition.js";
+ 
+ describe("agent appearance", () => {
++  it("validates custom colors and uses them in live definitions and still portraits", () => {
++    const appearance = agentAppearanceSchema.parse({ ...appearanceForPalette("arctic-blue"), customColors: { a: "#AB12CD", b: "#123456" } });
++    expect(appearance.customColors).toEqual({ a: "#ab12cd", b: "#123456" });
++    expect(resolveAgentAppearance(appearance)).toEqual(appearance);
++    expect(characterDefinition(appearance).character).toMatchObject({ color: "#ab12cd", color2: "#123456" });
++    expect(renderAgentSvg(appearance, 64, 1)).not.toBe(renderAgentSvg(appearanceForPalette("arctic-blue"), 64, 1));
++    expect(agentAvatarUrl(appearance, 24)).toContain("&a=ab12cd&b=123456");
++    expect(agentAvatarUrl(appearance, 24, 1, "rest", true)).not.toContain("&a=");
++    expect(characterDefinition(appearance, true).character.color).not.toBe("#ab12cd");
++    for (const customColors of [{ a: "red", b: "#123456" }, { a: "#123456" }, { a: "#123456", b: "url(evil)" }, { a: "#123456", b: "#abcdef", extra: true }]) {
++      expect(agentAppearanceSchema.safeParse({ ...appearance, customColors }).success).toBe(false);
++    }
++  });
+   it("assigns only the 17 permanent cap palettes", () => {
+     for (let i = 0; i < 100; i++) expect(AGENT_PALETTE_IDS).toContain(randomAgentAppearance().paletteId);
+     expect(agentAppearanceSchema.safeParse({ schemaVersion: 1, characterVersion: "cap-v1", paletteId: "muted-dream" }).success).toBe(false);
+diff --git a/packages/shared/src/agent-appearance.ts b/packages/shared/src/agent-appearance.ts
+index d45525d26e5899afe673aa4ff52ddc1b6cf67b11..2de02497612cbd89a71e2b866ef641525b0afd8f 100644
+--- a/packages/shared/src/agent-appearance.ts
++++ b/packages/shared/src/agent-appearance.ts
+@@ -1,4 +1,5 @@
+ import { z } from "zod";
++import { CAP_V1_COLORS } from "./cliplab/palette-tokens.js";
+ 
+ export const AGENT_PALETTE_IDS = ["bubblegum-sky", "pink-lemonade", "orchid-peach", "coral-mint", "lime-lagoon", "arctic-blue", "solar-flare", "violet-ember", "deep-tide", "coral-current", "golden-hour", "tangerine-cobalt", "electric-grove", "flamingo-jade", "cherry-pop", "turquoise-cherry", "ultraviolet-tide"] as const;
+ export type AgentPaletteId = typeof AGENT_PALETTE_IDS[number];
+@@ -14,11 +15,17 @@ export const agentAppearanceSchema = z.object({
+   schemaVersion: z.literal(1),
+   characterVersion: z.literal("cap-v1"),
+   paletteId: z.enum(AGENT_PALETTE_IDS),
++  /** User-authored body gradient. Presets remain the fallback for older clients. */
++  customColors: z.object({ a: z.string().regex(/^#[0-9a-fA-F]{6}$/).transform(value => value.toLowerCase()), b: z.string().regex(/^#[0-9a-fA-F]{6}$/).transform(value => value.toLowerCase()) }).strict().optional(),
+   /** Company-scoped normalized image, set through the avatar upload service. */
+   customAvatarAssetId: z.uuid().optional(),
+ }).strict();
+ export type AgentAppearance = z.infer<typeof agentAppearanceSchema>;
+ 
++export function resolveAgentColors(appearance: AgentAppearance, muted = false): { a: string; b: string } {
++  return muted ? CAP_V1_COLORS["muted-dream"] : appearance.customColors ?? CAP_V1_COLORS[appearance.paletteId];
++}
++
+ export function appearanceForPalette(paletteId: AgentPaletteId): AgentAppearance {
+   return { schemaVersion: 1, characterVersion: "cap-v1", paletteId };
+ }
+@@ -42,7 +49,8 @@ export function resolveAgentAppearance(appearance: unknown, id = "agent"): Agent
+ }
+ export function agentAvatarUrl(appearance: AgentAppearance, size: AgentAvatarSize = 512, scale: 1 | 2 = 1, pose: CharacterState = "rest", muted = false, background: AgentAvatarBackground = "transparent"): string {
+   if (appearance.customAvatarAssetId) return `/api/assets/${appearance.customAvatarAssetId}/content`;
+-  return `/api/agent-avatars/${appearance.characterVersion}/${muted ? "muted-dream" : appearance.paletteId}/${pose}.png?size=${size}&scale=${scale}${background === "paperclip-dark" ? "&background=paperclip-dark" : ""}`;
++  const custom = !muted && appearance.customColors ? `&a=${appearance.customColors.a.slice(1).toLowerCase()}&b=${appearance.customColors.b.slice(1).toLowerCase()}` : "";
++  return `/api/agent-avatars/${appearance.characterVersion}/${muted ? "muted-dream" : appearance.paletteId}/${pose}.png?size=${size}&scale=${scale}${background === "paperclip-dark" ? "&background=paperclip-dark" : ""}${custom}`;
+ }
+ export function characterStateForAgent(status: string): CharacterState {
+   if (status === "running") return "working";
+diff --git a/packages/shared/src/cliplab/definition.ts b/packages/shared/src/cliplab/definition.ts
+index 0c6f0789c694c3996601b70660e98c8720197eec..fcab0144fa359da075d1ac1c7b1ee3cbcb67f6d1 100644
+--- a/packages/shared/src/cliplab/definition.ts
++++ b/packages/shared/src/cliplab/definition.ts
+@@ -1,6 +1,5 @@
+-import type { AgentAppearance, CharacterPaletteId, CharacterState } from "../agent-appearance.js";
++import { resolveAgentColors, type AgentAppearance, type CharacterState } from "../agent-appearance.js";
+ import { definitionOf, sampleDefinition, type Definition, type Sample } from "./model.js";
+-import { CAP_V1_COLORS } from "./palette-tokens.js";
+ import { PAPERCLIP_CHARACTER } from "./character.js";
+ 
+ /**
+@@ -10,7 +9,7 @@ import { PAPERCLIP_CHARACTER } from "./character.js";
+  * portraits override them per render.
+  */
+ export function characterDefinition(appearance: AgentAppearance, muted = false): Definition {
+-  const colors = CAP_V1_COLORS[(muted ? "muted-dream" : appearance.paletteId) as CharacterPaletteId];
++  const colors = resolveAgentColors(appearance, muted);
+   const character = { ...PAPERCLIP_CHARACTER.character, id: "paperclip-cap-v1", name: "Agent", color: colors.a, color2: colors.b, followCursor: true, followRotation: true };
+   const definition = definitionOf({ version: 1, name: "Paperclip", characters: [character], expressions: PAPERCLIP_CHARACTER.expressions, animations: PAPERCLIP_CHARACTER.animations }, character);
+   for (const animation of definition.animations) if (animation.id === "happy") animation.loop = false;
+diff --git a/server/src/__tests__/agent-avatars.test.ts b/server/src/__tests__/agent-avatars.test.ts
+index 7469c18f5158d6ea229c573bbe12daef8eb12a8b..fb5b9dc189e425cac5183f6f05719c79b5763c7d 100644
+--- a/server/src/__tests__/agent-avatars.test.ts
++++ b/server/src/__tests__/agent-avatars.test.ts
+@@ -32,6 +32,23 @@ async function serve(service: ReturnType<typeof createAgentAvatarService>) {
+   return `http://127.0.0.1:${(server.address() as { port: number }).port}/api/agent-avatars/cap-v1/arctic-blue/rest.png`;
+ }
+ describe("on-demand agent avatars", () => {
++  it("renders custom gradients through HTTP with distinct caches and rejects malformed colors", async () => {
++    const service = createAgentAvatarService(await storage()); cleanups.push(() => service.close());
++    const url = await serve(service);
++    const preset = await fetch(url + "?size=24");
++    const custom = await fetch(url + "?size=24&a=ab12cd&b=123456");
++    expect(custom.status).toBe(200);
++    const customBytes = Buffer.from(await custom.arrayBuffer());
++    expect(await sharp(customBytes).metadata()).toMatchObject({ width: 24, height: 24, format: "png" });
++    expect(customBytes).not.toEqual(Buffer.from(await preset.arrayBuffer()));
++    expect(custom.headers.get("etag")).not.toBe(preset.headers.get("etag"));
++    const appearance = { ...request.appearance, customColors: { a: "#ab12cd", b: "#123456" } };
++    expect(avatarCacheKey({ ...request, appearance })).not.toBe(avatarCacheKey(request));
++    expect(avatarCacheKey({ ...request, appearance: { ...appearance, customColors: { a: "#AB12CD", b: "#123456" } } })).toBe(avatarCacheKey({ ...request, appearance }));
++    for (const suffix of ["?a=ab12cd", "?a=red&b=123456", "?a=123456&b=123456&b=abcdef", "?a=123456&b=abcdef&version=other"]) {
++      const invalid = await fetch(url + suffix); expect(invalid.status).toBe(400); await invalid.text();
++    }
++  }, 20_000);
+   it("coalesces cold requests, survives restarts and regenerates deleted cache entries", async () => {
+     const provider = await storage();
+     const render = vi.fn(async () => Buffer.from("png-bytes"));
 diff --git a/server/src/app.ts b/server/src/app.ts
 index 14814f644196632c542ea3b95926c6d34745c890..0b30bf705ae0c2963bc157b9e544164855c13d54 100644
 --- a/server/src/app.ts
@@ -1903,6 +2017,59 @@ index 14814f644196632c542ea3b95926c6d34745c890..0b30bf705ae0c2963bc157b9e5441648
        if (importTransferSweepTimer) {
          clearInterval(importTransferSweepTimer);
          importTransferSweepTimer = null;
+diff --git a/server/src/routes/agent-avatars.ts b/server/src/routes/agent-avatars.ts
+index 609771689f06b617a51cb801bd306ed0e8fecfe1..d7da05ff611793532f338cbce107c8f701cd87fe 100644
+--- a/server/src/routes/agent-avatars.ts
++++ b/server/src/routes/agent-avatars.ts
+@@ -14,10 +14,12 @@ const requestSchema = z.object({
+   size: z.string().regex(/^\d+$/).default("512").transform(Number).refine(n => (AGENT_AVATAR_SIZES as readonly number[]).includes(n)),
+   scale: z.enum(["1", "2"]).default("1"),
+   background: z.enum(["transparent", "paperclip-dark"]).default("transparent"),
+-}).strict();
++  a: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
++  b: z.string().regex(/^[0-9a-fA-F]{6}$/).optional(),
++}).strict().refine(value => Boolean(value.a) === Boolean(value.b), "Both custom colors are required");
+ 
+ /**
+- * Public preset artwork only. No agent lookup or tenant data is exposed.
++ * Public generated artwork only. No agent lookup or tenant data is exposed.
+  *
+  * The service (and its worker pool) is created on the first request, so an
+  * instance that never serves an avatar never starts a worker; `close` lets
+@@ -30,14 +32,16 @@ export function agentAvatarRoutes(injected?: ReturnType<typeof createAgentAvatar
+   router.get("/agent-avatars/:version/:palette/:file", async (req, res) => {
+     const file = String(req.params.file);
+     const parsed = requestSchema.safeParse({ ...req.query, version: req.params.version, palette: req.params.palette, pose: file.endsWith(".png") ? file.slice(0, -4) : file });
+-    if (!file.endsWith(".png") || !parsed.success || Object.keys(req.query).some(key => !["size", "scale", "background"].includes(key))) {
++    if (!file.endsWith(".png") || !parsed.success || Object.keys(req.query).some(key => !["size", "scale", "background", "a", "b"].includes(key))) {
+       res.setHeader("Cache-Control", "no-store");
+       res.status(400).json({ error: "Unsupported avatar version, palette, pose, size, or scale" }); return;
+     }
+-    const { palette, pose, size, scale, background } = parsed.data;
++    const { palette, pose, size, scale, background, a, b } = parsed.data;
+     try {
+       service ??= createAgentAvatarService(createStorageProviderFromConfig(loadConfig()));
+-      const { stream, byteSize, etag } = await service.get({ appearance: appearanceForPalette(palette === "muted-dream" ? AGENT_PALETTE_IDS[0] : palette), muted: palette === "muted-dream", pose, size: size as AgentAvatarSize, scale: Number(scale) as 1 | 2, background }, req.ip || req.socket.remoteAddress || "unknown");
++      const appearance = appearanceForPalette(palette === "muted-dream" ? AGENT_PALETTE_IDS[0] : palette);
++      if (a && b && palette !== "muted-dream") appearance.customColors = { a: `#${a.toLowerCase()}`, b: `#${b.toLowerCase()}` };
++      const { stream, byteSize, etag } = await service.get({ appearance, muted: palette === "muted-dream", pose, size: size as AgentAvatarSize, scale: Number(scale) as 1 | 2, background }, req.ip || req.socket.remoteAddress || "unknown");
+       res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+       res.setHeader("ETag", etag);
+       res.setHeader("X-Content-Type-Options", "nosniff");
+diff --git a/server/src/services/agent-avatars.ts b/server/src/services/agent-avatars.ts
+index d82bb544770c3b0ad6bcb3cdd3633d490f3420e8..028d80df0ce665ba8da48bdce89a0a11c5d8ed2a 100644
+--- a/server/src/services/agent-avatars.ts
++++ b/server/src/services/agent-avatars.ts
+@@ -14,7 +14,8 @@ export interface AgentAvatarRequest {
+ }
+ export function avatarCacheKey(request: AgentAvatarRequest) {
+   const { appearance, size, scale, pose, muted, background } = request;
+-  return `generated-agent-avatars/${appearance.characterVersion}/${muted ? "muted-dream" : appearance.paletteId}/${pose}-${size}-${scale}${background === "paperclip-dark" ? "-paperclip-dark-v1" : ""}.png`;
++  const palette = muted ? "muted-dream" : appearance.customColors ? `custom-${appearance.customColors.a.slice(1).toLowerCase()}-${appearance.customColors.b.slice(1).toLowerCase()}` : appearance.paletteId;
++  return `generated-agent-avatars/${appearance.characterVersion}/${palette}/${pose}-${size}-${scale}${background === "paperclip-dark" ? "-paperclip-dark-v1" : ""}.png`;
+ }
+ export class AvatarAdmissionError extends Error {
+   constructor(public readonly retryAfterSeconds: number) { super("Too many cold avatar requests"); }
 diff --git a/server/src/services/heartbeat/runtime-execution.test.ts b/server/src/services/heartbeat/runtime-execution.test.ts
 index 361fe422b698e94c03c329aa772143b45216e4c0..92056d700da5142ce1270eea4162abee8eb0d036 100644
 --- a/server/src/services/heartbeat/runtime-execution.test.ts

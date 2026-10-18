@@ -24,6 +24,33 @@ async function click(label: string) {
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
 }
 const preview = () => host.querySelector('[data-testid="preview"]')!;
+async function color(key: string, value: string) {
+  const input = host.querySelector<HTMLInputElement>(`#mascot-color-${key}`)!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+}
+
+it("edits arbitrary colors, swaps them and saves the custom gradient", async () => {
+  await render(); await color("a", "#ab12cd"); await color("b", "#123456");
+  expect(mocks.update).not.toHaveBeenCalled();
+  await click("Swap colors");
+  const appearance = { ...identity.appearance!, customColors: { a: "#123456", b: "#ab12cd" } };
+  mocks.update.mockResolvedValue({ ...identity, appearance });
+  await click("Save appearance");
+  expect(mocks.update).toHaveBeenCalledWith(identity.id, { appearance }, identity.companyId);
+  expect(host.textContent).toContain("Appearance saved.");
+});
+it("blocks incomplete hex colors and restores saved colors on discard", async () => {
+  await render(); await color("a", "#12");
+  expect(host.querySelector('#mascot-color-a')?.getAttribute("aria-invalid")).toBe("true");
+  expect([...host.querySelectorAll("button")].find(node => node.textContent === "Save appearance")?.disabled).toBe(true);
+  expect(mocks.update).not.toHaveBeenCalled();
+  await click("Discard");
+  expect(host.querySelector<HTMLInputElement>('#mascot-color-a')!.value).toMatch(/^#[a-f0-9]{6}$/);
+  expect(host.querySelector('#mascot-color-a')?.getAttribute("aria-invalid")).toBe("false");
+});
 
 it("previews and discards palette changes without writing", async () => {
   await render(); await click("Arctic Blue");
