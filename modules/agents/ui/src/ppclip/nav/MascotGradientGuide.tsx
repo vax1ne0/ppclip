@@ -40,7 +40,8 @@ export function MascotGradientGuide({ value, onChange, mode: guideMode = "rotate
     if (!rect.width || !rect.height) return;
     onChange(gradientFromPointer(mode.current, (event.clientX - rect.left) / rect.width * 100, (event.clientY - rect.top) / rect.height * 100, value));
   }
-  return <svg ref={svg} viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 size-full overflow-visible"
+  const handle = "pointer-events-auto cursor-grab active:cursor-grabbing";
+  return <svg ref={svg} viewBox="0 0 100 100" aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 size-full touch-none overflow-visible select-none"
     onPointerMove={update} onPointerUp={() => { mode.current = null; }} onPointerCancel={() => { mode.current = null; }} onLostPointerCapture={() => { mode.current = null; }}
     onPointerDown={event => {
       mode.current = guideMode === "center" ? "move" : "rotate";
@@ -51,13 +52,25 @@ export function MascotGradientGuide({ value, onChange, mode: guideMode = "rotate
       <g transform={`translate(${inset} ${inset}) scale(${bodySpan / 100})`}>
         <path data-handle="move" d="M50 0 A50 50 0 0 1 100 50 L100 93 A7 7 0 0 1 93 100 L7 100 A7 7 0 0 1 0 93 L0 50 A50 50 0 0 1 50 0 Z" fill="transparent" className="pointer-events-auto cursor-crosshair" />
       </g>
-      <circle data-handle="move" cx={cx} cy={cy} r="5" fill="var(--background)" fillOpacity="0.8" stroke="var(--foreground)" strokeWidth="1" className="pointer-events-auto cursor-move" />
-      <path d={`M${cx - 2} ${cy}h4 M${cx} ${cy - 2}v4`} stroke="var(--foreground)" strokeWidth="0.75" />
+      <circle cx={cx} cy={cy} r="4.5" fill="var(--popover)" stroke="var(--background)" strokeWidth="2" />
+      <circle cx={cx} cy={cy} r="4.5" fill="none" stroke="var(--foreground)" strokeWidth="0.65" />
+      <path d={`M${cx - 2} ${cy}h4 M${cx} ${cy - 2}v4`} stroke="var(--foreground)" strokeWidth="0.65" strokeLinecap="round" />
+      <circle data-handle="move" cx={cx} cy={cy} r="8" fill="transparent" className={handle} />
     </> : <>
-      <line x1={cx - dx} y1={cy - dy} x2={cx + dx} y2={cy + dy} stroke="var(--background)" strokeWidth="2.5" />
-      <line x1={cx - dx} y1={cy - dy} x2={cx + dx} y2={cy + dy} stroke="var(--foreground)" strokeWidth="1" strokeDasharray="2 1" />
-      <circle cx={cx} cy={cy} r="2" fill="var(--background)" stroke="var(--foreground)" strokeWidth="1" />
-      <circle data-handle="rotate" cx={cx + dx} cy={cy + dy} r="4" fill="var(--foreground)" stroke="var(--background)" strokeWidth="1" className="pointer-events-auto cursor-crosshair" />
+      <circle cx={cx} cy={cy} r="28" fill="none" stroke="var(--background)" strokeWidth="1.5" opacity="0.5" />
+      <circle cx={cx} cy={cy} r="28" fill="none" stroke="var(--foreground)" strokeWidth="0.35" strokeDasharray="1 2" opacity="0.7" />
+      <line x1={cx - dx} y1={cy - dy} x2={cx + dx} y2={cy + dy} stroke="var(--background)" strokeWidth="2" strokeLinecap="round" />
+      <line x1={cx - dx} y1={cy - dy} x2={cx + dx} y2={cy + dy} stroke="var(--foreground)" strokeWidth="0.6" strokeLinecap="round" />
+      <circle cx={cx - dx} cy={cy - dy} r="1.5" fill="var(--foreground)" stroke="var(--background)" strokeWidth="0.5" />
+      <circle cx={cx} cy={cy} r="1.7" fill="var(--popover)" stroke="var(--foreground)" strokeWidth="0.6" />
+      <g transform={`translate(${cx + dx} ${cy + dy})`}>
+        <circle r="4.5" fill="var(--popover)" stroke="var(--background)" strokeWidth="2" />
+        <circle r="4.5" fill="none" stroke="var(--foreground)" strokeWidth="0.65" />
+        <path d="M-2 0a2 2 0 0 1 3.4-1.4M2 0a2 2 0 0 1-3.4 1.4M1.4-2.5v1.1H.3M-1.4 2.5V1.4H-.3" fill="none" stroke="var(--foreground)" strokeWidth="0.6" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+      <circle data-handle="rotate" cx={cx + dx} cy={cy + dy} r="8" fill="transparent" className={handle} />
     </>}
+    <rect x="31" y="94" width="38" height="8" rx="2" fill="var(--popover)" stroke="var(--border)" strokeWidth="0.4" />
+    <text x="50" y="99.2" textAnchor="middle" fill="var(--popover-foreground)" fontSize="3.7" className="font-sans tabular-nums">{guideMode === "center" ? `X ${value.x}% · Y ${value.y}%` : `${value.angle}°`}</text>
   </svg>;
 }
