@@ -2,9 +2,10 @@
   "paperclipVersion": "master-669d329f2",
   "paperclipCommit": "669d329f257805ff3c171341ee6942d681cc6a0e",
   "paperclipTree": "16f00ed1d8bd76a7de4ae7d08b5bb79a792c1c61",
-  "hooksSha256": "063fdd093d4ab1579846301796bae8be2092d82c43db906de629c051ce148253",
+  "hooksSha256": "44d5b1acefb273ea4369393a283cf3afa307b468c55ae504ad8fc0c1ac6e1d5d",
   "generatedAt": "2026-10-18T13:39:48.745Z",
   "officialFilesModified": [
+    "packages/adapter-utils/src/server-utils.ts",
     "packages/shared/src/agent-appearance.test.ts",
     "packages/shared/src/agent-appearance.ts",
     "packages/shared/src/cliplab/PROVENANCE.md",

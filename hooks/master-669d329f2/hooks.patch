@@ -4150,3 +4150,25 @@ index 4dca906fc545518ba51633ea45555a91e4050a4b..7bfabd34d632f2f1bc33ee1b985e0c74
        await assertCanUpdateAgent(req, existing);
        const changed = JSON.stringify(nextAiBinding) !== JSON.stringify(existing.runtimeConfig.aiConnection);
        const aiConfig = (patchData.adapterConfig ?? existing.adapterConfig) as Record<string, unknown>;
+diff --git a/packages/adapter-utils/src/server-utils.ts b/packages/adapter-utils/src/server-utils.ts
+--- a/packages/adapter-utils/src/server-utils.ts
++++ b/packages/adapter-utils/src/server-utils.ts
+@@ -3691,14 +3691,14 @@ async function resolveSpawnTarget(
+   if (/\.(cmd|bat)$/i.test(executable)) {
+     // Always use cmd.exe for .cmd/.bat wrappers. Some environments override
+     // ComSpec to PowerShell, which breaks cmd-specific flags like /d /s /c.
++    // Passing discrete args with 'call' allows Node's Windows argument escaping
++    // to preserve quotes around arguments (like --prompt "Respond with hello.")
++    // rather than string concatenating through quoteForCmd, which strips or breaks
++    // quotes in batch scripts like npm wrappers.
+     const shell = resolveWindowsCmdShell(env);
+-    const commandLine = [
+-      quoteForCmd(executable),
+-      ...args.map(quoteForCmd),
+-    ].join(" ");
+     return {
+       command: shell,
+-      args: ["/d", "/s", "/c", commandLine],
++      args: ["/d", "/s", "/c", "call", executable, ...args],
+     };
+   }
