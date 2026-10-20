@@ -9,4 +9,4 @@ jobs:
         with:
           node-version: 24
       - run: node tools/check.mjs
-      - run: node --test tools/tests/installer.test.mjs
+      - run: node --test tools/tests/*.test.mjs

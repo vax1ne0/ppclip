@@ -1,0 +1,95 @@
+name: Supported Paperclip compatibility
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upstream-candidate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ppclip
+      - uses: actions/checkout@v4
+        with:
+          repository: paperclipai/paperclip
+          path: upstream-candidate
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Report latest stable applicability without enabling it
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node ppclip/tools/upstream-compatibility.mjs --target upstream-candidate > candidate.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: upstream-candidate
+          path: candidate.json
+  matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      targets: ${{ steps.targets.outputs.value }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: targets
+        run: echo "value=$(node tools/compatibility-ci.mjs --matrix)" >> "$GITHUB_OUTPUT"
+  verify:
+    needs: matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.matrix.outputs.targets) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ppclip
+      - uses: actions/checkout@v4
+        with:
+          repository: paperclipai/paperclip
+          ref: ${{ matrix.ref }}
+          path: paperclip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.4
+      - name: Install the supported overlay and dependencies
+        run: node ppclip/install.mjs install --target paperclip --version '${{ matrix.version }}' --with-deps
+      - name: Types and module regression tests
+        run: node ppclip/tools/compatibility-ci.mjs --target paperclip
+      - name: Browser CLI protocol regression
+        env:
+          PPCLIP_TEST_TARGET: ${{ github.workspace }}/paperclip
+        run: node --test ppclip/tools/tests/browser-cli.test.mjs
+      - name: Build and test the sandbox image
+        run: |
+          docker build -t ppclip-computer:1 paperclip/scripts/ppclip/computer-image
+          docker run --rm --network none --entrypoint python3 -e PYTHONDONTWRITEBYTECODE=1 -v "$GITHUB_WORKSPACE/ppclip:/source:ro" -w /source ppclip-computer:1 tools/tests/computer_image_test.py
+          node ppclip/tools/computer-image-smoke.mjs
+          node ppclip/tools/computer-profile-smoke.mjs
+      - name: Start an isolated app and run real lifecycle tests
+        run: |
+          node paperclip/scripts/ppclip/start-local.mjs --data "$RUNNER_TEMP/ppclip-data" --with-computer
+          node ppclip/tools/computer-lifecycle-smoke.mjs --target paperclip --isolated
+      - name: Optional CUA observation backend
+        if: startsWith(matrix.version, 'v')
+        run: |
+          docker build --build-arg PPCLIP_WITH_CUA=1 -t ppclip-computer:cua paperclip/scripts/ppclip/computer-image
+          node ppclip/tools/computer-image-smoke.mjs --image ppclip-computer:cua --desktop-driver cua
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compatibility-${{ matrix.version }}
+          path: |
+            ${{ runner.temp }}/ppclip-data/server.stderr.log
+            ${{ runner.temp }}/ppclip-data/computer-supervisor.log
+          retention-days: 7
