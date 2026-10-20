@@ -27,6 +27,8 @@ Maintainers can already experiment in a **separate disposable checkout** with `i
 
 ## Make support more flexible
 
+The `compatibility.yml` workflow now installs both recorded revisions in separate checkouts, runs UI/server typechecks and all module regression suites, builds the Docker desktop, and tests native controls, networking, profile archives and the real computer lifecycle. Stable also exercises the optional CUA observer. A separate job fetches GitHub's latest stable release and uploads an applicability report. It does **not** promote that release or bypass the install gate. These workflow definitions still need their first successful GitHub Actions run; local checks are recorded separately.
+
 1. Check upstream revisions automatically with this probe; promote a revision only after typechecks and behavioral tests pass. Keep the previous supported revision for rollback.
 2. Move independent settings pages, dashboards, integrations and jobs onto Paperclip's versioned plugin SDK where its documented extension points cover the feature.
 3. Keep a small overlay for features that still alter built-in behavior. Request upstream extension points for those seams instead of repeatedly patching the same implementation.

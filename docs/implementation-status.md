@@ -11,14 +11,23 @@ This is a code inventory, not a claim that every scenario has passed a fresh end
 | Provider usage, switching and model approvals | `modules/providers` | Implemented; the company policy and opt-in switches still govern execution. |
 | Run controls and Windows fixes | `modules/run-controls`, `modules/fixes` | Implemented. |
 | Computer desktop, browser tools, live view and takeover | `modules/computer-use` | Docker implementation and in-memory test provider exist. Real desktop verification uses the optional Docker smoke tool. |
+| Desktop dock and wallpaper | Image-owned tint2 configuration, managed Chromium launcher, original SVG wallpaper | Implemented. Actual launcher click restores the same minimized browser during human control; no personal browser or second Chromium process is launched. |
 | E2B / remote desktop provider | Provider interface has an extension seam | Not implemented. |
-| agent-browser, external Playwright harness, CUA or OpenSandbox integration | Discussed as possible tools / research references | Not installed or implemented by this package. The current browser tools use the desktop's own Chromium integration. |
+| Native desktop tools / CUA | Bounded AT-SPI bridge, optional pinned CUA Driver observer | Implemented and exercised against real GTK controls. CUA is opt-in, Linux x86_64, read-only observation; ppclip owns input. |
+| Browser CLI | `scripts/ppclip/browser.mjs` | Implemented over the existing authenticated MCP boundary. browser-harness informed the approach; its separate runtime is not installed. No token/speed benchmark claim. |
+| Desktop network and Chromium sandbox | Image bootstrap policy, dedicated proxy UID, runtime probe | Implemented; raw TCP/Docker DNS bypass and shell site filtering checked on real Docker. Inner Chromium sandbox is runtime-dependent. |
+| Profile backup / restore | `scripts/ppclip/computer-profile.mjs` | Implemented for offline profiles; real roundtrip and nonempty-restore refusal checked. |
+| Neko streaming | Isolated Compose experiment under `tools/experiments` | Playback and input verified locally; production lease/privacy integration and matched performance benchmarks remain unimplemented. noVNC remains the default. |
+| Demonstration recording / external agent-browser / OpenSandbox | Research | Not implemented. Recording requires a separate privacy and retention design. |
 | Flexible revision checks | `install.mjs compatibility` | Implemented as a read-only applicability probe; untested revisions are not automatically supported. |
+| Automated compatibility and real Docker CI | `.github/workflows/compatibility.yml` | Workflow added for both supported revisions and a latest-stable applicability report. Remote execution is not yet verified. |
 | Native Paperclip plugin migration / all-future-version support | Architectural direction | Not implemented; no guarantee of compatibility with future upstream internals. |
 | Stable Paperclip installation | `hooks/v2026.1012.0` with shared modules | Ported to stable v2026.1012.0. Separate hooks preserve the existing canary base. |
 | Existing canary → older stable data migration | Requires separate database compatibility verification | Not implemented. Stable support is for a separate installation; the running canary and its data are retained. |
 
 Installation and export instructions live in the maintained guides. Research recommendations are not shipped features unless listed as implemented above.
+
+Local verification on 2026-10-19: both supported revisions passed UI/server typechecks and all 410 module tests per revision. Real Docker image, native-input/takeover, profile archive and isolated application lifecycle checks passed. The new CI workflow has not yet run on GitHub. The running user's computer was preserved; new image behavior requires the documented rebuild/restart.
 
 The package adds two npm dependencies through its hooks: `react-colorful` for team/mascot color pickers and optional `@lydell/node-pty` for Windows ConPTY sign-in. Both have live imports. Paperclip's other dependencies belong to upstream; removing them based only on ppclip imports would break the host application. Docker packages are separately declared in the computer image's Dockerfile.
 

@@ -1,0 +1,18 @@
+# Opt-in viewer experiment. No agent tools, host mounts, or production credentials.
+services:
+  viewer:
+    image: ghcr.io/m1k1o/neko/firefox@sha256:415730ef9e3c35d850fdbbb95aa150cb9eda0b9c260c61d1974fb3af39cb71c3
+    shm_size: 1gb
+    mem_limit: 2g
+    cpus: 2
+    pids_limit: 512
+    ports:
+      - "127.0.0.1:7093:8080"
+      - "127.0.0.1:53000-53020:53000-53020/udp"
+    environment:
+      NEKO_DESKTOP_SCREEN: "1280x800@30"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: ${PPCLIP_NEKO_PASSWORD:?Set a temporary experiment password}
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: ${PPCLIP_NEKO_ADMIN_PASSWORD:?Set a separate temporary admin password}
+      NEKO_WEBRTC_EPR: 53000-53020
+      NEKO_WEBRTC_ICELITE: 1
+      NEKO_WEBRTC_NAT1TO1: 127.0.0.1

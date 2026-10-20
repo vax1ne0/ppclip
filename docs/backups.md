@@ -51,7 +51,16 @@ Agent desktop profiles live in Docker volumes, outside the Paperclip database an
 docker volume ls --filter name=ppclip-computer-home-
 ```
 
-Archive each profile volume using your Docker volume backup process. Preserve the instance's supervisor token/configuration too. The desktop image can be rebuilt; browser profiles and their saved logins need their own backup.
+With the current computer image built, stop the supervisor and all computers using that profile. From the installed Paperclip folder:
+
+```bash
+node scripts/ppclip/computer-profile.mjs backup --agent <agent-id> --file ../backup/agent-profile.tar.gz
+node scripts/ppclip/computer-profile.mjs restore --agent <agent-id> --file ../backup/agent-profile.tar.gz
+```
+
+The destination directory must exist. Backup refuses an existing archive. Restore requires an **existing, empty** profile volume and never overwrites a populated profile. Use an isolated recovery installation to test it; do not delete a working profile to try a restore. If your supervisor uses another port, pass `--supervisor-port <port>` so the offline check uses the correct port. Stop every supervisor that can manage these volumes. The helper takes a per-agent lock and refuses running volume users.
+
+Archives contain regular files/directories only; symlinks are skipped. Restore validates paths, file types, sizes and gzip integrity before moving staged files into place. Limits are 2 GiB and 100,000 entries. These archives contain browser logins and other private profile data; protect them like credentials. Preserve the instance's supervisor token/configuration too. The desktop image can be rebuilt; profiles need their own backup.
 
 ## Before restoring
 

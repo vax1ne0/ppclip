@@ -17,6 +17,7 @@ Before publishing, run these dependency-free checks from the package:
 ```bash
 node tools/check.mjs
 node --test tools/tests/installer.test.mjs
+node --test tools/tests/launcher-ready.test.mjs
 node install.mjs compatibility --target ../paperclip --ref HEAD
 ```
 
@@ -34,3 +35,15 @@ node install.mjs compatibility --target ../paperclip --ref HEAD
 **Supporting a new official release:** check out the new tag, apply the current `hooks/<version>/hooks.patch` with `git apply -3`, resolve any conflicts in the marked hook lines, copy the module files in, test, then export with `--name <tag>`. Remove hook folders for versions you no longer support, and tag the ppclip release.
 
 Both supported hook sets use the same `modules/` files. After changing a shared module, verify stable and canary in separate checkouts. When upstream moves an integration (for example, stable's monolithic heartbeat versus canary's extracted services), adapt its version-specific hooks instead of copying newer upstream internals wholesale. Provider routing imports its transactional configuration writer from the agent service: each hook set delegates to that base's official write path, preserving revisions, secret normalization and session resets.
+
+The compatibility workflow generates its matrix from the hook manifests. To run its typechecks and all module suites against an installed checkout:
+
+```bash
+node tools/compatibility-ci.mjs --target ../paperclip
+node --test tools/tests/browser-cli.test.mjs
+python tools/tests/computer_image_test.py
+node tools/computer-image-smoke.mjs --image ppclip-computer:1
+node tools/computer-profile-smoke.mjs --image ppclip-computer:1
+```
+
+Set `PPCLIP_TEST_TARGET` for the browser CLI test when the checkout is elsewhere. The Python tests need no network or desktop; set `PYTHONDONTWRITEBYTECODE=1` when running against source. Image/profile smoke tools require Docker and create only disposable resources. The image test contacts example.com and example.org to verify the allowlist, and invokes no model. Optional CUA coverage uses `--desktop-driver cua` with a CUA-enabled image. See [computer use](computer-use.md#testing-it) for the isolated application lifecycle test. CI also reports latest stable patch applicability without enabling unverified versions.

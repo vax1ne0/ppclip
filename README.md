@@ -10,7 +10,7 @@ Team views, live activity, customizable mascots, provider controls, and agent de
 
 - **Team & live runs:** editable layouts, reporting lines, and live activity cards.
 - **Agent chat & mascots:** model labels, tabs ordered by your last sent message, custom colors, and interactive previews.
-- **Computer use:** a Linux desktop and Chromium per agent, live screen, and human takeover.
+- **Computer use:** a Linux desktop and Chromium per agent, live screen, human takeover, native controls, and profile backups.
 - **Provider & run controls:** usage limits, optional provider switching, approved models, and team pause/resume controls.
 - **Settings & fixes:** independent module switches, update checks, and run-state and Windows sign-in fixes.
 

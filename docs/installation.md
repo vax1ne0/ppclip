@@ -42,7 +42,7 @@ node scripts/ppclip/computer-supervisor.mjs build-image
 node scripts/ppclip/start-local.mjs --data ../.ppclip-runtime --with-computer
 ```
 
-Run commands one at a time and stop on failure. The installer refuses an unsupported stable release. Open http://127.0.0.1:3410 after startup; cold startup can take several minutes.
+Run commands one at a time and stop on failure. The installer refuses an unsupported stable release. Wait for **ppclip is ready**, then open http://127.0.0.1:3410. Cold startup can take several minutes; the launcher reports progress while waiting. If startup fails, it shows the log locations. Do not start another copy while it is still starting.
 
 The clone command keeps upstream source files in LF format without changing your global Git settings, which avoids line-ending mismatches in generated build contracts.
 

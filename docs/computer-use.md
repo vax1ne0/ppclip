@@ -5,7 +5,7 @@ Computer use gives a Paperclip agent its own sandboxed Linux desktop with a Chro
 - You can take control, for example to sign in, and then hand control back.
 - Live views request fresh tickets when opened, renew on focus/reconnect, and retry dropped connections up to three times per minute. **Reconnect** retries immediately without changing control.
 - The computer bar stays above the agent chat while the conversation scrolls. Expanded screens have their own bounded scroll area.
-- The desktop has a bottom taskbar. If you minimize Chromium, click its taskbar button to restore the same window and tabs. Closing Chromium is handled by the browser supervisor, which relaunches it.
+- The desktop has a compact floating dock with a Chromium launcher, window controls and a local-time clock, over an original pastel mountain wallpaper. The browser starts inset so the dock remains easy to reach. Minimize Chromium and click its icon or window button to restore the same managed browser and tabs. Closing Chromium is handled by the browser supervisor, which relaunches it.
 - The browser profile is kept between sessions, so logins survive.
 
 It is **off by default**. The quickest path:
@@ -18,7 +18,7 @@ It is **off by default**. The quickest path:
 **Where to see a computer.** Each agent has its own computer; none are shared.
 - **Big screen:** open the agent, then **Computer → Live screen** in its left-hand menu, or go to `/agents/<agent>/computer`. The screen fills the page and has **Full screen**, take control and the other controls.
 - **Team page:** agents with a computer get a **Computer** button that opens the big screen, and a state chip while it runs.
-- **Agent chats:** a slim bar above the chat shows the computer's state. **Show screen** opens it in place, and **Big screen** jumps to the big screen.
+- **Agent chats:** one compact header combines the computer's state, primary action, Pause and screen toggle. **Show screen** opens the desktop; the expand icon opens the big screen. Secondary actions are in **More computer actions**, and control expiry is in the status tooltip. Reconnect and fullscreen tools float over the screen. Private control and a view-only fallback remain explicitly labeled.
 - **Live runs:** every agent's card shows its screen side by side with the others. **Big screen** on a card opens that agent's.
 - **Computer use card in Harness / Runtime:** it has **Open big screen** and **Watch live**.
 
@@ -50,6 +50,8 @@ Agent run (Claude/Codex local) ─►  MCP endpoint (run JWT)      ────�
 | `browser_navigate` | Opens a public http(s) address |
 | `browser_page` | Page text and numbered interactive elements. With `marks: true` it adds a screenshot with numbered badges (Set-of-Mark). All of it comes back marked as untrusted |
 | `browser_click_element` / `browser_type_element` | Acts on an element by its number. Numbers expire when the page changes |
+| `desktop_page` | Bounded native accessibility controls: roles, labels and numbered references. Falls back to a screenshot when accessibility is unavailable |
+| `desktop_click_element` / `desktop_type_element` | Acts on a fresh native reference and current epoch. References expire after 30 seconds, are consumed on action, and are refused if the target changes or becomes ambiguous |
 | `computer_request_takeover` | Asks a person to take over, for sign-ins, 2FA, CAPTCHAs or payments |
 | `computer_shell` | Only when enabled for the agent. Runs inside the sandbox as a separate unprivileged user |
 
@@ -77,11 +79,13 @@ How the agent is frozen while you have control:
 4. **Private control also refuses screenshots and page reads,** so the agent can't see what you type.
 5. **No agent tool can take or release control.**
 
+Native input is also serialized with takeover inside the desktop daemon, so an input operation cannot continue typing after control has been granted to a person.
+
 ## Security
 
 - **Your machine stays out of reach.** Agent commands never run on the host. There is no "host desktop" provider.
 - **Container hardening:**
-  - The container runs with every capability dropped except the three needed to switch users at start.
+  - The container starts with `SETUID`, `SETGID`, `KILL`, `NET_ADMIN` and `SETPCAP`. The last two install the network policy, then are removed from the process capability bounding set before desktop services start. A failed policy installation stops startup.
   - `no-new-privileges` is set.
   - Memory, CPU, process and shared-memory limits apply.
   - Each agent has its own Docker network, and gVisor (`runsc`) is used automatically when installed.
@@ -99,6 +103,7 @@ How the agent is frozen while you have control:
 - **Network:**
   - The browser sends all traffic through a filter. The filter refuses private, loopback, link-local, CGNAT and cloud-metadata addresses, and it checks the resolved address, which stops DNS rebinding.
   - You can limit each agent to a list of sites.
+  - IPv4/IPv6 egress rules apply to the desktop and optional shell. Only the dedicated proxy user can reach external networks; direct sockets and Docker DNS bypasses are blocked. Shell commands receive the same proxy and site restrictions.
   - Paperclip also refuses `file:`, `chrome:`, `javascript:` and similar addresses before they reach the sandbox.
 - **Prompt injection:**
   - Page text, titles and element names are wrapped as untrusted data, with a note telling the model to ignore instructions inside them.
@@ -112,9 +117,9 @@ How the agent is frozen while you have control:
   - Turning the company switch off stops every computer and ends every stream and takeover.
 
 **Known limits:**
-- A container shares your computer's kernel. Chromium runs with `--no-sandbox` inside it, because the container is the boundary.
+- A container shares your computer's kernel. Chromium probes its inner sandbox at startup and enables it when supported. Otherwise it uses the container boundary; the authenticated health response reports the detected mode and reason. Docker Desktop in the local verification required that fallback.
 - No guardrail fully prevents prompt injection. Keep computers for agents and sites you trust, and use site lists.
-- With shell enabled, the agent's shell commands can reach the internet directly. The browser filter doesn't cover them. On Linux you can add host firewall rules for the `ppclip-computer-net-*` bridges.
+- Site filtering controls destinations, not what an allowed service does with uploaded data. Docker administrators can override container protections.
 - Password-field detection doesn't see inside cross-origin iframes. The "needs confirm" check works from button labels, which a hostile page can disguise.
 - The sandbox's own token sits in a Docker label. Anyone with Docker access already controls the machine.
 
@@ -159,6 +164,33 @@ Optional: install gVisor (`runsc`) and register it with Docker. The supervisor p
 | `PPCLIP_COMPUTER_SUPERVISOR_TOKEN_FILE` | `~/.paperclip/ppclip-computer-supervisor.token` | Shared token file, used by both |
 | `PPCLIP_COMPUTER_IMAGE` | `ppclip-computer:1` | Sandbox image name |
 
+### Upgrading the desktop image
+
+After updating ppclip, rebuild with `node scripts/ppclip/computer-supervisor.mjs build-image` and restart Paperclip and the supervisor. Stop active computers first. The supervisor refuses an older image rather than starting without the current policy. On the next start it replaces an old-policy container while retaining its profile volume. Back up profiles before upgrading; see [backups](backups.md).
+
+### Optional CUA observer
+
+Native observation uses AT-SPI by default. To try the pinned CUA Driver on Linux x86_64:
+
+```bash
+node scripts/ppclip/computer-supervisor.mjs build-image --with-cua
+node scripts/ppclip/start-local.mjs --data <folder> --with-computer --desktop-driver cua
+```
+
+Restart an already-running supervisor to change its driver. The build verifies Driver 0.35.4's archive hash. Its MIT license is included; Spaces and the perception extension are excluded. Telemetry is disabled. A read-only manifest permits packaged Chromium, Python GTK and xterm; other applications may expose no controls. The manifest expires after 24 hours, requiring a desktop restart. All input still passes through ppclip's control checks. Editable field values are omitted from native observations; labels can still contain private information, so private takeover blocks these reads too.
+
+### Browser CLI
+
+Within an active agent run, the installed CLI uses that run's `PAPERCLIP_API_URL` and `PAPERCLIP_API_KEY`:
+
+```bash
+node scripts/ppclip/browser.mjs page
+node scripts/ppclip/browser.mjs navigate https://example.com
+node scripts/ppclip/browser.mjs click 3 --epoch 7
+```
+
+`type <ref> --epoch <n>` reads text from stdin. `desktop`, `desktop-click` and `desktop-type` access native controls. `--json` returns the complete tool result. Use the epoch returned by a fresh observation. The CLI uses the same authenticated MCP tools and takeover checks; it does not attach to your personal browser. No speed or token savings have been established by a matched benchmark.
+
 ## Testing it
 
 For a real end-to-end check, run from the **ppclip package** folder:
@@ -188,4 +220,4 @@ To test the real Docker provider:
 5. Ask the agent (Claude or Codex local adapter) to "open example.com with your computer and tell me the page title". The card shows it working, and the Activity page shows `ppclip.computer_use.tool` rows.
 6. Ask it to sign in somewhere. It should call `computer_request_takeover`, and the card shows **Needs you**. Take control privately, sign in, release. Stop and start the computer, and the login is still there.
 7. Check the guardrails. Ask it to open `http://169.254.169.254/` or `file:///etc/passwd` (both refused), or to type into a password field (refused).
-8. Check what's exposed. `docker ps` shows only `127.0.0.1:` port bindings for a running, unpaused desktop. `docker inspect ppclip-computer-<agent id>` shows `CapDrop: ALL` and `CapAdd` limited to `SETUID`, `SETGID` and `KILL`. Paused containers can temporarily omit published ports on Docker Desktop; resume waits for the desktop to become reachable again.
+8. Check what's exposed. `docker ps` shows only `127.0.0.1:` port bindings for a running, unpaused desktop. Docker configuration lists the five bootstrap capabilities described above; `/proc/1/status` inside the running desktop confirms `NET_ADMIN` and `SETPCAP` are absent from its bounding set. Paused containers can temporarily omit published ports on Docker Desktop; resume waits for the desktop to become reachable again.

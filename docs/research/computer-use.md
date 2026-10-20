@@ -1,6 +1,8 @@
 # Computer use: research notes
 
-**Historical design research, not an implementation checklist.** Project comparisons below record the original October 2026 investigation and have not been revalidated by this cleanup. See [implementation status](../implementation-status.md) for shipped features. ppclip currently implements Docker and fake providers; it does not ship an E2B provider, agent-browser integration, CUA dependency, or OpenSandbox dependency.
+For the focused 2026-10-18 source review of Rakazo, OpenAgentFleet, Neko, browser-harness, Steel, E2B, and CUA, see [the follow-up assessment](computer-use-follow-up.md). The historical comparison below is preserved as the original investigation.
+
+**Historical design research, not an implementation checklist.** Project comparisons below record the original October 2026 investigation. See [implementation status](../implementation-status.md) for shipped features, including the subsequent optional CUA observer. E2B, agent-browser and OpenSandbox integrations remain unimplemented.
 
 Research done in October 2026 before building ppclip computer use. Repositories were cloned and their source read; nothing was built or run. GitHub API metadata (stars, archived flags) could not be read from the research environment, so star counts are as shown on GitHub pages or marked unverified.
 
