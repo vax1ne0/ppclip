@@ -42,7 +42,7 @@ import { SubscriptionUsagePanel } from "./SubscriptionUsagePanel";
 import { ProviderToolbar } from "./ProviderToolbar";
 import { ProviderSettingsSheet } from "./ProviderSettingsSheet";
 import { resetPpclipFeaturesForTests } from "../features/store";
-import { headlineLimit, modeStops, resetLabel, usageStatusText, type AccountUsage } from "./usage";
+import { headlineLimit, modeStops, resetLabel, unratedUsageText, usageStatusText, type AccountUsage } from "./usage";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -120,6 +120,18 @@ describe("usage helpers", () => {
     ] });
     expect(headlineLimit(observed)?.id).toBe("seven_day");
     expect(headlineLimit(usage({ status: "error", limits: [] }))).toBeNull();
+  });
+
+  it("describes a percentage-free check instead of 'not reported'", () => {
+    const now = Date.parse("2026-10-20T00:00:00.000Z");
+    // Shape of a real Grok weekly-plan credits response after server parsing.
+    const grok = usage({ provider: "xai", limits: [limit({ id: "grok_credits", usedPercent: null, used: null, limit: null, remaining: null, unit: "cents", resetsAt: "2026-10-22T00:00:00.000Z" })],
+      overage: { enabled: null, available: false, unlimited: null, used: 0, limit: 0, remaining: 0, balance: 0, unit: "cents" } });
+    expect(headlineLimit(grok)).toBeNull();
+    expect(unratedUsageText(grok, now)).toBe("No usage percentage reported. Resets in 2 days.");
+    expect(unratedUsageText(usage({ limits: [limit({ usedPercent: null, used: 1250, remaining: 750, unit: "cents", resetsAt: null })] }), now))
+      .toBe("No usage percentage reported. $12.50 used · $7.50 left.");
+    expect(unratedUsageText(usage({ limits: [limit({ usedPercent: null, resetsAt: null })] }), now)).toBe("Usage not reported.");
   });
 
   it("formats resets and masks failures", () => {

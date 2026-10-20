@@ -142,6 +142,24 @@ export function resetLabel(resetsAt: string | null, now = Date.now()) {
   return `Resets in ${Math.round(hours / 24)} days`;
 }
 
+const amountText = (value: number, unit: string | null) => unit === "cents" ? `$${(value / 100).toFixed(2)}` : `${value}${unit ? ` ${unit}` : ""}`;
+
+/**
+ * A successful check without a percentage (e.g. Grok's credits billing omits
+ * creditUsagePercent/used/monthlyLimit for weekly-plan accounts). Show what was
+ * reported (used amount, prepaid balance, reset) instead of a bare "not reported".
+ */
+export function unratedUsageText(usage: AiConnectionUsage, now = Date.now()) {
+  const window = usage.limits.find((limit) => limit.scope === null);
+  const parts: string[] = [];
+  if (window?.used != null) parts.push(`${amountText(window.used, window.unit)} used`);
+  if (window?.remaining != null) parts.push(`${amountText(window.remaining, window.unit)} left`);
+  if (usage.overage?.balance != null && usage.overage.balance > 0) parts.push(`${amountText(usage.overage.balance, usage.overage.unit)} prepaid balance`);
+  const reset = resetLabel(window?.resetsAt ?? null, now);
+  if (reset) parts.push(reset);
+  return parts.length ? `No usage percentage reported. ${parts.join(" · ")}.` : "Usage not reported.";
+}
+
 /** Short, masked status text; provider error bodies never reach the UI. */
 export function usageStatusText(entry: AccountUsage) {
   if (!entry.supported) return "Unavailable for this sign-in method.";
@@ -158,7 +176,7 @@ export function usageStatusText(entry: AccountUsage) {
     case "unsupported": return "Usage unavailable.";
     case "provider_unavailable":
     case "invalid_response": return "Couldn’t read usage. Try again later.";
-    default: return usage.status === "ok" ? (headlineLimit(usage) ? null : "Usage not reported.") : "Usage unavailable.";
+    default: return usage.status === "ok" ? (headlineLimit(usage) ? null : unratedUsageText(usage)) : "Usage unavailable.";
   }
 }
 
