@@ -19,6 +19,8 @@ export type ComputerInfo = {
   healthy?: boolean;
   /** True when a saved browser profile was found (logins survive). */
   profileKept: boolean;
+  /** Distinguishes a replacement desktop from recovery of its existing container. */
+  recovery?: "created" | "recreated" | "resumed" | "started" | "reconnected";
 };
 
 export type ProviderInfo = {
@@ -99,6 +101,8 @@ export interface ComputerProvider {
   act(agentId: string, actions: ComputerAction[], opts: ActOptions): Promise<ActResult>;
   page(agentId: string, opts: { marks: boolean }): Promise<PageSnapshot>;
   pageAct(agentId: string, action: PageAction, opts: ActOptions): Promise<ActResult>;
+  desktop?(agentId: string, opts: ActOptions): Promise<PageSnapshot>;
+  desktopAct?(agentId: string, action: PageAction, opts: ActOptions): Promise<ActResult>;
   /** Starts (true) or kills (false) the interactive stream listener. View-only is always available. */
   setControl(agentId: string, interactive: boolean): Promise<void>;
   freeze(agentId: string): Promise<void>;

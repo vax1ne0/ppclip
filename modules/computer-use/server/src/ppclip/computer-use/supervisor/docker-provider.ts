@@ -26,6 +26,7 @@ type DockerProviderOptions = {
   pidsLimit?: number;
   maxRunning?: number;
   docker?: DockerApi;
+  desktopDriver?: "atspi" | "cua";
 };
 
 type Endpoint = { host: string; controlPort: number; streamPort: number; token: string };
@@ -48,6 +49,7 @@ export class DockerComputerProvider implements ComputerProvider {
   private readonly pidsLimit: number;
   private readonly maxRunning: number;
   private runtime: string | null | undefined;
+  private readonly desktopDriver: "atspi" | "cua";
   /** websockify tokens set in each sandbox (lost on restart; re-issued on demand). */
   private readonly streamTokens = new Map<string, { view?: string; control?: string }>();
   private readonly streamGenerations = new Map<string, string>();
@@ -59,6 +61,7 @@ export class DockerComputerProvider implements ComputerProvider {
     this.nanoCpus = Math.round((opts.cpus ?? 2) * 1e9);
     this.pidsLimit = opts.pidsLimit ?? 1024;
     this.maxRunning = opts.maxRunning ?? 3;
+    this.desktopDriver = opts.desktopDriver ?? "atspi";
   }
 
   describe(): ProviderInfo {
@@ -67,7 +70,7 @@ export class DockerComputerProvider implements ComputerProvider {
       isolation: this.runtime === "runsc" ? "Docker container with gVisor (runsc)" : "Docker container (shares the host kernel)",
       caveats: [
         "A container is not a virtual machine: it shares the host kernel. gVisor narrows this when installed (Linux only).",
-        "Chromium runs with --no-sandbox inside the container; the container is the security boundary.",
+        "Chromium probes sandbox support at startup; the container remains the outer security boundary.",
         "Shell, when enabled for an agent, runs inside the container only, as an unprivileged user.",
       ],
       liveView: true,
@@ -131,11 +134,16 @@ export class DockerComputerProvider implements ComputerProvider {
   }
 
   async ensure(spec: ComputerSpec): Promise<ComputerInfo> {
+    const profileLock = await this.docker.tolerate(this.docker.request("GET", `/containers/ppclip-profile-lock-${safeId(spec.agentId)}/json`), [404]);
+    if (profileLock) throw new ProviderError("unavailable", "This computer's profile is being backed up or restored. Try again when the operation finishes.");
     const { container, network, volume } = this.names(spec.agentId);
     const existing = await this.inspectContainer(spec.agentId);
     const volumeBefore = await this.docker.tolerate(this.docker.request("GET", `/volumes/${volume}`), [404]);
     const wantedHosts = spec.allowedHosts.join(",");
-    const recreate = existing && (existing.Config.Labels["ppclip.shell"] !== String(spec.shell) || (existing.Config.Labels["ppclip.allowedHosts"] ?? "") !== wantedHosts);
+    const image = await this.docker.tolerate(this.docker.request<{ Config?: { Labels?: Record<string, string> } }>("GET", `/images/${encodeURIComponent(this.image)}/json`), [404]);
+    if (image?.Config?.Labels?.["ppclip.sandbox-policy"] !== "2") throw new ProviderError("unavailable", "Rebuild the computer image to enable the current network policy: node scripts/ppclip/computer-supervisor.mjs build-image");
+    if (this.desktopDriver === "cua" && image.Config?.Labels?.["ppclip.cua-driver"] !== "1") throw new ProviderError("unavailable", "Build the optional CUA image first: node scripts/ppclip/computer-supervisor.mjs build-image --with-cua");
+    const recreate = existing && (existing.Config.Labels["ppclip.networkPolicy"] !== "2" || existing.Config.Labels["ppclip.desktopDriver"] !== this.desktopDriver || existing.Config.Labels["ppclip.shell"] !== String(spec.shell) || (existing.Config.Labels["ppclip.allowedHosts"] ?? "") !== wantedHosts);
     if (existing && recreate) {
       await this.docker.tolerate(this.docker.request("DELETE", `/containers/${container}?force=true`), [404]);
     }
@@ -149,22 +157,24 @@ export class DockerComputerProvider implements ComputerProvider {
       const token = randomBytes(24).toString("hex");
       await this.docker.request("POST", `/containers/create?name=${container}`, {
         Image: this.image,
-        // Starts as root with only SETUID/SETGID/KILL so start.sh can drop every service
-        // to "agent" (1000) and shell commands to "sandbox" (1001).
+        // NET_ADMIN/SETPCAP are bootstrap-only; start.sh removes both before
+        // starting PID 1 and the desktop/shell services.
         User: "0:0",
         Env: [
           `PPCLIP_CONTROL_TOKEN=${token}`,
           `PPCLIP_SHELL=${spec.shell ? "1" : "0"}`,
           `PPCLIP_ALLOWED_HOSTS=${wantedHosts}`,
+          `PPCLIP_DESKTOP_DRIVER=${this.desktopDriver}`,
+          `TZ=${Intl.DateTimeFormat().resolvedOptions().timeZone}`,
         ],
-        Labels: { ...labels, "ppclip.controlToken": token, "ppclip.shell": String(spec.shell), "ppclip.allowedHosts": wantedHosts },
+        Labels: { ...labels, "ppclip.networkPolicy": "2", "ppclip.desktopDriver": this.desktopDriver, "ppclip.controlToken": token, "ppclip.shell": String(spec.shell), "ppclip.allowedHosts": wantedHosts },
         ExposedPorts: { "7070/tcp": {}, "6080/tcp": {} },
         HostConfig: {
           Mounts: [{ Type: "volume", Source: volume, Target: "/home/agent" }],
           PortBindings: { "7070/tcp": [{ HostIp: "127.0.0.1", HostPort: "" }], "6080/tcp": [{ HostIp: "127.0.0.1", HostPort: "" }] },
           NetworkMode: network,
           CapDrop: ["ALL"],
-          CapAdd: ["SETUID", "SETGID", "KILL"],
+          CapAdd: ["SETUID", "SETGID", "KILL", "NET_ADMIN", "SETPCAP"],
           SecurityOpt: ["no-new-privileges:true"],
           Memory: this.memoryBytes,
           MemorySwap: this.memoryBytes,
@@ -188,7 +198,8 @@ export class DockerComputerProvider implements ComputerProvider {
     if (!after?.State.Running) await this.docker.request("POST", `/containers/${container}/start`);
     this.streamTokens.delete(spec.agentId);
     await this.waitHealthy(spec.agentId);
-    return { agentId: spec.agentId, running: true, paused: false, profileKept: Boolean(volumeBefore) };
+    const recovery = recreate ? "recreated" : !existing ? "created" : after?.State.Paused ? "resumed" : !after?.State.Running ? "started" : "reconnected";
+    return { agentId: spec.agentId, running: true, paused: false, profileKept: Boolean(volumeBefore), recovery };
   }
 
   private async waitHealthy(agentId: string) {
@@ -252,6 +263,15 @@ export class DockerComputerProvider implements ComputerProvider {
 
   pageAct(agentId: string, action: PageAction, opts: ActOptions) {
     return this.daemon<ActResult>(agentId, "/page/act", { action, confirm: opts.confirm, irreversiblePattern: opts.irreversiblePattern }, 60_000);
+  }
+
+  desktop(agentId: string, opts: ActOptions) {
+    return this.daemon<PageSnapshot>(agentId, "/desktop", opts, 8000);
+  }
+
+  desktopAct(agentId: string, action: PageAction, opts: ActOptions) {
+    // Native observation plus up to 2000 characters of paced input can exceed 15s.
+    return this.daemon<ActResult>(agentId, "/desktop/act", { action, ...opts }, 45_000);
   }
 
   async setControl(agentId: string, interactive: boolean) {

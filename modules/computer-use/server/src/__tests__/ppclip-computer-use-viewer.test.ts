@@ -51,11 +51,15 @@ describe("viewer toolbar", () => {
     window.ppclipSetViewerStatus("Something went wrong, connection is closed", false);
     expect(status.textContent).toBe("Disconnected");
     expect(root.dataset.connection).toBe("disconnected");
-    const data = { type: "ppclip:computer-view-theme", tokens: { background: "#171717", arbitrary: "ignored" } };
+    const data = { type: "ppclip:computer-view-theme", compact: true, tokens: { background: "#171717", arbitrary: "ignored" } };
     receive({ source: {}, data });
     expect(applied).toEqual({});
+    expect(root.dataset.compact).toBeUndefined();
     receive({ source: parent, data });
     expect(applied).toEqual({ "--background": "#171717" });
+    expect(root.dataset.compact).toBe("true");
+    receive({ source: parent, data: { ...data, compact: false } });
+    expect(root.dataset.compact).toBe("false");
   });
 });
 

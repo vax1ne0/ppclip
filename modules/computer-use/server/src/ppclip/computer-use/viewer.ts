@@ -28,6 +28,7 @@ export const viewerToolbarScript = `<script>
   const tokens = ["background", "foreground", "border", "accent", "ring", "status-task-done", "status-task-todo", "destructive"];
   window.addEventListener("message", event => {
     if (event.source !== parent || event.data?.type !== "ppclip:computer-view-theme") return;
+    document.documentElement.dataset.compact = event.data.compact === true ? "true" : "false";
     for (const token of tokens) {
       const value = event.data.tokens?.[token];
       if (typeof value === "string" && value.length < 256) document.documentElement.style.setProperty("--" + token, value);
@@ -53,6 +54,8 @@ body { background: var(--background); color: var(--foreground); font-family: Int
 :root[data-connection="connected"] #status::before { background: var(--status-task-done); }
 :root[data-connection="disconnected"] #status::before { background: var(--destructive); }
 #screen { min-height: 0; }
+:root[data-compact="true"] #top_bar { position: absolute; z-index: 1; top: 8px; left: 8px; min-height: 0; border: 1px solid var(--border); border-radius: 8px; padding: 5px 8px; }
+:root[data-compact="true"][data-connection="connected"] #top_bar { display: none; }
 </style>`;
 
 export function viewerDocument(html: string) {

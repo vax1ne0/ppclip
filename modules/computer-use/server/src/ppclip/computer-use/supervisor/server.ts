@@ -107,6 +107,12 @@ export function createSupervisorServer(opts: SupervisorOptions) {
         return send(res, 200, await provider.page(agentId, { marks: body.marks === true }));
       case "POST page/act":
         return send(res, 200, await provider.pageAct(agentId, parsePageAction(body.action), actOptions(body)));
+      case "POST desktop":
+        if (!provider.desktop) throw new ProviderError("unavailable", "Desktop accessibility is not available from this provider");
+        return send(res, 200, await provider.desktop(agentId, actOptions(body)));
+      case "POST desktop/act":
+        if (!provider.desktopAct) throw new ProviderError("unavailable", "Desktop accessibility is not available from this provider");
+        return send(res, 200, await provider.desktopAct(agentId, parsePageAction(body.action), actOptions(body)));
       case "POST control":
         await provider.setControl(agentId, body.interactive === true);
         return send(res, 200, { ok: true });

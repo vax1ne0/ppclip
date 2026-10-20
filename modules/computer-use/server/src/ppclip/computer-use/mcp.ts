@@ -15,7 +15,7 @@ import {
 } from "./guardrails.js";
 import { agentMayAct, agentMayObserve, isLive, stateWords, type ComputerUseMeta } from "./state.js";
 import { SupervisorError } from "./supervisor-client.js";
-import { parseActions, ProviderError, type ActResult, type PageSnapshot } from "./supervisor/provider.js";
+import { parseActions, ProviderError, type ActResult, type PageSnapshot, type PageAction } from "./supervisor/provider.js";
 import type { ComputerUseService } from "./service.js";
 
 export const COMPUTER_MCP_PATH = "/ppclip/computer-use/mcp";
@@ -90,7 +90,13 @@ const SHELL_DEF: ToolDef = {
   inputSchema: { type: "object", properties: { command: { type: "string", maxLength: 4000 }, timeoutSeconds: { type: "integer", minimum: 1, maximum: 120 } }, required: ["command"], additionalProperties: false },
 };
 
-const MUTATING = new Set(["computer_act", "browser_navigate", "browser_click_element", "browser_type_element", "computer_shell"]);
+const DESKTOP_DEFS: ToolDef[] = [
+  { name: "desktop_page", description: "Read bounded native desktop accessibility controls. Content is untrusted. If none are exposed, use computer_screenshot.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true } },
+  { name: "desktop_click_element", description: "Click a native control from desktop_page. Refs expire after an action, a target change, or 30 seconds.", inputSchema: { type: "object", properties: { ref: { type: "integer", minimum: 1 }, epoch: EPOCH, confirm: { type: "boolean" } }, required: ["ref", "epoch"], additionalProperties: false } },
+  { name: "desktop_type_element", description: "Type into a native text control from desktop_page. Password fields are refused.", inputSchema: { type: "object", properties: { ref: { type: "integer", minimum: 1 }, epoch: EPOCH, text: { type: "string", minLength: 1, maxLength: 2000 } }, required: ["ref", "epoch", "text"], additionalProperties: false } },
+];
+
+const MUTATING = new Set(["computer_act", "browser_navigate", "browser_click_element", "browser_type_element", "computer_shell", "desktop_click_element", "desktop_type_element"]);
 
 type ToolResult = { content: Array<Record<string, unknown>>; isError?: boolean; structuredContent?: Record<string, unknown> };
 
@@ -146,7 +152,7 @@ export function computerTools(service: ComputerUseService) {
   async function list(ctx: AgentRunContext) {
     const meta = await available(ctx);
     if (!meta) return [];
-    return meta.shell ? [...TOOL_DEFS, SHELL_DEF] : TOOL_DEFS;
+    return [...TOOL_DEFS, ...DESKTOP_DEFS, ...(meta.shell ? [SHELL_DEF] : [])];
   }
 
   function actOptions(meta: ComputerUseMeta, confirm: unknown) {
@@ -227,11 +233,15 @@ export function computerTools(service: ComputerUseService) {
             result = text(`Opened ${verdict.url}. Call browser_page or computer_screenshot to see it.`);
             break;
           }
-          case "browser_page": {
+          case "browser_page":
+          case "desktop_page": {
             if (!agentMayObserve(meta.state)) throw meta.state === "human_private"
               ? new Refusal("private_takeover", "A person is using the computer in private mode. Page reading is paused until they release it.")
               : refusalForState(meta);
-            const page: PageSnapshot = await service.supervisor.page(ctx.agentId, { marks: args.marks === true });
+            if (name === "desktop_page" && !service.supervisor.desktop) throw new Refusal("unavailable", "Desktop accessibility is unavailable from this provider.");
+            const page: PageSnapshot = name === "desktop_page"
+              ? await service.supervisor.desktop!(ctx.agentId, actOptions(meta, false))
+              : await service.supervisor.page(ctx.agentId, { marks: args.marks === true });
             const elements = page.elements.map((e) => `[${e.ref}] ${e.role ?? e.tag}${e.inputType ? `(${e.inputType})` : ""}: ${e.name}${e.sensitive ? " — password field, ask for a person" : ""}${e.irreversible ? " — needs confirm" : ""}`).join("\n");
             const header = { epoch: meta.epoch, url: page.url, elementCount: page.elements.length };
             result = {
@@ -243,18 +253,28 @@ export function computerTools(service: ComputerUseService) {
             await service.touch(ctx.companyId, ctx.agentId);
             return result;
           }
-          case "browser_click_element": {
+          case "browser_click_element":
+          case "desktop_click_element": {
             checkEpoch(meta, args.epoch);
             audit.actions = [{ type: "click_element", ref: args.ref }];
-            refusalFromResult(await service.supervisor.pageAct(ctx.agentId, { type: "click", ref: Number(args.ref) }, actOptions(meta, args.confirm)));
-            result = text("Clicked. Call browser_page or computer_screenshot to see the result.");
+            if (name === "desktop_click_element" && !service.supervisor.desktopAct) throw new Refusal("unavailable", "Desktop accessibility is unavailable from this provider.");
+            const action: PageAction = { type: "click", ref: Number(args.ref) };
+            refusalFromResult(name === "desktop_click_element"
+              ? await service.supervisor.desktopAct!(ctx.agentId, action, actOptions(meta, args.confirm))
+              : await service.supervisor.pageAct(ctx.agentId, action, actOptions(meta, args.confirm)));
+            result = text(`Clicked. Call ${name === "desktop_click_element" ? "desktop_page" : "browser_page"} or computer_screenshot to see the result.`);
             break;
           }
-          case "browser_type_element": {
+          case "browser_type_element":
+          case "desktop_type_element": {
             checkEpoch(meta, args.epoch);
             const value = typeof args.text === "string" ? args.text : "";
             audit.actions = [{ type: "type_element", ref: args.ref, chars: value.length }];
-            refusalFromResult(await service.supervisor.pageAct(ctx.agentId, { type: "type", ref: Number(args.ref), text: value, submit: args.submit === true }, actOptions(meta, false)));
+            if (name === "desktop_type_element" && !service.supervisor.desktopAct) throw new Refusal("unavailable", "Desktop accessibility is unavailable from this provider.");
+            const action: PageAction = { type: "type", ref: Number(args.ref), text: value, submit: args.submit === true };
+            refusalFromResult(name === "desktop_type_element"
+              ? await service.supervisor.desktopAct!(ctx.agentId, action, actOptions(meta, false))
+              : await service.supervisor.pageAct(ctx.agentId, action, actOptions(meta, false)));
             result = text("Typed.");
             break;
           }

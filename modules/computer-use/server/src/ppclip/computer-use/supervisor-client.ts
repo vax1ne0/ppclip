@@ -22,6 +22,8 @@ export interface SupervisorClient {
   act(agentId: string, actions: ComputerAction[], opts: ActOptions): Promise<ActResult>;
   page(agentId: string, opts: { marks: boolean }): Promise<PageSnapshot>;
   pageAct(agentId: string, action: PageAction, opts: ActOptions): Promise<ActResult>;
+  desktop?(agentId: string, opts: ActOptions): Promise<PageSnapshot>;
+  desktopAct?(agentId: string, action: PageAction, opts: ActOptions): Promise<ActResult>;
   setControl(agentId: string, interactive: boolean): Promise<void>;
   shell(agentId: string, command: string, timeoutMs: number): Promise<{ exitCode: number; output: string }>;
   /** GET a noVNC file through the supervisor. */
@@ -82,6 +84,8 @@ export function httpSupervisorClient(opts: { url?: string; token?: () => string 
     act: (agentId, actions, o) => call("POST", path(agentId, "/act"), { actions, ...o }),
     page: (agentId, o) => call("POST", path(agentId, "/page"), o),
     pageAct: (agentId, action, o) => call("POST", path(agentId, "/page/act"), { action, ...o }),
+    desktop: (agentId, o) => call("POST", path(agentId, "/desktop"), o),
+    desktopAct: (agentId, action, o) => call("POST", path(agentId, "/desktop/act"), { action, ...o }),
     setControl: async (agentId, interactive) => { await call("POST", path(agentId, "/control"), { interactive }); },
     shell: (agentId, command, timeoutMs) => call("POST", path(agentId, "/shell"), { command, timeoutMs }, timeoutMs + 10_000),
     async streamFile(agentId, mode, file, search) {

@@ -12,6 +12,8 @@ const arg = (name: string, fallback?: string) => {
 
 async function main() {
   const kind = arg("--provider", process.env.PPCLIP_COMPUTER_PROVIDER ?? "docker");
+  const desktopDriver = arg("--desktop-driver", "atspi");
+  if (desktopDriver !== "atspi" && desktopDriver !== "cua") throw new Error("Desktop driver must be atspi or cua");
   let provider: ComputerProvider;
   if (kind === "fake") provider = new FakeComputerProvider();
   else if (kind === "docker") {
@@ -19,6 +21,7 @@ async function main() {
       memoryMb: Number(arg("--memory-mb", "2048")),
       cpus: Number(arg("--cpus", "2")),
       maxRunning: Number(arg("--max-running", "3")),
+      desktopDriver,
     });
   } else throw new Error(`Unknown provider ${kind}. Use docker or fake.`);
   const tokenFile = arg("--token-file", defaultTokenFile())!;
