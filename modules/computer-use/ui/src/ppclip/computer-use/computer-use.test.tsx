@@ -82,9 +82,9 @@ describe("ComputerPanel", () => {
       const frame = container.querySelector("iframe")!;
       const post = vi.spyOn(frame.contentWindow!, "postMessage");
       await act(async () => { frame.dispatchEvent(new Event("load")); });
-      expect(post).toHaveBeenLastCalledWith({ type: "ppclip:computer-view-theme", tokens: expect.objectContaining({ background: "#171717" }) }, "*");
+      expect(post).toHaveBeenLastCalledWith({ type: "ppclip:computer-view-theme", tokens: expect.objectContaining({ background: "#171717" }), compact: false }, "*");
       await act(async () => { element.style.setProperty("--background", "#ffffff"); });
-      expect(post).toHaveBeenLastCalledWith({ type: "ppclip:computer-view-theme", tokens: expect.objectContaining({ background: "#ffffff" }) }, "*");
+      expect(post).toHaveBeenLastCalledWith({ type: "ppclip:computer-view-theme", tokens: expect.objectContaining({ background: "#ffffff" }), compact: false }, "*");
     } finally {
       if (previous) element.style.setProperty("--background", previous);
       else element.style.removeProperty("--background");
@@ -218,6 +218,20 @@ describe("ComputerPanel", () => {
       expect(mockApi.viewer).not.toHaveBeenCalled();
       expect(container.textContent).toContain(state === "starting" ? "Starting computer…" : "Computer paused");
     }
+  });
+  it("keeps chat pause visible and preserves private-control confirmation in the keyboard-accessible menu", async () => {
+    await render(<ComputerPanel companyId={companyId} computer={computer()} agentName="Robin" liveView variant="chat" />);
+    expect(button("Take control")).toBeTruthy();
+    expect(button("Pause")).toBeTruthy();
+    expect(button("Revoke access")).toBeFalsy();
+    const more = container.querySelector<HTMLButtonElement>('[aria-label="More computer actions"]')!;
+    await act(async () => { more.focus(); more.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); });
+    const privateAction = Array.from(document.querySelectorAll<HTMLElement>('[role="menuitem"]')).find(item => item.textContent === "Take control privately");
+    expect(privateAction).toBeTruthy();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await act(async () => { privateAction!.click(); });
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("agent cannot see the screen"));
+    expect(mockApi.act).not.toHaveBeenCalled();
   });
 });
 

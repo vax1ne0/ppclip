@@ -148,6 +148,11 @@ describe("AgentChatComputerBar (agent chat)", () => {
     expect(q("computer-panel")?.getAttribute("data-variant")).toBe("chat");
     expect(q("chat-computer-toggle")?.getAttribute("aria-controls")).toBe(q("computer-panel")?.parentElement?.id);
     expect(q("computer-live-view")).not.toBeNull();
+    const header = q("computer-panel")!.firstElementChild!;
+    expect(header.contains(q("chat-computer-toggle"))).toBe(true);
+    expect(header.querySelector('[aria-label="Computer controls"]')).not.toBeNull();
+    expect(q("computer-panel")!.textContent).not.toContain("Keyboard & mouse enabled");
+    expect(q("computer-panel")!.textContent).not.toContain("Agent input is paused");
     // The choice is remembered for this agent.
     expect(window.localStorage.getItem("ppclip.chat-computer-open:agent-1")).toBe("1");
   });
@@ -175,10 +180,11 @@ describe("AgentChatComputerBar (agent chat)", () => {
     expect(q("computer-panel")).toBeNull();
     await act(async () => { q("chat-computer-toggle")!.click(); });
     expect(q("computer-panel")?.textContent).toContain("Computer is stopped");
-    expect(q("computer-panel")?.querySelectorAll("button")).toHaveLength(1);
+    const start = Array.from(q("computer-panel")!.querySelectorAll("button")).filter(button => button.textContent === "Start computer");
+    expect(start).toHaveLength(1);
     expect(mockApi.viewer).not.toHaveBeenCalled();
     expect(mockApi.act).not.toHaveBeenCalled();
-    await act(async () => { q("computer-panel")!.querySelector("button")!.click(); });
+    await act(async () => { start[0].click(); });
     expect(mockApi.act).toHaveBeenCalledWith("company-1", "agent-1", "start");
   });
 });
