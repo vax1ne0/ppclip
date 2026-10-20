@@ -12,6 +12,7 @@ import net from 'node:net';
 import { randomBytes } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { waitForReady } from './launcher-ready.mjs';
 
 // Paperclip needs Node 24.11+ (it uses node:sqlite). Starting with an older Node only fails later, in the background.
 {
@@ -34,7 +35,8 @@ import { fileURLToPath } from 'node:url';
 const arg = (name, fallback) => { const i = process.argv.indexOf(name); return i > 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback; };
 const PORT = Number(arg('--port', '3410')), PG_PORT = Number(arg('--pg-port', '55440'));
 const WITH_COMPUTER = process.argv.includes('--with-computer');
-const SUPERVISOR_PORT = 7091;
+const SUPERVISOR_PORT = Number(arg('--supervisor-port', '7091'));
+if (!Number.isInteger(SUPERVISOR_PORT) || SUPERVISOR_PORT < 1 || SUPERVISOR_PORT > 65535) throw new Error('Invalid supervisor port');
 const app = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const home = path.resolve(arg('--data', path.join(app, '..', '.ppclip-runtime')));
 if (home === app || home.startsWith(app + path.sep)) throw new Error('Choose a data folder outside the app checkout');
@@ -94,16 +96,28 @@ Object.assign(env, {
 });
 const stdout = fs.openSync(path.join(home, 'server.stdout.log'), 'a');
 const stderr = fs.openSync(path.join(home, 'server.stderr.log'), 'a');
+// Keep detachment on Windows too: terminal/job teardown can otherwise stop the app when this launcher exits.
 const child = spawn(process.execPath, [path.join(app, 'server/node_modules/tsx/dist/cli.mjs'), 'src/index.ts'], {
   cwd: path.join(app, 'server'), env, detached: true, windowsHide: true, stdio: ['ignore', stdout, stderr],
 });
-child.on('error', error => { console.error(error); process.exitCode = 1; });
+let launchError;
+child.on('error', error => { launchError = error; console.error(error); process.exitCode = 1; });
 child.unref();
 // args: how this instance was started, so scripts/ppclip/update.mjs can restart it the same way.
 fs.writeFileSync(path.join(home, 'launcher.json'), JSON.stringify({pid: child.pid, url: `http://127.0.0.1:${PORT}`, home, configPath, args: ['--data', home, ...process.argv.slice(2).filter((a, i, all) => a !== '--data' && all[i - 1] !== '--data')]}, null, 2));
-console.log('Started ppclip', child.pid, `http://127.0.0.1:${PORT}`, 'data:', home);
+console.log('Starting ppclip. Cold startup can take several minutes. Data:', home);
 
 if (WITH_COMPUTER) await startComputerSupervisor();
+try {
+  if (launchError) throw launchError;
+  await waitForReady(`http://127.0.0.1:${PORT}/api/health`, child, {
+    onProgress: (seconds) => console.log(`Still starting ppclip (${seconds}s)…`),
+  });
+  console.log('ppclip is ready:', `http://127.0.0.1:${PORT}`);
+} catch (error) {
+  console.error(`ppclip: ${error.message}\nLogs: ${path.join(home, 'server.stderr.log')} and ${path.join(home, 'server.stdout.log')}`);
+  process.exitCode = 1;
+}
 
 /** Docker's local socket, or Docker Desktop's named pipe on Windows (DOCKER_HOST wins). */
 function dockerSocket() {
@@ -155,7 +169,7 @@ async function startComputerSupervisor() {
   }
   const log = fs.openSync(path.join(home, 'computer-supervisor.log'), 'a');
   const supervisor = spawn(process.execPath, [path.join(app, 'scripts', 'ppclip', 'computer-supervisor.mjs'), '--port', String(SUPERVISOR_PORT),
-    '--token-file', env.PPCLIP_COMPUTER_SUPERVISOR_TOKEN_FILE], {
+    '--token-file', env.PPCLIP_COMPUTER_SUPERVISOR_TOKEN_FILE, '--desktop-driver', arg('--desktop-driver', 'atspi')], {
     cwd: app, env: { ...env, ...(process.env.DOCKER_HOST ? { DOCKER_HOST: process.env.DOCKER_HOST } : {}), ...(process.env.PPCLIP_COMPUTER_IMAGE ? { PPCLIP_COMPUTER_IMAGE: process.env.PPCLIP_COMPUTER_IMAGE } : {}) },
     detached: true, windowsHide: true, stdio: ['ignore', log, log],
   });

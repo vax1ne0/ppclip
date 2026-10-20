@@ -6,7 +6,7 @@ The primary sidebar places Chats directly below Team when agent chat is enabled.
 
 **Settings → ppclip switch:** — (always on; it hosts the switches)
 
-The launcher starts an isolated local instance: `node scripts/ppclip/start-local.mjs --data <folder>`. Add `--with-computer` to also start the computer-use supervisor.
+The launcher starts an isolated local instance: `node scripts/ppclip/start-local.mjs --data <folder>`. Add `--with-computer` to also start the computer-use supervisor. Its `launcher-ready.mjs` helper waits for a healthy server before announcing the URL, reports progress every 15 seconds, and points to logs on failure or after a ten-minute timeout. Background processes remain detached so they survive the launcher exiting; subprocess launches request hidden windows on Windows.
 
 **Updates:** Settings → ppclip → Updates has **Check for updates** and **Update and restart**. The terminal equivalent is `node scripts/ppclip/update.mjs`, with `--check` to only look. Both run `scripts/ppclip/update.mjs` in a separate process. It stops Paperclip cleanly, pulls the ppclip repo next to the checkout, runs `install.mjs update`, installs dependencies, and starts Paperclip again with the options recorded in `<data>/launcher.json`. The server routes live in `server/src/ppclip/update/` and are mounted with the module switches, so no extra hook is needed.
 
