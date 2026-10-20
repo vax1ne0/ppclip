@@ -4107,3 +4107,46 @@ index d3bcaca2b1131ebdb477a1403daf3a566c024416..3e2859d68109d6ecd990671d621ed7ca
 +
 +// ppclip: stable and canary expose the same transactional routing integration.
 +export { updateAgentConfigurationInTransaction } from "./agent-configuration-transaction.js";
+diff --git a/server/src/__tests__/agent-adapter-validation-routes.test.ts b/server/src/__tests__/agent-adapter-validation-routes.test.ts
+index fe480c1092912693219a3b039ecec2da4d55ba7f..54802f2012ece53d38784eb9ab33607dbe68eddb 100644
+--- a/server/src/__tests__/agent-adapter-validation-routes.test.ts
++++ b/server/src/__tests__/agent-adapter-validation-routes.test.ts
+@@ -339,6 +339,22 @@ describe("agent routes adapter validation", () => {
+     await unregisterTestAdapter(missingAdapterType);
+   });
+ 
++  // ppclip: neither compatibility nor a live credential probe belongs in a profile save.
++  it.each(["claude_local", "codex_local"])("saves appearance without contacting an unavailable %s connection", async (adapterType) => {
++    const existing = await mockAgentService.getById();
++    mockAgentService.getById.mockResolvedValue({
++      ...existing, adapterType,
++      runtimeConfig: { aiConnection: { mode: "responsible_user", method: "subscription", provider: adapterType === "claude_local" ? "anthropic" : "openai" } },
++    });
++    const app = await createApp();
++    const appearance = { schemaVersion: 1, characterVersion: "cap-v1", paletteId: "arctic-blue", customColors: { a: "#112233", b: "#445566" } };
++    const response = await requestApp(app, (baseUrl) => request(baseUrl)
++      .patch("/api/agents/11111111-1111-4111-8111-111111111111").send({ appearance }));
++    expect(response.status, JSON.stringify(response.body)).toBe(200);
++    expect(mockAgentService.update).toHaveBeenCalledOnce();
++    expect(mockAgentService.update.mock.calls[0]?.[1]).toEqual({ appearance });
++  }, 60_000);
++
+   it("selects and refreshes the runner provider catalog independently", async () => {
+     const adapters = await import("../adapters/index.js");
+     const list = vi.spyOn(adapters, "listAdapterModels").mockImplementation(async (type) => [{ id: type, label: type }]);
+diff --git a/server/src/routes/agents.ts b/server/src/routes/agents.ts
+index 4dca906fc545518ba51633ea45555a91e4050a4b..7bfabd34d632f2f1bc33ee1b985e0c74cd1e763d 100644
+--- a/server/src/routes/agents.ts
++++ b/server/src/routes/agents.ts
+@@ -5374,7 +5374,10 @@ export function agentRoutes(
+     }
+     if (existing.runtimeConfig.aiConnection && requestedRuntimeConfig && !requestedRuntimeConfig.aiConnection) requestedRuntimeConfig.aiConnection = existing.runtimeConfig.aiConnection;
+     const nextAiBinding = aiRuntimeConnectionBindingSchema.safeParse(requestedRuntimeConfig?.aiConnection ?? existing.runtimeConfig.aiConnection).data;
+-    if (nextAiBinding) {
++    // ppclip: profile edits must not probe AI credentials or depend on provider quota.
++    const touchesAiRuntime = touchesAdapterConfiguration || hasOwn(patchData, "defaultEnvironmentId")
++      || hasOwn(requestedRuntimeConfig ?? {}, "aiConnection");
++    if (nextAiBinding && touchesAiRuntime) {
+       await assertCanUpdateAgent(req, existing);
+       const changed = JSON.stringify(nextAiBinding) !== JSON.stringify(existing.runtimeConfig.aiConnection);
+       const aiConfig = (patchData.adapterConfig ?? existing.adapterConfig) as Record<string, unknown>;

@@ -1,5 +1,7 @@
 # Agents and sidebar
 
+Appearance-only saves do not validate AI credentials or contact the model provider. They work when an account is exhausted, disconnected, or rate-limited; edits to the harness, connection, and execution environment retain runtime validation.
+
 Attention statuses, pending confirmations, urgency ordering, and the Agents page extra columns and task hover card.
 
 Open **Agents → an agent → Customization** to personalize its animated mascot. Pick any two body colors using color pickers or six-digit hex values, swap the gradient, or use the same color twice for a solid look. The 17 palettes remain available under **Preset starting points**, alongside **Surprise me** and nine expression previews. **Save appearance** persists the colors across the app; **Discard** restores the saved appearance. Invalid or incomplete hex values block saving. Expression previews do not change the agent’s runtime status. Unsaved changes use the agent page’s navigation guard, and failed saves preserve the draft for retry.
