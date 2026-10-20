@@ -13,6 +13,7 @@
         "ui/src/ppclip/features/",
         "ui/src/ppclip/agent-model.ts",
         "scripts/ppclip/start-local.mjs",
+        "scripts/ppclip/launcher-ready.mjs",
         "scripts/ppclip/update.mjs",
         "server/src/ppclip/update/",
         "server/src/__tests__/ppclip-update",
@@ -60,7 +61,9 @@
         "server/src/__tests__/ppclip-computer-use",
         "ui/src/ppclip/computer-use/",
         "scripts/ppclip/computer-image/",
-        "scripts/ppclip/computer-supervisor.mjs"
+          "scripts/ppclip/computer-supervisor.mjs",
+          "scripts/ppclip/computer-profile.mjs",
+          "scripts/ppclip/browser.mjs"
       ]
     },
     {

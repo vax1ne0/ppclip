@@ -19,13 +19,13 @@ const rest = process.argv.slice(command === process.argv[2] ? 3 : 2);
 const image = process.env.PPCLIP_COMPUTER_IMAGE ?? 'ppclip-computer:1';
 
 function run(cmd, args, opts = {}) {
-  const child = spawn(cmd, args, { stdio: 'inherit', ...opts });
+  const child = spawn(cmd, args, { stdio: 'inherit', windowsHide: true, ...opts });
   child.on('exit', (code) => process.exit(code ?? 1));
   for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => child.kill(signal));
 }
 
 if (command === 'build-image') {
-  run('docker', ['build', '-t', image, path.join(app, 'scripts', 'ppclip', 'computer-image')]);
+  run('docker', ['build', '-t', image, ...(rest.includes('--with-cua') ? ['--build-arg', 'PPCLIP_WITH_CUA=1'] : []), path.join(app, 'scripts', 'ppclip', 'computer-image')]);
 } else if (command === 'start') {
   const require = createRequire(path.join(app, 'server', 'package.json'));
   const tsxCli = require.resolve('tsx/cli');

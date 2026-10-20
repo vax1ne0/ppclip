@@ -12,6 +12,8 @@ are refused and every sandbox-user process is killed.
 """
 import base64, fcntl, hashlib, json, os, re, socket, subprocess, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from browser_runtime import sandbox_status
+from desktop_tools import DesktopTools
 
 TOKEN = os.environ.get("PPCLIP_CONTROL_TOKEN", "")
 SHELL_ENABLED = os.environ.get("PPCLIP_SHELL") == "1"
@@ -24,6 +26,7 @@ CHROMIUM = os.environ.get("PPCLIP_CHROMIUM", "chromium")
 # Extra flags, used only by the offline self-test (e.g. --headless=new outside the image).
 CHROMIUM_EXTRA = [f for f in os.environ.get("PPCLIP_CHROMIUM_EXTRA", "").split() if f]
 ENV.pop("PPCLIP_CONTROL_TOKEN", None)
+CHROMIUM_SANDBOX = sandbox_status(CHROMIUM, ENV, os.environ.get("PPCLIP_CHROMIUM_SANDBOX", "auto"))
 KEY_RE = re.compile(r"^[A-Za-z0-9_]+(\+[A-Za-z0-9_]+)*$")
 STATE = {"locked": False, "control_proc": None}
 LOCK = threading.Lock()
@@ -74,12 +77,14 @@ class Browser:
                 except OSError:
                     pass
         self.proc = subprocess.Popen([
-            CHROMIUM, *CHROMIUM_EXTRA, "--no-sandbox", "--no-first-run", "--no-default-browser-check", "--password-store=basic",
+            CHROMIUM, *CHROMIUM_EXTRA, *([] if CHROMIUM_SANDBOX["enabled"] else ["--no-sandbox"]), "--no-first-run", "--no-default-browser-check", "--password-store=basic",
             f"--user-data-dir={PROFILE}", "--remote-debugging-pipe",
             "--proxy-server=http://127.0.0.1:3128", "--proxy-bypass-list=<-loopback>",
-            "--window-position=0,0", f"--window-size={W},{H}", "--start-maximized",
-            "--disable-features=Translate,MediaRouter", "--disable-background-networking", "about:blank",
+            "--window-position=48,28", f"--window-size={max(320, W - 96)},{max(240, H - 136)}",
+            "--disable-features=Translate,MediaRouter", "--disable-background-networking", "--force-renderer-accessibility", "about:blank",
         ], env=ENV, preexec_fn=child, pass_fds=(3, 4), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        with open(f"{RUN}/browser.pid", "w") as pid_file:
+            pid_file.write(str(self.proc.pid))
         os.close(cmd_r)
         os.close(out_w)
         self.write_fd = cmd_w
@@ -182,6 +187,18 @@ class Browser:
             return (t.get("url"), t.get("title")) if t else (None, None)
         except Exception:
             return (None, None)
+
+    def focus(self):
+        """Restore the current CDP target's window, never a guessed X11 window."""
+        try:
+            target = self.page_target()
+            if target:
+                window = self.send("Browser.getWindowForTarget", {"targetId": target["targetId"]}, timeout=2)
+                if window.get("bounds", {}).get("windowState") == "minimized":
+                    self.send("Browser.setWindowBounds", {"windowId": window["windowId"], "bounds": {"windowState": "normal"}}, timeout=2)
+                self.send("Page.bringToFront", session=self.page_session(), timeout=2)
+        except (OSError, Refused):
+            pass  # Navigation is not replayed if the window manager is unavailable.
 
 
 BROWSER = Browser()
@@ -365,6 +382,7 @@ def page_act(action, confirm, pattern):
         if not re.match(r"^https?://", url):
             raise Refused("blocked_url", "Only http(s) addresses can be opened.")
         BROWSER.send("Page.navigate", {"url": url}, session=BROWSER.page_session(), timeout=30)
+        BROWSER.focus()
         for _ in range(40):
             if browser_try(lambda: BROWSER.evaluate("document.readyState")) == "complete":
                 break
@@ -458,6 +476,9 @@ def set_control(token):
 
 
 # ---------------------------------------------------------------- HTTP
+DESKTOP = DesktopTools(ENV, act, Refused)
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ppclip-computer"
 
@@ -491,7 +512,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if self.path == "/health":
                 ready = desktop_ready()
-                return self.reply(200 if ready else 503, {"ok": ready, "browser": BROWSER.proc is not None and BROWSER.proc.poll() is None})
+                return self.reply(200 if ready else 503, {"ok": ready, "browser": BROWSER.proc is not None and BROWSER.proc.poll() is None, "chromiumSandbox": CHROMIUM_SANDBOX, "networkPolicy": "proxy-v2"})
             if self.path == "/observe":
                 png = screenshot()
                 url, title = BROWSER.info()
@@ -499,6 +520,8 @@ class Handler(BaseHTTPRequestHandler):
                                         "png": base64.b64encode(png).decode("ascii"), "url": url, "title": title})
             if self.path == "/page":
                 return self.reply(200, page(body.get("marks") is True))
+            if self.path == "/desktop":
+                return self.reply(200, DESKTOP.page(pattern))
             if self.path == "/stream/view":
                 write_token("view", str(body.get("token") or ""), f"{RUN}/view.sock")
                 return self.reply(200, {"ok": True})
@@ -511,6 +534,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(200, act(body.get("actions") or [], body.get("confirm") is True, pattern))
             if self.path == "/page/act":
                 return self.reply(200, page_act(body.get("action") or {}, body.get("confirm") is True, pattern))
+            if self.path == "/desktop/act":
+                # A timed-out caller must not leave native typing running after
+                # takeover. Serialize the complete action with set_control.
+                with LOCK:
+                    if STATE["locked"]:
+                        raise Refused("human_has_control", "A person has control of this computer.")
+                    result = DESKTOP.action(body.get("action") or {}, body.get("confirm") is True, pattern)
+                return self.reply(200, result)
             if self.path == "/shell":
                 if not SHELL_ENABLED:
                     raise Refused("not_allowed", "Shell is not enabled for this computer.", 403)

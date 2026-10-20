@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1600" viewBox="0 0 2560 1600">
+  <title>Evening ridges — original ppclip desktop wallpaper</title>
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#6585bc"/><stop offset=".56" stop-color="#c0b4d2"/><stop offset="1" stop-color="#f3c5ba"/>
+    </linearGradient>
+    <linearGradient id="far" x2=".3" y2="1">
+      <stop stop-color="#a0a6d6"/><stop offset="1" stop-color="#6c75b3"/>
+    </linearGradient>
+    <linearGradient id="ridge" x1=".2" y1="0" x2=".8" y2="1">
+      <stop stop-color="#b0a0ce"/><stop offset=".32" stop-color="#7975b6"/><stop offset="1" stop-color="#3f4d91"/>
+    </linearGradient>
+    <linearGradient id="near" x1="0" y1="0" x2=".9" y2="1">
+      <stop stop-color="#565b9e"/><stop offset=".5" stop-color="#323d78"/><stop offset="1" stop-color="#202c59"/>
+    </linearGradient>
+    <linearGradient id="front" x1="0" y1="0" x2="1" y2=".6">
+      <stop stop-color="#3b467f"/><stop offset="1" stop-color="#172346"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#sky)" d="M0 0h2560v1600H0z"/>
+  <path fill="url(#far)" d="M0 935C330 930 560 680 820 660s485 140 752 45 525-277 988-312v1207H0z"/>
+  <path fill="url(#ridge)" d="M0 1220c420-32 680-175 990-456 250-227 429-200 713-193 279 7 529-90 857-158v1187H0z"/>
+  <path fill="none" stroke="#dad0e6" stroke-opacity=".28" stroke-width="2" d="M0 1220c420-32 680-175 990-456 250-227 429-200 713-193 279 7 529-90 857-158"/>
+  <path fill="url(#near)" d="M0 1140c347-40 468 163 797 198 379 40 606-328 931-390 313-60 533 84 832 111v541H0z"/>
+  <path fill="url(#front)" d="M0 1494c392-184 751-163 1090-18 306 130 626-47 877-106 220-52 396-20 593 35v195H0z"/>
+</svg>

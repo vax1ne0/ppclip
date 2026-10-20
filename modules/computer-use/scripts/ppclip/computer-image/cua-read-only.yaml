@@ -1,0 +1,15 @@
+version: 3
+expires_after: 24h
+idle_timeout: 24h
+resources:
+  desktop:
+    display: true
+  apps:
+    - executable: /usr/lib/chromium/chromium
+      windows: all
+    - executable: /usr/bin/python3.11
+      windows: all
+    - executable: /usr/bin/xterm
+      windows: all
+allow:
+  tools: [list_windows, get_window_state, start_session, get_session_state, end_session]

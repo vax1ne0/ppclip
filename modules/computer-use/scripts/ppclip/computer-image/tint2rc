@@ -1,45 +1,88 @@
-# Always-visible window list. No application launchers: Chromium is owned by
-# control.py and must retain its managed profile, proxy and debugging pipe.
-panel_items = T
-panel_size = 100% 36
+# Compact dock. Its launcher restores the browser owned by control.py.
+# 1: dock
+rounded = 18
+border_width = 1
+background_color = #1c2032 94
+border_color = #c7cce6 24
+# 2: active window
+rounded = 10
+border_width = 1
+background_color = #687698 32
+border_color = #c7cce6 18
+background_color_hover = #7888b0 42
+# 3: tooltip
+rounded = 8
+border_width = 1
+background_color = #1c2032 100
+border_color = #c7cce6 24
+
+panel_items = L:T:C
+panel_size = 480 64
 panel_position = bottom center horizontal
-panel_padding = 6 3 6
-panel_margin = 0 0
+panel_padding = 10 7 8
+panel_margin = 0 14
 panel_layer = top
 panel_background_id = 1
 strut_policy = follow_size
 autohide = 0
-wm_menu = 1
+wm_menu = 0
+mouse_effects = 1
+font_shadow = 0
 
-rounded = 0
-border_width = 0
-background_color = #202124 100
-border_color = #202124 100
+launcher_padding = 5 0 5
+launcher_background_id = 0
+launcher_icon_size = 36
+launcher_item_app = /opt/ppclip/chromium-managed.desktop
+launcher_tooltip = 1
 
-rounded = 4
-border_width = 0
-background_color = #41454b 100
-border_color = #41454b 100
+separator = new
+separator_background_id = 0
+separator_color = #c7cce6 24
+separator_style = line
+separator_size = 1
+separator_padding = 6 10
+
+separator = new
+separator_background_id = 0
+separator_color = #c7cce6 24
+separator_style = line
+separator_size = 1
+separator_padding = 6 10
 
 taskbar_mode = single_desktop
 taskbar_hide_different_desktop = 0
 taskbar_hide_different_monitor = 0
 taskbar_padding = 0 0 6
 task_text = 1
-task_icon = 1
-task_centered = 0
-task_maximum_size = 300 30
-task_padding = 8 3 6
+task_icon = 0
+task_centered = 1
+task_maximum_size = 280 46
+task_padding = 12 4 6
 task_font = DejaVu Sans 10
-task_font_color = #eeeeee 100
+task_font_color = #dee4f2 100
 task_active_font_color = #ffffff 100
-task_iconified_font_color = #cccccc 100
-task_background_id = 1
+task_iconified_font_color = #b3bdd4 100
+task_background_id = 0
 task_active_background_id = 2
-task_iconified_background_id = 1
+task_iconified_background_id = 0
 task_tooltip = 1
 mouse_left = toggle_iconify
 mouse_middle = none
 mouse_right = none
 mouse_scroll_up = none
 mouse_scroll_down = none
+
+time1_format = %H:%M
+time1_font = DejaVu Sans Bold 11
+time2_format = %a %d %b
+time2_font = DejaVu Sans 8
+clock_font_color = #eef1fa 100
+clock_padding = 10 0
+clock_background_id = 0
+
+tooltip_show_timeout = 0.4
+tooltip_hide_timeout = 0.1
+tooltip_padding = 10 6
+tooltip_background_id = 3
+tooltip_font = DejaVu Sans 10
+tooltip_font_color = #eef1fa 100

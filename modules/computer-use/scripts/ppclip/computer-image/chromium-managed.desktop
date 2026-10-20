@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Chromium
+Comment=Restore your browser
+Exec=python3 /opt/ppclip/browser_launcher.py
+Icon=chromium
+Terminal=false
+StartupNotify=false
+Categories=Network;WebBrowser;

@@ -13,6 +13,8 @@ SANDBOX_UID = 1001
 AGENT_UID = 1000
 MAX_OUTPUT = 100_000
 CLEAN_ENV = {"PATH": "/usr/local/bin:/usr/bin:/bin", "HOME": "/home/sandbox", "LANG": "C.UTF-8", "TERM": "dumb"}
+for key in ("http_proxy", "https_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+    CLEAN_ENV[key] = "http://127.0.0.1:3128"
 
 
 def peer_uid(conn):
